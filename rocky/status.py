@@ -14,6 +14,7 @@ TRANSCRIPT_TYPES = frozenset(
         "critique",
         "plan",
         "subtask_start",
+        "stall",
         "verify",
         "done",
         "error",
@@ -97,6 +98,8 @@ def status_line(event: Event) -> str | None:
     if kind == "compact":
         mode = payload.get("mode") or "prune"
         return f"compacting · {mode} · {payload.get('before_tokens')}→{payload.get('after_tokens')} tok"
+    if kind == "stall":
+        return f"stalled · swapping worker → {payload.get('worker')}"
     if kind == "loop_guard":
         return f"loop guard · {payload.get('action')} · {payload.get('name')}"
     if kind == "verify":

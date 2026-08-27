@@ -175,6 +175,42 @@ def _pinned_worker(pool: list[Model], preferred: str) -> Model | None:
     return exact or min(hits, key=lambda m: m.blended_per_million)
 
 
+def _work_families(domain: str) -> dict[str, float]:
+    if domain in {"code", "ops"}:
+        return WORK_FAMILIES
+    return {**WORK_FAMILIES, **PLAN_FAMILIES}
+
+
+def eligible_workers(models: list[Model], complexity: str, domain: str) -> list[Model]:
+    """Tool models strong enough for this complexity, cheapest first."""
+    complexity = complexity if complexity in COMPLEXITY_FLOOR else "moderate"
+    tool = _tool_models(models)
+    floor = COMPLEXITY_FLOOR[complexity]
+    families = _work_families(domain)
+    pool = [
+        m
+        for m in tool
+        if capability(m, families) >= floor
+        and m.context_length >= (16_000 if complexity == "trivial" else 32_000)
+    ] or tool
+    return sorted(pool, key=lambda m: (m.blended_per_million, -capability(m, families)))
+
+
+def alternate_worker(
+    models: list[Model],
+    complexity: str,
+    domain: str,
+    exclude: set[str],
+) -> Model | None:
+    """Next worker to try after a stall: a different family first, then any other model."""
+    pool = [m for m in eligible_workers(models, complexity, domain) if m.id not in exclude]
+    if not pool:
+        return None
+    used_families = {mid.split("/", 1)[0] for mid in exclude}
+    fresh = [m for m in pool if m.family not in used_families]
+    return (fresh or pool)[0]
+
+
 def pick_cast(
     models: list[Model],
     complexity: str,
@@ -196,18 +232,8 @@ def pick_cast(
     planner = plan_pool[0]
     critic = next((m for m in plan_pool if m.id != planner.id), planner)
 
-    floor = COMPLEXITY_FLOOR[complexity]
-    if domain in {"code", "ops"}:
-        work_families = WORK_FAMILIES
-    else:
-        work_families = {**WORK_FAMILIES, **PLAN_FAMILIES}
-
-    eligible = [
-        m
-        for m in tool
-        if capability(m, work_families) >= floor
-        and m.context_length >= (16_000 if complexity == "trivial" else 32_000)
-    ] or tool
+    work_families = _work_families(domain)
+    eligible = eligible_workers(tool, complexity, domain)
     pin = DEFAULT_WORKER_MODEL if preferred_worker is None else preferred_worker.strip()
     worker = _pinned_worker(eligible, pin) or _pinned_worker(tool, pin)
     pinned = worker is not None

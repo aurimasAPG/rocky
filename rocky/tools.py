@@ -430,6 +430,12 @@ READ_TOOL_SPECS = [
     if spec["function"]["name"] in {"read_file", "list_dir", "grep"}
 ]
 
+# What the verifier may touch: read-only, plus Office/PDF extraction so it can open a deck.
+VERIFY_TOOL_NAMES = frozenset({"read_file", "list_dir", "grep", "office_read"})
+VERIFY_TOOL_SPECS = [
+    spec for spec in CLIENT_TOOL_SPECS if spec["function"]["name"] in VERIFY_TOOL_NAMES
+]
+
 
 def worker_tools(include_server: bool = True) -> list[dict]:
     tools = list(CLIENT_TOOL_SPECS)

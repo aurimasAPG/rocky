@@ -529,3 +529,102 @@ def test_trivial_goal_falls_back_to_planner_after_a_failed_verify(tmp_path, monk
     assert result.passed is True
     assert result.loops == 2
     assert any("You write the plan" in p for p in client.prompts)
+
+
+class InspectingVerifierClient(ScriptedClient):
+    """Verifier opens the deliverable with a tool before judging."""
+
+    def __init__(self):
+        super().__init__()
+        self.verify_calls = 0
+        self.verify_tools = None
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You verify completed work" in system:
+            self.verify_calls += 1
+            self.verify_tools = [t["function"]["name"] for t in tools or []]
+            if self.verify_calls == 1:
+                return Completion(
+                    content="",
+                    tool_calls=[ToolCall(id="v1", name="read_file", arguments={"path": "article.md"})],
+                )
+            seen = messages[-1]["content"]
+            passed = seen.startswith("# Ads")
+            return Completion(
+                content=json.dumps(
+                    {"passed": passed, "score": 0.9, "summary": "opened it", "issues": [], "remaining": []}
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_verifier_can_open_the_deliverable_with_read_only_tools(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    client = InspectingVerifierClient()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is True
+    assert client.verify_calls == 2
+    assert set(client.verify_tools) == {"read_file", "list_dir", "grep", "office_read"}
+    calls = [e.payload for e in events if e.type == "tool_call" and e.payload.get("subtask") == "verifier"]
+    assert calls and calls[0]["name"] == "read_file"
+
+
+class StubbornClient(ScriptedClient):
+    """Worker never satisfies the verifier; records which model did the work."""
+
+    def __init__(self):
+        super().__init__()
+        self.worker_models: list[str] = []
+        self.plan_calls = 0
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You write the plan" in system:
+            self.plan_calls += 1
+        if "You execute this subtask" in system:
+            self.worker_models.append(model)
+            return Completion(content="I wrote nothing useful.")
+        if "You verify completed work" in system:
+            return Completion(
+                content=json.dumps(
+                    {"passed": False, "score": 0.1, "summary": "no deliverable", "issues": ["missing"], "remaining": []}
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_two_failed_verifications_swap_the_worker_instead_of_replanning(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    client = StubbornClient()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=3,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is False
+    stalls = [e.payload for e in events if e.type == "stall"]
+    assert len(stalls) == 1
+    first, second, third = client.worker_models
+    assert first == second
+    assert third == stalls[0]["worker"]
+    assert third != first
+    assert third.split("/")[0] != first.split("/")[0], "swap should prefer another family"
+    # plans: initial, after loop 1, after loop 3 — none after the stall in loop 2
+    assert client.plan_calls == 3

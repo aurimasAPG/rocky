@@ -104,7 +104,8 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 4. **Critic** — attacks the brief, sets a quality bar. Skipped for `trivial` goals.
 5. **Plan** — subtasks with `depends_on`. Skipped for `trivial` goals (one worker step straight to the verifier; the planner only steps in if verification fails). Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.
-7. **Verifier** — judges the **whole** result. Almost-right is a fail; the planner resplits and workers continue.
+7. **Verifier** — judges the **whole** result. It can open files itself (`read_file`, `list_dir`, `grep`, `office_read` for decks and sheets; up to 6 read-only calls). Almost-right is a fail; the planner resplits and workers continue.
+   If two verifications in a row fail, Rocky assumes the worker model is the problem: it keeps the plan and **swaps the worker** to the next eligible model from another family (`stall` event) instead of replanning again.
 8. Stop when it passes, loops run out, or the euro cap is hit.
 
 Each worker chat is capped at 20 turns and kept small: old tool results become one-line stubs, and past ~60 % of the model's window the middle of the thread is summarised by the cheap assess model (`compact` event). A worker that repeats the exact same tool call is refused on the third try and stopped on the fourth (`loop_guard` event).

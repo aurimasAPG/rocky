@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from rocky.catalog import Cast, Model, parse_models, pick_cast
+from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
 from rocky.config import preferred_worker
 from rocky.context import DEFAULT_CONTEXT, RepeatGuard, compact
 from rocky.events import Emit, Event
@@ -30,6 +30,8 @@ from rocky.memory import freeze_memory, recent_runs_block, snapshot_event_payloa
 from rocky.pipeline import ensure_pipeline
 from rocky.skills import catalog_for_prompt
 from rocky.tools import (
+    VERIFY_TOOL_NAMES,
+    VERIFY_TOOL_SPECS,
     ToolError,
     WorkspaceTools,
     dispatch,
@@ -39,6 +41,10 @@ from rocky.waves import schedule_waves
 
 # Turns one worker chat may take. Compaction keeps long steps affordable.
 MAX_SUBTASK_TURNS = 20
+# Read-only tool turns the verifier may spend inspecting the workspace.
+MAX_VERIFY_TURNS = 6
+# Consecutive failed verifications before the worker model is swapped.
+STALL_AFTER = 2
 
 ASSESS_SCHEMA = {
     "name": "assessment",
@@ -314,6 +320,10 @@ def orchestrate(
         spend(completion)
         return completion.content or ""
 
+    fail_streak = 0
+    tried_workers = {cast.worker}
+    worker_model = cast.worker
+
     for loops in range(1, max_loops + 1):
         if tally.usd >= usd_cap:
             fire("budget", cap=round(usd_cap, 3), receipt=format_receipt(tally, rate), **tally.payload(rate))
@@ -321,7 +331,7 @@ def orchestrate(
         fire("loop", n=loops, max=max_loops)
         worker_summary = _run_subagents(
             client=client,
-            model=cast.worker,
+            model=worker_model,
             goal=goal,
             assessment=assessment,
             critique=critique,
@@ -368,6 +378,29 @@ def orchestrate(
         passed = bool(verify.get("passed"))
         if passed:
             break
+        fail_streak += 1
+        if fail_streak >= STALL_AFTER:
+            # Same plan, same failure: the worker is the problem. Swap it, keep the plan.
+            swap = alternate_worker(
+                models,
+                str(assessment.get("complexity") or "moderate"),
+                str(assessment.get("domain") or "mixed"),
+                exclude=tried_workers,
+            )
+            if swap is not None:
+                tried_workers.add(swap.id)
+                fire(
+                    "stall",
+                    loops=loops,
+                    failed=fail_streak,
+                    previous_worker=worker_model,
+                    worker=swap.id,
+                    reason=f"{fail_streak} failed verifications in a row — swapping worker, keeping the plan",
+                )
+                worker_model = swap.id
+                worker_context = _context_length(models, worker_model)
+                fail_streak = 0
+                continue
         plan = _make_plan(
             client,
             cast.planner,
@@ -926,49 +959,85 @@ def _verify(
             body = tools.read_file(deliverable)
         except ToolError as exc:
             body = f"(could not read {deliverable}: {exc})"
-    completion = _chat(
-        client,
-        model=model,
-        messages=[
+    messages: list[dict] = [
+        {
+            "role": "system",
+            "content": _with_memory(
+                "You verify completed work against the original goal and the critic's quality bar. You are Rocky's verifier. "
+                "Judge the WHOLE result, not one subtask. Be strict. "
+                "passed=true only if the deliverable exists and meets every success criterion. "
+                "You have read-only tools: read_file, list_dir, grep, and office_read for .pptx/.xlsx/.docx/.pdf. "
+                "Open the deliverable yourself when the excerpt is not enough — never trust the worker summary alone. "
+                "When you have seen enough, stop calling tools and return JSON only. "
+                "Follow-ups may complete prior work named in MEMORY or RECENT RUNS.",
+                memory_snapshot,
+            ),
+        },
+        {
+            "role": "user",
+            "content": json.dumps(
+                {
+                    "goal": goal,
+                    "reframed_goal": (critique or {}).get("reframed_goal"),
+                    "quality_bar": (critique or {}).get("quality_bar"),
+                    "success_criteria": assessment.get("success_criteria"),
+                    "plan": plan,
+                    "workspace_listing": listing,
+                    "deliverable_path": deliverable,
+                    "deliverable_excerpt": body[:12000],
+                    "worker_summary": worker_summary,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        },
+    ]
+    completion = None
+    for _ in range(MAX_VERIFY_TURNS):
+        completion = _chat(
+            client, model=model, messages=messages, tools=VERIFY_TOOL_SPECS, json_schema=VERIFY_SCHEMA
+        )
+        spend(completion)
+        if not completion.tool_calls:
+            break
+        messages.append(
             {
-                "role": "system",
-                "content": _with_memory(
-                    "You verify completed work against the original goal and the critic's quality bar. You are Rocky's verifier. "
-                    "Judge the WHOLE result, not one subtask. Be strict. "
-                    "passed=true only if the deliverable exists and meets every success criterion. "
-                    "Return JSON only. Follow-ups may complete prior work named in MEMORY or RECENT RUNS.",
-                    memory_snapshot,
-                ),
-            },
-            {
-                "role": "user",
-                "content": json.dumps(
+                "role": "assistant",
+                "content": completion.content or None,
+                "tool_calls": [
                     {
-                        "goal": goal,
-                        "reframed_goal": (critique or {}).get("reframed_goal"),
-                        "quality_bar": (critique or {}).get("quality_bar"),
-                        "success_criteria": assessment.get("success_criteria"),
-                        "plan": plan,
-                        "workspace_listing": listing,
-                        "deliverable_path": deliverable,
-                        "deliverable_excerpt": body[:12000],
-                        "worker_summary": worker_summary,
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-            },
-        ],
-        json_schema=VERIFY_SCHEMA,
-    )
-    spend(completion)
+                        "id": call.id,
+                        "type": "function",
+                        "function": {"name": call.name, "arguments": json.dumps(call.arguments)},
+                    }
+                    for call in completion.tool_calls
+                ],
+            }
+        )
+        for call in completion.tool_calls:
+            fire("tool_call", name=call.name, arguments=_short_args(call.arguments), subtask="verifier")
+            if call.name not in VERIFY_TOOL_NAMES:
+                result = f"error: verifier may only use {', '.join(sorted(VERIFY_TOOL_NAMES))}"
+            else:
+                try:
+                    result = dispatch(tools, call.name, call.arguments)
+                except ToolError as exc:
+                    result = f"error: {exc}"
+            fire("tool_result", name=call.name, result=result[:2500], subtask="verifier")
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": result[:20000]})
+    else:
+        # Out of tool turns: one last call, no tools, JSON only.
+        messages.append({"role": "user", "content": "No more tool calls. Return the verification JSON now."})
+        completion = _chat(client, model=model, messages=messages, json_schema=VERIFY_SCHEMA)
+        spend(completion)
 
+    content = (completion.content if completion else "") or ""
     verify = _safe_json(
-        completion.content,
+        content,
         {
             "passed": False,
             "score": 0.0,
-            "summary": completion.content[:1000] or "Verifier returned no JSON.",
+            "summary": content[:1000] or "Verifier returned no JSON.",
             "issues": ["Unparseable verifier output"],
             "remaining": [],
         },

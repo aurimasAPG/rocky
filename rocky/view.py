@@ -161,4 +161,13 @@ def render_event(event: Event) -> None:
     if kind == "loop":
         console.print(Text(f"loop {payload.get('n')}/{payload.get('max')}", style=style))
         return
+    if kind == "stall":
+        console.print(
+            Text(
+                f"stall  {payload.get('failed')} failed checks in a row · worker "
+                f"{payload.get('previous_worker')} → {payload.get('worker')} · plan kept",
+                style=f"#{APRICOT}",
+            )
+        )
+        return
     console.print(f"[dim]{kind}[/] {payload}")
