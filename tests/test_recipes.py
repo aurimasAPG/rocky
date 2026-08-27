@@ -148,3 +148,28 @@ def test_from_dict_defaults_ids_and_depends():
     r = from_dict({"name": "two", "steps": [{"detail": "a"}, {"detail": "b", "depends_on": [1]}]})
     assert [s["id"] for s in r.steps] == [1, 2]
     assert isinstance(r, Recipe)
+
+
+def test_recipe_steps_carry_writes_and_merge_onto_covering_plan():
+    from rocky.recipes import load_recipes
+
+    m = load_recipes()["marketing"]
+    rendered = m.render_steps("ads")
+    assert rendered[0]["writes"] == ["research.md"]
+    assert rendered[3]["writes"] == ["deliverables/campaign.pptx", "deliverables/variants.xlsx"]
+    plan = {
+        "steps": [
+            {"id": 1, "title": "Research invohub", "detail": "deep-research", "depends_on": []},
+            {"id": 2, "title": "VOC", "detail": "voice of customer", "depends_on": [1]},
+            {"id": 3, "title": "Copy", "detail": "copywriting", "depends_on": [2]},
+            {"id": 4, "title": "Build deck", "detail": "pptx + xlsx", "depends_on": [3], "writes": ["extra.md"]},
+            {"id": 5, "title": "QA", "detail": "proofread", "depends_on": [4]},
+        ],
+        "deliverable_path": "deliverables/campaign.pptx",
+    }
+    out = m.apply(plan, "ads")
+    assert out["steps"][0]["writes"] == ["research.md"]
+    assert out["steps"][1]["writes"] == ["voc.md"]
+    assert out["steps"][3]["writes"] == ["extra.md", "deliverables/campaign.pptx", "deliverables/variants.xlsx"]
+    assert "writes" not in out["steps"][4]
+    assert "writes = [\"research.md\"]" in to_toml(m)

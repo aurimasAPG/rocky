@@ -3,6 +3,8 @@
 # {goal} is replaced with the user's goal. `requires` are keywords a
 # planner-written step must mention for Rocky to accept it as covering
 # this recipe step; otherwise the recipe steps replace the plan.
+# `writes` are files the step MUST leave on disk; Rocky nudges the worker
+# if they are missing and reports the step as incomplete to the verifier.
 
 name = "marketing"
 description = "Research → VOC → copy → pptx + xlsx. Ads, campaigns, landing copy, SEO / CRO briefs."
@@ -24,6 +26,7 @@ id = 1
 title = "Research"
 depends_on = []
 requires = ["research", "tyrim", "deep-research"]
+writes = ["research.md"]
 detail = """skill_view deep-research (and research-prompt if listed). \
 Investigate the market, competitors, and claims for: {goal}. \
 web_search + web_fetch primary sources. Write research.md with URL, claim, why it matters. \
@@ -34,6 +37,7 @@ id = 2
 title = "VOC"
 depends_on = [1]
 requires = ["voc", "voice of customer"]
+writes = ["voc.md"]
 detail = """skill_view voc-to-copy. If product-marketing-context is listed, skill_view it too. \
 Mine customer language from research.md plus public reviews, Reddit, G2, forums via web_search. \
 Write voc.md: pains, desires, objections, outcomes, phrase bank with sources. \
@@ -44,6 +48,7 @@ id = 3
 title = "Copy"
 depends_on = [2]
 requires = ["copy", "copywrit", "headline", "ad text", "tekst"]
+writes = ["copy.md"]
 detail = """skill_view copywriting. If the goal is ads, also skill_view meta-ads-copy or google-ads-copy. \
 Write copy.md from VOC phrases (headlines, body, CTAs). No invented proof."""
 
@@ -52,6 +57,7 @@ id = 4
 title = "Deck and spreadsheet"
 depends_on = [3]
 requires = ["pptx", "xlsx", "spreadsheet", "deck", "slides"]
+writes = ["deliverables/campaign.pptx", "deliverables/variants.xlsx"]
 detail = """skill_view pptx then skill_view xlsx. \
 Build deliverables/campaign.pptx (one idea per slide from the copy) and \
 deliverables/variants.xlsx (headlines, CTAs, VOC phrases, source URLs). \

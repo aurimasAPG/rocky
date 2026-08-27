@@ -898,3 +898,94 @@ def test_last_loop_failure_does_not_replan(tmp_path, monkeypatch):
         eur_rate=0.92,
     )
     assert client.plan_calls == 1
+
+
+class ForgetfulClient(ScriptedClient):
+    """Worker that first stops without writing, then writes when nudged."""
+
+    def __init__(self):
+        super().__init__()
+        self.nudge_prompts = 0
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You write the plan" in system:
+            return Completion(
+                content=json.dumps(
+                    {
+                        "summary": "one step",
+                        "steps": [
+                            {"id": 1, "title": "Write the article", "detail": "write it", "depends_on": [], "writes": ["article.md"]}
+                        ],
+                        "deliverable_path": "article.md",
+                        "notes": "",
+                    }
+                )
+            )
+        if "You execute this subtask" in system:
+            self.worker_round += 1
+            if messages[-1]["role"] == "user" and "do not exist" in messages[-1]["content"]:
+                self.nudge_prompts += 1
+                return Completion(
+                    content="",
+                    tool_calls=[
+                        ToolCall(id="w", name="write_file", arguments={"path": "article.md", "content": "# Ads\n\nok\n"})
+                    ],
+                )
+            return Completion(content="I researched thoroughly.")  # stops without writing
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_worker_is_nudged_to_write_declared_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    client = ForgetfulClient()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is True
+    assert client.nudge_prompts == 1
+    nudges = [e.payload for e in events if e.type == "nudge"]
+    assert nudges == [{"subtask": "Write the article", "missing": ["article.md"], "n": 1}]
+    assert not any(e.type == "subtask_incomplete" for e in events)
+
+
+def test_step_is_marked_incomplete_when_files_never_appear(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class NeverWrites(ForgetfulClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You execute this subtask" in system:
+                self.worker_round += 1
+                return Completion(content="All done, trust me.")
+            if "You verify completed work" in system:
+                self.seen_summary = json.loads(messages[1]["content"])["worker_summary"]
+                return Completion(
+                    content=json.dumps({"passed": False, "score": 0, "summary": "no", "issues": [], "remaining": []})
+                )
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    client = NeverWrites()
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert client.worker_round == 3  # first answer + two nudges
+    incomplete = [e.payload for e in events if e.type == "subtask_incomplete"]
+    assert incomplete and incomplete[0]["missing"] == ["article.md"]
+    assert client.seen_summary.startswith("Write the article: INCOMPLETE — did not write article.md")

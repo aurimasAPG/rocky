@@ -105,6 +105,10 @@ def status_line(event: Event) -> str | None:
         return f"compacting · {mode} · {payload.get('before_tokens')}→{payload.get('after_tokens')} tok"
     if kind == "stall":
         return f"stalled · swapping worker → {payload.get('worker')}"
+    if kind == "nudge":
+        return f"nudging · missing {', '.join(payload.get('missing') or [])[:50]}"
+    if kind == "subtask_incomplete":
+        return f"incomplete · {payload.get('title')}"
     if kind == "loop_guard":
         return f"loop guard · {payload.get('action')} · {payload.get('name')}"
     if kind == "verify":

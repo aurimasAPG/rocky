@@ -43,6 +43,7 @@ class Recipe:
                     "title": str(step.get("title") or f"Step {i}"),
                     "detail": str(step.get("detail") or "").replace("{goal}", brief),
                     "depends_on": [int(d) for d in step.get("depends_on") or []],
+                    "writes": [str(w) for w in step.get("writes") or []],
                 }
             )
         return out
@@ -57,17 +58,45 @@ class Recipe:
         ).lower()
         return any(h.lower() in blob for h in self.hints)
 
+    def _matching_plan_step(self, recipe_step: dict, plan_steps: list[dict], taken: set[int]) -> int | None:
+        requires = [str(r).lower() for r in recipe_step.get("requires") or []]
+        for i, step in enumerate(plan_steps):
+            if i in taken:
+                continue
+            blob = f"{step.get('title', '')} {step.get('detail', '')}".lower()
+            if not requires or any(r in blob for r in requires):
+                return i
+        return None
+
     def covered_by(self, plan: dict) -> bool:
         """True when the planner's own steps already mention every required stage."""
         steps = list(plan.get("steps") or [])
         if len(steps) < len(self.steps):
             return False
-        blob = " ".join(f"{s.get('title', '')} {s.get('detail', '')}" for s in steps).lower()
+        taken: set[int] = set()
         for step in self.steps:
-            requires = [str(r).lower() for r in step.get("requires") or []]
-            if requires and not any(r in blob for r in requires):
+            hit = self._matching_plan_step(step, steps, taken)
+            if hit is None:
                 return False
+            taken.add(hit)
         return True
+
+    def merge_writes(self, plan: dict) -> dict:
+        """Carry each recipe step's `writes` onto the planner step that covers it."""
+        steps = list(plan.get("steps") or [])
+        taken: set[int] = set()
+        for step in self.steps:
+            hit = self._matching_plan_step(step, steps, taken)
+            if hit is None:
+                continue
+            taken.add(hit)
+            have = [str(w) for w in steps[hit].get("writes") or []]
+            for path in step.get("writes") or []:
+                if path not in have:
+                    have.append(str(path))
+            steps[hit]["writes"] = have
+        plan["steps"] = steps
+        return plan
 
     def apply(self, plan: dict, goal: str) -> dict:
         """Force this recipe onto a plan (or just fix the deliverable when already covered)."""
@@ -76,7 +105,7 @@ class Recipe:
             have = Path(str(plan.get("deliverable_path") or "")).suffix
             if want and have != want:
                 plan["deliverable_path"] = self.deliverable_path
-            return plan
+            return self.merge_writes(plan)
         plan["steps"] = self.render_steps(goal)
         if self.deliverable_path:
             plan["deliverable_path"] = self.deliverable_path
@@ -134,6 +163,7 @@ def from_dict(raw: dict, source: str = "") -> Recipe:
                 "detail": str(step.get("detail")),
                 "depends_on": [int(d) for d in step.get("depends_on") or []],
                 "requires": [str(r) for r in step.get("requires") or []],
+                "writes": [str(w) for w in step.get("writes") or []],
             }
         )
     if not steps:
@@ -223,6 +253,7 @@ def to_toml(recipe: Recipe) -> str:
             f"title = {_q(step['title'])}",
             "depends_on = [" + ", ".join(str(int(d)) for d in step.get("depends_on") or []) + "]",
             "requires = [" + ", ".join(_q(r) for r in step.get("requires") or []) + "]",
+            "writes = [" + ", ".join(_q(w) for w in step.get("writes") or []) + "]",
             f"detail = {_q(step['detail'])}",
         ]
     return "\n".join(lines) + "\n"

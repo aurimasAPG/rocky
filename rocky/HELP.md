@@ -267,6 +267,8 @@ A recipe is a plan skeleton Rocky enforces when a goal matches: ordered steps, `
 - shared: folders in `ROCKY_RECIPES=/path/a,/path/b`
 - this workspace: `<workspace>/.rocky/recipes/*.toml` (wins on the same name)
 
+Each step can declare `writes = ["research.md"]` — files it must leave on disk. When a worker stops without them, Rocky nudges it (twice at most, `nudge` event); if they still do not exist the step is reported to the verifier as **INCOMPLETE** so later steps and the verdict cannot pretend the work happened. The planner's own steps get a `writes` list too.
+
 Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint words. If the planner already covers every required stage the plan is kept; otherwise the recipe steps replace it. Workers can `recipe list / view / save` — a saved recipe is used from the **next** run, so review it. See `rocky/recipes/marketing.toml` for the format.
 
 ---

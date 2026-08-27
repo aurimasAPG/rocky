@@ -49,6 +49,8 @@ MAX_VERIFY_TURNS = 6
 STALL_AFTER = 2
 # The verifier may run this far over the cap so a finished deliverable still gets judged.
 VERIFY_GRACE = 1.10
+# Times a worker is told to produce its missing output files before the step is marked incomplete.
+MAX_NUDGES = 2
 
 ASSESS_SCHEMA = {
     "name": "assessment",
@@ -97,8 +99,13 @@ PLAN_SCHEMA = {
                             "type": "array",
                             "items": {"type": "integer"},
                         },
+                        "writes": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Files this step must leave on disk (relative to the workspace).",
+                        },
                     },
-                    "required": ["id", "title", "detail", "depends_on"],
+                    "required": ["id", "title", "detail", "depends_on", "writes"],
                 },
             },
             "deliverable_path": {"type": "string"},
@@ -526,6 +533,7 @@ def _trivial_plan(goal: str, assessment: dict) -> dict:
                 "title": "Complete the goal",
                 "detail": f"{goal}\nWrite the result to {deliverable}.",
                 "depends_on": [],
+                "writes": [deliverable],
             }
         ],
         "deliverable_path": deliverable,
@@ -680,16 +688,18 @@ def _normalize_steps(plan: dict, goal: str) -> dict:
                 deps.append(int(item))
             except (TypeError, ValueError):
                 continue
+        writes = [str(w).strip() for w in raw.get("writes") or [] if str(w).strip()]
         steps.append(
             {
                 "id": ident,
                 "title": str(raw.get("title") or f"Step {i}"),
                 "detail": str(raw.get("detail") or ""),
                 "depends_on": deps,
+                "writes": writes,
             }
         )
     if not steps:
-        steps = [{"id": 1, "title": "Complete the goal", "detail": goal, "depends_on": []}]
+        steps = [{"id": 1, "title": "Complete the goal", "detail": goal, "depends_on": [], "writes": []}]
     plan["steps"] = steps
     return plan
 
@@ -748,6 +758,7 @@ def _make_plan(
                     "Split work into subtasks that can be given to separate workers. "
                     "Use depends_on so independent research can run in parallel, "
                     "and writing/assembly waits on research. Each step must be concrete. "
+                    "Each step lists in writes the files it must leave on disk; later steps may only read those. "
                     "If the deliverable is xlsx/docx/pptx/pdf, that worker step must skill_view the matching skill. "
                     "If a recipe is given, its steps are mandatory and ordered — a recipe is a proven "
                     "sequence for this kind of deliverable; Rocky will enforce it. "
@@ -916,6 +927,8 @@ def _run_subtask(
     last_text = ""
     guard = RepeatGuard()
     aborted = False
+    nudges = 0
+    expected = [str(w) for w in step.get("writes") or []]
     for _ in range(MAX_SUBTASK_TURNS):
         if cost_so_far() >= budget or aborted:
             break
@@ -926,6 +939,22 @@ def _run_subtask(
         spend(completion)
         last_text = completion.content or last_text
         if not completion.tool_calls:
+            missing = _missing_files(tools, expected)
+            if missing and nudges < MAX_NUDGES:
+                nudges += 1
+                fire("nudge", subtask=step.get("title"), missing=missing, n=nudges)
+                messages.append({"role": "assistant", "content": completion.content or "(no text)"})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "You stopped, but this step must leave these files on disk and they do not exist: "
+                            + ", ".join(missing)
+                            + ". Write them now with write_file (or bash for Office files), then summarise."
+                        ),
+                    }
+                )
+                continue
             break
         messages.append(
             {
@@ -989,10 +1018,30 @@ def _run_subtask(
                     "content": result[:20000],
                 }
             )
+    missing = _missing_files(tools, expected)
+    if missing:
+        last_text = (
+            f"INCOMPLETE — did not write {', '.join(missing)}. "
+            "Later steps must not pretend these exist. " + (last_text or "")
+        )
+        fire("subtask_incomplete", id=step.get("id"), title=step.get("title"), missing=missing)
     fire("subtask_done", id=step.get("id"), title=step.get("title"), text=(last_text or "")[:2000])
     if last_text:
         fire("worker", text=last_text[:4000], subtask=step.get("title"))
     return f"{step.get('title')}: {last_text}"
+
+
+def _missing_files(tools: WorkspaceTools, expected: list[str]) -> list[str]:
+    missing = []
+    for rel in expected:
+        try:
+            path = tools.resolve(rel)
+        except ToolError:
+            missing.append(rel)
+            continue
+        if not path.is_file() or path.stat().st_size == 0:
+            missing.append(rel)
+    return missing
 
 
 def _verify(
