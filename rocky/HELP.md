@@ -112,7 +112,7 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 
 Each worker chat is capped at 20 turns and kept small: old tool results become one-line stubs, and past ~60 % of the model's window the middle of the thread is summarised by the cheap assess model (`compact` event). A worker that repeats the exact same tool call is refused on the third try and stopped on the fourth (`loop_guard` event).
 
-Every completion prints a **receipt**: input / output / total tokens, USD, EUR (3 decimals).
+Every completion prints a **receipt**: input / output / total tokens (plus reasoning and cached tokens when the provider reports them), USD, EUR (3 decimals). The final receipt is also **split by role** — `assess €0.001 · critic €0.021 · planner €0.034 · worker €0.012 · verifier €0.009` — so you can see which model is eating the budget. `--json` returns the same split under `by_role`.
 
 ---
 

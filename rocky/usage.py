@@ -10,6 +10,9 @@ DEFAULT_BUDGET_EUR = 1.0
 _cached_rate: float | None = None
 
 
+ROLES = ("assess", "critic", "planner", "worker", "verifier", "compact", "other")
+
+
 @dataclass
 class Usage:
     prompt_tokens: int = 0
@@ -17,11 +20,15 @@ class Usage:
     reasoning_tokens: int = 0
     total_tokens: int = 0
     usd: float = 0.0
+    cached_tokens: int = 0
+    calls: int = 0
 
     def add(self, other: Usage) -> None:
         self.prompt_tokens += other.prompt_tokens
         self.completion_tokens += other.completion_tokens
         self.reasoning_tokens += other.reasoning_tokens
+        self.cached_tokens += other.cached_tokens
+        self.calls += other.calls or 1
         self.total_tokens += other.total_tokens or (
             other.prompt_tokens + other.completion_tokens
         )
@@ -38,15 +45,48 @@ class Usage:
             "usd": round(self.usd, 3),
             "eur": round(eur_from_usd(self.usd, eur_rate), 3),
             "eur_rate": round(eur_rate, 4),
+            "cached_tokens": self.cached_tokens,
+            "calls": self.calls,
         }
+
+
+class RoleTally:
+    """Total spend plus a per-role breakdown (assess / critic / planner / worker / verifier)."""
+
+    def __init__(self) -> None:
+        self.total = Usage()
+        self.by_role: dict[str, Usage] = {}
+
+    def add(self, usage: Usage, role: str = "other") -> None:
+        role = role if role in ROLES else "other"
+        self.total.add(usage)
+        self.by_role.setdefault(role, Usage()).add(usage)
+
+    def payload(self, eur_rate: float) -> dict[str, Any]:
+        out = self.total.payload(eur_rate)
+        out["by_role"] = {
+            role: {
+                "usd": round(u.usd, 4),
+                "eur": round(eur_from_usd(u.usd, eur_rate), 4),
+                "prompt_tokens": u.prompt_tokens,
+                "completion_tokens": u.completion_tokens,
+                "cached_tokens": u.cached_tokens,
+                "calls": u.calls,
+            }
+            for role, u in self.by_role.items()
+        }
+        out["role_receipt"] = format_role_split(self.by_role, eur_rate)
+        return out
 
 
 def parse_usage(raw: dict | None) -> Usage:
     data = raw or {}
     details = data.get("completion_tokens_details") or {}
+    prompt_details = data.get("prompt_tokens_details") or {}
     prompt = int(data.get("prompt_tokens") or 0)
     completion = int(data.get("completion_tokens") or 0)
     reasoning = int(details.get("reasoning_tokens") or 0)
+    cached = int(prompt_details.get("cached_tokens") or 0)
     total = int(data.get("total_tokens") or 0) or (prompt + completion)
     try:
         usd = float(data.get("cost") or 0)
@@ -58,6 +98,8 @@ def parse_usage(raw: dict | None) -> Usage:
         reasoning_tokens=reasoning,
         total_tokens=total,
         usd=usd,
+        cached_tokens=cached,
+        calls=1,
     )
 
 
@@ -152,11 +194,26 @@ def parse_budget_reply(text: str, suggested: float, current: float) -> float:
     return round(value, 2)
 
 
+def format_role_split(by_role: dict[str, Usage], eur_rate: float) -> str:
+    """`assess €0.001 · critic €0.021 · planner €0.034 · worker €0.012 · verifier €0.009`"""
+    parts = []
+    for role in ROLES:
+        usage = by_role.get(role)
+        if usage is None or usage.calls == 0:
+            continue
+        eur = eur_from_usd(usage.usd, eur_rate)
+        cache = f" ({_commas(usage.cached_tokens)} cached)" if usage.cached_tokens else ""
+        parts.append(f"{role} €{eur:.3f}{cache}")
+    return " · ".join(parts)
+
+
 def format_receipt(usage: Usage, eur_rate: float) -> str:
     payload = usage.payload(eur_rate)
     extra = ""
     if payload["reasoning_tokens"]:
         extra = f" · {_commas(payload['reasoning_tokens'])} reason"
+    if payload.get("cached_tokens"):
+        extra += f" · {_commas(payload['cached_tokens'])} cached"
     return (
         f"{_commas(payload['prompt_tokens'])} in · "
         f"{_commas(payload['completion_tokens'])} out · "

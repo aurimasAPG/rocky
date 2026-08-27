@@ -306,6 +306,8 @@ class OrcheTui(App):
             self.sub_title = receipt
         if kind == "done":
             mark = "passed" if payload.get("passed") else "unmet"
+            if payload.get("role_receipt"):
+                self.query_one("#bill", Static).update(f"{self._receipt}\n{payload['role_receipt']}")
             self.sub_title = f"{mark}  ·  {self._receipt}  ·  kita užduotis arba q"
 
 

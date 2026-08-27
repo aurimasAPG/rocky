@@ -718,3 +718,28 @@ def test_project_instructions_are_injected(tmp_path, monkeypatch):
     assert "Always write in Lithuanian." in worker_prompt
     mem = next(e.payload for e in events if e.type == "memory")
     assert mem["instructions"] == "AGENTS.md" and mem["instructions_chars"] > 0
+
+
+def test_done_receipt_is_split_by_role(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=ScriptedClient(),
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    done = events[-1].payload
+    roles = done["by_role"]
+    # ScriptedClient bills only the verifier ($0.01); every role still counts its calls
+    assert roles["verifier"]["usd"] == 0.01
+    assert roles["worker"]["calls"] == 2
+    assert roles["critic"]["calls"] == 1 and roles["planner"]["calls"] == 1
+    assert roles["assess"]["calls"] == 1
+    assert done["role_receipt"].startswith("assess €0.000 · critic €0.000 · planner €0.000 · worker €0.000 · verifier €0.009")
+    costs = [e.payload for e in events if e.type == "cost"]
+    assert {c["role"] for c in costs} == {"assess", "critic", "planner", "worker", "verifier"}

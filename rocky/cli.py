@@ -261,6 +261,9 @@ def collect_result(workspace: Path, run_id: str, events) -> dict:
         "completion_tokens": done.get("completion_tokens"),
         "total_tokens": done.get("total_tokens"),
         "receipt": done.get("receipt"),
+        "cached_tokens": done.get("cached_tokens"),
+        "by_role": done.get("by_role") or {},
+        "role_receipt": done.get("role_receipt"),
         "events": str(folder / "events.jsonl"),
     }
 

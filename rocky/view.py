@@ -142,6 +142,8 @@ def render_event(event: Event) -> None:
         mark = "done · passed" if payload.get("passed") else "done · unmet"
         console.rule(f"{mark}  ·  {payload.get('loops')} loops")
         receipt = payload.get("receipt") or f"${payload.get('usd')}"
+        if payload.get("role_receipt"):
+            receipt = f"{receipt}\n{payload['role_receipt']}"
         console.print(
             Panel(
                 receipt,

@@ -16,6 +16,7 @@ from rocky.extras import BrowserSession
 from rocky.llm import Completion, LLM, WebTools
 from rocky.usage import (
     DEFAULT_BUDGET_EUR,
+    RoleTally,
     Usage,
     estimate_run_eur,
     eur_from_usd,
@@ -206,7 +207,8 @@ def orchestrate(
     except MCPError as exc:
         fire("error", message=f"mcp config ignored: {exc}")
         mcp = None
-    tally = Usage()
+    ledger = RoleTally()
+    tally = ledger.total
     rate = fetch_usd_eur_rate() if eur_rate is None else eur_rate
     usd_cap = float(budget) if budget is not None else usd_from_eur(budget_eur, rate)
 
@@ -225,12 +227,15 @@ def orchestrate(
         models = parse_models(client.list_models())
         fire("catalog", status="ok", count=len(models))
 
-    def spend(completion: Completion) -> None:
+    def spend(completion: Completion, role: str = "other") -> None:
         with event_lock:
-            tally.add(completion.usage)
-            bill = tally.payload(rate)
+            ledger.add(completion.usage, role)
+            bill = ledger.payload(rate)
             receipt = format_receipt(tally, rate)
-        fire("cost", model=completion.model, receipt=receipt, **bill)
+        fire("cost", model=completion.model, role=role, receipt=receipt, **bill)
+
+    def spender(role: str):
+        return lambda completion: spend(completion, role)
 
     # Cheap default cast for assess model id; refine after assessment.
     draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
@@ -247,7 +252,7 @@ def orchestrate(
         user=_assess_user(goal, workspace_path),
         json_schema=ASSESS_SCHEMA,
     )
-    spend(assess_raw)
+    spend(assess_raw, "assess")
     assessment = _safe_json(
         assess_raw.content,
         {
@@ -297,7 +302,7 @@ def orchestrate(
         fire("plan", **plan)
     else:
         critique = _critique(
-            client, cast.critic, goal, assessment, spend, fire, memory_snapshot=memory_snapshot
+            client, cast.critic, goal, assessment, spender("critic"), fire, memory_snapshot=memory_snapshot
         )
         plan = _make_plan(
             client,
@@ -305,7 +310,7 @@ def orchestrate(
             goal,
             assessment,
             workspace_path,
-            spend,
+            spender("planner"),
             fire,
             critique=critique,
             memory_snapshot=memory_snapshot,
@@ -327,7 +332,7 @@ def orchestrate(
             ),
             user=transcript[:60000],
         )
-        spend(completion)
+        spend(completion, "compact")
         return completion.content or ""
 
     fail_streak = 0
@@ -350,7 +355,7 @@ def orchestrate(
             tools=tools,
             searcher=searcher,
             include_server_tools=include_server_tools,
-            spend=spend,
+            spend=spender("worker"),
             fire=fire,
             budget=usd_cap,
             cost_so_far=lambda: tally.usd,
@@ -372,7 +377,7 @@ def orchestrate(
                 plan,
                 worker_summary,
                 tools,
-                spend,
+                spender("verifier"),
                 fire,
                 memory_snapshot=memory_snapshot,
             )
@@ -418,7 +423,7 @@ def orchestrate(
             goal,
             assessment,
             workspace_path,
-            spend,
+            spender("planner"),
             fire,
             critique=critique,
             revision=verify,
@@ -426,7 +431,7 @@ def orchestrate(
         )
 
     summary = (verify.get("summary") if verify else worker_summary) or ""
-    bill = tally.payload(rate)
+    bill = ledger.payload(rate)
     fire(
         "done",
         passed=passed,

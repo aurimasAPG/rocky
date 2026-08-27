@@ -68,7 +68,7 @@ rocky tui --attach 20260827-12
 
 Flags: `--dir`, `--budget` (EUR, default **1.00**), `--max-loops` (default 4).
 
-Every run prints a **receipt**: input / output / total tokens, USD (OpenRouter), EUR (ECB via Frankfurter).
+Every run prints a **receipt**: input / output / total / cached tokens, USD (OpenRouter), EUR (ECB via Frankfurter), and a per-role split (assess · critic · planner · worker · verifier).
 
 ## Commands
 

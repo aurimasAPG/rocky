@@ -45,3 +45,40 @@ def test_format_receipt_includes_tokens_usd_and_eur():
     assert "12,345" in text
     assert "$0.043" in text
     assert "€0.040" in text
+
+
+def test_parse_usage_reads_cached_tokens_and_counts_calls():
+    from rocky.usage import format_receipt, parse_usage
+
+    u = parse_usage(
+        {
+            "prompt_tokens": 1000,
+            "completion_tokens": 50,
+            "prompt_tokens_details": {"cached_tokens": 800},
+            "cost": 0.002,
+        }
+    )
+    assert u.cached_tokens == 800
+    assert u.calls == 1
+    assert "800 cached" in format_receipt(u, 0.92)
+
+
+def test_role_tally_splits_by_role():
+    from rocky.usage import RoleTally, Usage, format_role_split
+
+    t = RoleTally()
+    t.add(Usage(prompt_tokens=10, completion_tokens=5, usd=0.01, calls=1), "critic")
+    t.add(Usage(prompt_tokens=10, completion_tokens=5, usd=0.02, calls=1), "planner")
+    t.add(Usage(prompt_tokens=100, completion_tokens=50, usd=0.005, cached_tokens=60, calls=1), "worker")
+    t.add(Usage(prompt_tokens=100, completion_tokens=50, usd=0.005, calls=1), "worker")
+    t.add(Usage(usd=0.001, calls=1), "mystery")
+    p = t.payload(1.0)
+    assert p["usd"] == 0.041
+    assert p["by_role"]["worker"]["calls"] == 2
+    assert p["by_role"]["worker"]["usd"] == 0.01
+    assert p["by_role"]["worker"]["cached_tokens"] == 60
+    assert p["by_role"]["other"]["usd"] == 0.001
+    split = format_role_split(t.by_role, 1.0)
+    assert split.startswith("critic €0.010 · planner €0.020 · worker €0.010 (60 cached)")
+    assert "other €0.001" in split
+    assert p["role_receipt"] == split
