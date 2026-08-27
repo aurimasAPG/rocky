@@ -1,0 +1,115 @@
+# rocky
+
+OpenRouter agent orchestrator. One command reads a goal, picks three models from the live catalog, then loops **plan → work → verify** until the goal is met. Default cap: **€1 per run**.
+
+```bash
+rocky "write a 3-sentence summary to summary.md"
+rocky tui
+rocky serve
+rocky help
+```
+
+`orche` is a silent alias for `rocky`.
+
+## Install
+
+Needs [uv](https://docs.astral.sh/uv/) and Python 3.11+.
+
+```bash
+git clone <this-repository>
+cd <repo>
+uv tool install --force --reinstall .
+```
+
+Put `~/.local/bin` on your `PATH`. After you change the code, run the same install command again from the clone.
+
+**Python 3.13:** do not use `pip install -e .`. Hidden `.pth` files are skipped and `rocky` will fail to import.
+
+Key (never commit it) in `~/.env`, project `.env`, or the environment:
+
+```
+OPENROUTER_API_KEY=sk-or-...
+```
+
+Optional browser tools:
+
+```bash
+uv tool install --force --reinstall ".[browser]"
+playwright install chromium
+```
+
+Full English guide: `rocky help` (same text as [`rocky/HELP.md`](rocky/HELP.md)). Lietuviškai: [`docs/lt.md`](docs/lt.md).
+
+## Quick start
+
+```bash
+mkdir -p /tmp/rocky-demo
+rocky -d /tmp/rocky-demo
+```
+
+Type a task, press Enter. One shot:
+
+```bash
+rocky -d /tmp/rocky-demo "write a 3-sentence summary to summary.md"
+```
+
+Three-pane viewer: `rocky tui -d /tmp/rocky-demo`.
+
+A run keeps going if you detach. Enter (CLI) or `q` (TUI) unhooks the viewer; the worker continues. Reattach later:
+
+```bash
+rocky ps
+rocky attach
+rocky attach 20260827-12
+rocky tui --attach 20260827-12
+```
+
+Flags: `--dir`, `--budget` (EUR, default **1.00**), `--max-loops` (default 4).
+
+Every run prints a **receipt**: input / output / total tokens, USD (OpenRouter), EUR (ECB via Frankfurter).
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `rocky "goal"` | Start a background run and attach |
+| `rocky tui "goal"` | Same, three-pane viewer (`q` detaches) |
+| `rocky ps` | List runs in this folder |
+| `rocky attach [id]` | Reattach (Enter detaches) |
+| `rocky serve` | Team web UI at http://127.0.0.1:8787 |
+| `rocky help` | Full English user guide |
+| `rocky route "goal"` | Only assess + pick models (no tools) |
+
+## Safety
+
+Rocky is **fully autonomous** in `--dir`. File tools reject paths outside that folder. There is no confirmation on writes.
+
+`bash` is **not a sandbox**. The process starts in the workspace, but a shell command can still leave it. Do not point `-d` at your home directory.
+
+`rocky serve` binds `127.0.0.1` by default. `rocky serve --host 0.0.0.0` without `ROCKY_TOKEN` is **refused** (the server does not bind). Set `ROCKY_TOKEN` and optionally `ROCKY_WORKSPACES` before exposing the UI.
+
+## How models are chosen
+
+On every run Rocky fetches OpenRouter’s `/models` catalog (tool-capable models + pricing):
+
+1. A cheap model **assesses** complexity (`trivial` / `moderate` / `hard`) and domain.
+2. A **critic** challenges the brief and sets a quality bar.
+3. **Planner** splits work into subtasks with `depends_on` (independent steps can run in parallel).
+4. **Workers** — one subagent per subtask, cheap tool model, isolated conversation, shared folder.
+5. **Verifier** judges the **whole** result against the original goal and the critic’s quality bar.
+
+Failures go back to the planner. Marketing / ads / copy goals are planned as **research → VOC → copy → pptx + xlsx**.
+
+## Dev setup
+
+```bash
+uv venv
+uv pip install ".[dev]"
+pytest
+```
+
+On Python 3.13, install the package (not editable).
+
+## License
+
+MIT. Author: Aurimas Gircys.

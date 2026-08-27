@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>rocky</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="top">
+    <div class="brand">
+      <span class="mark">rocky</span>
+      <span class="tag">OpenRouter plan · work · verify</span>
+    </div>
+    <div class="meters">
+      <span id="status-meter">idle</span>
+      <span id="cost-meter">$0.00 · €0.00 · 0 tok</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="desk">
+      <h1>Cast a goal.<br />Three models run it.</h1>
+      <p class="lede">Paste what you need. rocky picks a planner, a cheap worker, and a verifier from the live OpenRouter catalog, then loops until the goal holds.</p>
+      <form id="run-form">
+        <label class="field">
+          <span>Goal</span>
+          <textarea id="goal" required placeholder="write me an EEAT based article on Meta Ads optimization"></textarea>
+        </label>
+        <div class="row">
+          <label class="field grow">
+            <span>Workspace folder</span>
+            <input id="workspace" type="text" required />
+          </label>
+          <label class="field">
+            <span>Budget EUR</span>
+            <input id="budget" type="number" min="0.1" max="50" step="0.1" value="1" />
+          </label>
+          <label class="field">
+            <span>Loops</span>
+            <input id="loops" type="number" min="1" max="12" value="4" />
+          </label>
+        </div>
+        <label class="field token-field hidden" id="token-wrap">
+          <span>Team token</span>
+          <input id="token" type="password" autocomplete="off" />
+        </label>
+        <button type="submit" id="go">Run the loop</button>
+        <p class="form-error" id="form-error" hidden></p>
+      </form>
+    </section>
+
+    <section class="bill" aria-label="Run price">
+      <div class="cell">
+        <span>in</span>
+        <strong id="tok-in">0</strong>
+      </div>
+      <div class="cell">
+        <span>out</span>
+        <strong id="tok-out">0</strong>
+      </div>
+      <div class="cell">
+        <span>tokens</span>
+        <strong id="tok-total">0</strong>
+      </div>
+      <div class="cell">
+        <span>USD</span>
+        <strong id="usd">$0.00</strong>
+      </div>
+      <div class="cell">
+        <span>EUR</span>
+        <strong id="eur">€0.00</strong>
+      </div>
+    </section>
+
+    <section class="strips" aria-label="Cast">
+      <article class="strip" data-role="critic">
+        <span class="role">critic</span>
+        <strong id="model-critic">waiting</strong>
+        <em id="why-critic"></em>
+      </article>
+      <article class="strip" data-role="planner">
+        <span class="role">planner</span>
+        <strong id="model-planner">waiting</strong>
+        <em id="why-planner"></em>
+      </article>
+      <article class="strip" data-role="worker">
+        <span class="role">worker</span>
+        <strong id="model-worker">waiting</strong>
+        <em id="why-worker"></em>
+      </article>
+      <article class="strip" data-role="verifier">
+        <span class="role">verifier</span>
+        <strong id="model-verifier">waiting</strong>
+        <em id="why-verifier"></em>
+      </article>
+    </section>
+
+    <section class="board">
+      <div class="col" data-lane="plan">
+        <h2>Plan</h2>
+        <ol id="plan-log"></ol>
+      </div>
+      <div class="col" data-lane="work">
+        <h2>Work</h2>
+        <ul id="work-log"></ul>
+      </div>
+      <div class="col" data-lane="verify">
+        <h2>Verify</h2>
+        <div id="verify-log"></div>
+      </div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
