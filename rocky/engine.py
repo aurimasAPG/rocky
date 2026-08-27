@@ -1080,16 +1080,21 @@ def _verify(
         completion = _chat(client, model=model, messages=messages, json_schema=VERIFY_SCHEMA)
         spend(completion)
         content = completion.content or content
-    verify = _safe_json(
-        content,
-        {
+    try:
+        parsed = parse_json_object(content)
+    except JsonParseError:
+        parsed = None
+    if parsed is None:
+        verify = {
             "passed": False,
             "score": 0.0,
             "summary": content[:1000] or "Verifier returned no JSON.",
             "issues": ["Unparseable verifier output"],
             "remaining": [],
-        },
-    )
+        }
+    else:
+        verify = {"passed": False, "score": 0.0, "summary": "", "issues": [], "remaining": []}
+        verify.update(parsed)
     verify = _normalize_verdict(verify)
     fire("verify", **verify)
     return verify

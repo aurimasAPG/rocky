@@ -816,3 +816,35 @@ def test_verifier_garbage_answer_triggers_json_only_retry(tmp_path, monkeypatch)
     assert client.verify_calls == 2
     assert client.saw_json_only_followup
     assert verify["summary"] == "ok now" and verify["score"] == 0.88
+
+
+def test_verifier_extra_keys_do_not_leak_fallback_issues(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class ExtraKeys(ScriptedClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You verify completed work" in system:
+                return Completion(
+                    content=json.dumps(
+                        {"passed": True, "summary": "checked it", "checks": {"slides": 3}, "remaining": "none"}
+                    )
+                )
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=ExtraKeys(),
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    verify = next(e.payload for e in events if e.type == "verify")
+    assert verify["issues"] == []
+    assert verify["remaining"] == ["none"]
+    assert verify["checks"] == {"slides": 3}
+    assert verify["score"] == 1.0
