@@ -185,7 +185,7 @@ def _ps(workspace: Path) -> int:
     if not rows:
         console.print("[dim]no runs in this folder[/]")
         return 0
-    console.print(f"[bold]id[/]                       [bold]status[/]     [bold]goal[/]")
+    console.print("[bold]id[/]                       [bold]status[/]     [bold]goal[/]")
     for row in rows:
         goal = (row.get("goal") or "").replace("\n", " ")
         if len(goal) > 56:

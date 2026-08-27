@@ -743,3 +743,76 @@ def test_done_receipt_is_split_by_role(tmp_path, monkeypatch):
     assert done["role_receipt"].startswith("assess €0.000 · critic €0.000 · planner €0.000 · worker €0.000 · verifier €0.009")
     costs = [e.payload for e in events if e.type == "cost"]
     assert {c["role"] for c in costs} == {"assess", "critic", "planner", "worker", "verifier"}
+
+
+class DriftingVerifierClient(ScriptedClient):
+    """Verifier ignores the schema on its first answer (tools + response_format clash)."""
+
+    def __init__(self):
+        super().__init__()
+        self.verify_calls = 0
+        self.saw_json_only_followup = False
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You verify completed work" in system:
+            self.verify_calls += 1
+            if self.verify_calls == 1:
+                return Completion(content=json.dumps({"passed": "true", "reason": "looks fine", "score": 0}))
+            self.saw_json_only_followup = tools is None and json_schema is not None
+            return Completion(
+                content=json.dumps({"passed": True, "score": 0.88, "summary": "ok now", "issues": [], "remaining": []})
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_verifier_off_schema_answer_triggers_json_only_retry(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    client = DriftingVerifierClient()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    verify = next(e.payload for e in events if e.type == "verify")
+    # first answer had passed+reason, so it counts as a verdict and is normalised, no retry
+    assert client.verify_calls == 1
+    assert verify["passed"] is True
+    assert verify["summary"] == "looks fine"
+    assert verify["score"] == 1.0
+    assert result.passed is True
+
+
+def test_verifier_garbage_answer_triggers_json_only_retry(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class Garbage(DriftingVerifierClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You verify completed work" in system and self.verify_calls == 0:
+                self.verify_calls += 1
+                return Completion(content="Looks good to me, the article exists.")
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    client = Garbage()
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    verify = next(e.payload for e in events if e.type == "verify")
+    assert client.verify_calls == 2
+    assert client.saw_json_only_followup
+    assert verify["summary"] == "ok now" and verify["score"] == 0.88

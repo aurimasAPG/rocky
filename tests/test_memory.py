@@ -2,11 +2,9 @@ import pytest
 
 from rocky.memory import (
     MEMORY_CAP,
-    apply_memory,
     freeze_memory,
     memory_path,
     recent_runs_block,
-    search_runs,
     user_path,
 )
 from rocky.runs import create_run, run_dir, write_meta

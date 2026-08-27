@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from rocky.skills import catalog_for_prompt, list_skills, view_skill
 from rocky.tools import WorkspaceTools, dispatch, worker_tools

@@ -17,7 +17,6 @@ from rocky.llm import Completion, LLM, WebTools
 from rocky.usage import (
     DEFAULT_BUDGET_EUR,
     RoleTally,
-    Usage,
     estimate_run_eur,
     eur_from_usd,
     fetch_usd_eur_rate,
@@ -1069,6 +1068,18 @@ def _verify(
         spend(completion)
 
     content = (completion.content if completion else "") or ""
+    if not _looks_like_verdict(content):
+        # Tools + response_format do not mix on every provider; ask once more, JSON only.
+        messages.append({"role": "assistant", "content": content or None})
+        messages.append(
+            {
+                "role": "user",
+                "content": "Return ONLY the verification JSON with keys passed, score, summary, issues, remaining.",
+            }
+        )
+        completion = _chat(client, model=model, messages=messages, json_schema=VERIFY_SCHEMA)
+        spend(completion)
+        content = completion.content or content
     verify = _safe_json(
         content,
         {
@@ -1079,7 +1090,40 @@ def _verify(
             "remaining": [],
         },
     )
+    verify = _normalize_verdict(verify)
     fire("verify", **verify)
+    return verify
+
+
+def _looks_like_verdict(content: str) -> bool:
+    try:
+        parsed = parse_json_object(content)
+    except JsonParseError:
+        return False
+    return "passed" in parsed and ("summary" in parsed or "reason" in parsed)
+
+
+def _normalize_verdict(verify: dict) -> dict:
+    """Tolerate near-schema answers: reason → summary, missing score, stringy booleans."""
+    if verify.get("reason"):
+        verify["summary"] = str(verify.pop("reason"))
+    raw = verify.get("passed")
+    if isinstance(raw, str):
+        verify["passed"] = raw.strip().lower() in {"true", "yes", "pass", "passed"}
+    verify["passed"] = bool(verify.get("passed"))
+    try:
+        score = float(verify.get("score") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    if score <= 0 and verify["passed"]:
+        score = 1.0
+    verify["score"] = round(min(max(score, 0.0), 1.0), 2)
+    for key in ("issues", "remaining"):
+        value = verify.get(key)
+        if isinstance(value, str):
+            verify[key] = [value] if value.strip() else []
+        elif not isinstance(value, list):
+            verify[key] = []
     return verify
 
 

@@ -82,3 +82,20 @@ def test_role_tally_splits_by_role():
     assert split.startswith("critic €0.010 · planner €0.020 · worker €0.010 (60 cached)")
     assert "other €0.001" in split
     assert p["role_receipt"] == split
+
+
+def test_parse_usage_counts_byok_upstream_cost():
+    from rocky.usage import parse_usage
+
+    u = parse_usage(
+        {
+            "prompt_tokens": 7,
+            "completion_tokens": 17,
+            "cost": 0,
+            "is_byok": True,
+            "cost_details": {"upstream_inference_cost": 0.000138},
+        }
+    )
+    assert u.usd == 0.000138
+    # OpenRouter-billed calls keep OpenRouter's number
+    assert parse_usage({"cost": 0.002, "cost_details": {"upstream_inference_cost": 0.0015}}).usd == 0.002

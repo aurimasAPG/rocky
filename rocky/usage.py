@@ -92,6 +92,15 @@ def parse_usage(raw: dict | None) -> Usage:
         usd = float(data.get("cost") or 0)
     except (TypeError, ValueError):
         usd = 0.0
+    # BYOK keys: OpenRouter bills nothing itself (cost=0) but reports what the
+    # upstream provider charges. That is still money — count it.
+    details = data.get("cost_details") or {}
+    try:
+        upstream = float(details.get("upstream_inference_cost") or 0)
+    except (TypeError, ValueError):
+        upstream = 0.0
+    if usd <= 0 and upstream > 0:
+        usd = upstream
     return Usage(
         prompt_tokens=prompt,
         completion_tokens=completion,
