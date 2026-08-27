@@ -77,6 +77,7 @@ rocky help
 | `rocky attach ID` | Reattach to that run (prefix is enough). |
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
+| `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
 | `rocky help` | Print this guide. |
 
 ---
@@ -91,6 +92,7 @@ rocky help
 | `--no-server-tools` | off | Do not use OpenRouter server-side web tools. |
 | `--host` / `--port` | `127.0.0.1` `8787` | For `serve` only. |
 | `--attach` | empty | TUI: attach to an existing run id. |
+| `--json` | off | No live view; print the final result as JSON (for scripts, CI, other agents). |
 
 The **next** run still defaults to €1 unless you pass `--budget` again.
 
@@ -219,7 +221,27 @@ Never commit `OPENROUTER_API_KEY`. Put it in `~/.env` or a project `.env` that s
 
 ## 12. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`.
+`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plus any **MCP** tools you configure (below).
+
+### MCP servers
+
+Rocky speaks MCP over stdio. Put servers in `<workspace>/.rocky/mcp.json` (project) or `~/.rocky/mcp.json` (everywhere); the project file wins per server name. `mcpServers` (Claude Code / Cursor style) is accepted too.
+
+```json
+{
+  "servers": {
+    "playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]},
+    "notion": {"command": "notion-mcp", "env": {"NOTION_TOKEN": "${NOTION_TOKEN}"}},
+    "old": {"command": "x", "disabled": true}
+  }
+}
+```
+
+Each server's tools appear to workers as `mcp__<server>__<tool>` with the server's own schema. Servers start on first use and stop when the run ends; a server that fails to start is skipped and listed in the `mcp` event.
+
+### Project instructions
+
+If the workspace has `ROCKY.md`, `AGENTS.md`, or `CLAUDE.md` (first found, up to 8,000 chars), it is injected into every role's prompt for the run as **PROJECT INSTRUCTIONS** — conventions, tone, paths, what not to touch.
 
 Office/PDF (`.xlsx` `.docx` `.pptx` `.pdf`): the worker must `skill_view` the matching skill, then create the file with **openpyxl / python-docx / python-pptx / reportlab** via `bash`. Never `write_file` those binaries.
 

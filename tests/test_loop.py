@@ -628,3 +628,93 @@ def test_two_failed_verifications_swap_the_worker_instead_of_replanning(tmp_path
     assert third.split("/")[0] != first.split("/")[0], "swap should prefer another family"
     # plans: initial, after loop 1, after loop 3 — none after the stall in loop 2
     assert client.plan_calls == 3
+
+
+class McpClient(ScriptedClient):
+    """Worker that uses an MCP tool before writing the article."""
+
+    def __init__(self):
+        super().__init__()
+        self.tool_names: list[str] = []
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You execute this subtask" in system:
+            self.worker_round += 1
+            self.tool_names = [t["function"]["name"] for t in tools or [] if t.get("type") == "function"]
+            if self.worker_round == 1:
+                return Completion(
+                    content="",
+                    tool_calls=[ToolCall(id="m1", name="mcp__fake__echo", arguments={"text": "ads"})],
+                )
+            if self.worker_round == 2:
+                echoed = messages[-1]["content"]
+                return Completion(
+                    content="",
+                    tool_calls=[
+                        ToolCall(
+                            id="w1",
+                            name="write_file",
+                            arguments={"path": "article.md", "content": f"# {echoed}\n\nHello.\n"},
+                        )
+                    ],
+                )
+            return Completion(content="done")
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_workers_can_call_configured_mcp_tools(tmp_path, monkeypatch):
+    import sys
+    from pathlib import Path
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    fake = Path(__file__).parent / "fixtures" / "fake_mcp_server.py"
+    (tmp_path / ".rocky").mkdir()
+    (tmp_path / ".rocky" / "mcp.json").write_text(
+        json.dumps({"servers": {"fake": {"command": sys.executable, "args": [str(fake)]}}}), encoding="utf-8"
+    )
+    events = []
+    client = McpClient()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is True
+    assert "mcp__fake__echo" in client.tool_names
+    assert (tmp_path / "article.md").read_text().startswith("# ADS")
+    mcp = next(e.payload for e in events if e.type == "mcp")
+    assert mcp["servers"] == ["fake"] and mcp["tools"] == 2
+
+
+def test_project_instructions_are_injected(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    (tmp_path / "AGENTS.md").write_text("Always write in Lithuanian.\n", encoding="utf-8")
+    seen: list[str] = []
+
+    class Recording(ScriptedClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            seen.append(messages[0]["content"])
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=Recording(),
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    worker_prompt = next(s for s in seen if "You execute this subtask" in s)
+    assert "PROJECT INSTRUCTIONS (AGENTS.md" in worker_prompt
+    assert "Always write in Lithuanian." in worker_prompt
+    mem = next(e.payload for e in events if e.type == "memory")
+    assert mem["instructions"] == "AGENTS.md" and mem["instructions_chars"] > 0

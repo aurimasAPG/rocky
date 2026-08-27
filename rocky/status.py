@@ -67,6 +67,8 @@ def status_line(event: Event) -> str | None:
         return "catalog ready"
     if kind == "memory":
         return "loading memory"
+    if kind == "mcp":
+        return f"mcp · {payload.get('tools')} tools from {len(payload.get('servers') or [])} servers"
     if kind == "assessed":
         return f"thinking · assess · {payload.get('complexity')}/{payload.get('domain')}"
     if kind == "budget_offer":
@@ -88,6 +90,8 @@ def status_line(event: Event) -> str | None:
         return "thinking · worker"
     if kind == "tool_call":
         name = str(payload.get("name") or "tool")
+        if name.startswith("mcp__"):
+            name = "mcp · " + name[5:].replace("__", " · ")
         verb = _TOOL_VERB.get(name, name)
         hint = _hint(payload.get("arguments") or {})
         return f"{verb} · {hint}" if hint else verb

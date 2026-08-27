@@ -128,3 +128,19 @@ def test_snapshot_frozen_until_next_load(tmp_path, monkeypatch):
     assert "first fact" in frozen
     assert "second fact" not in frozen
     assert "second fact" in freeze_memory(tmp_path)
+
+
+def test_instruction_file_precedence_and_clip(tmp_path, monkeypatch):
+    from rocky.memory import INSTRUCTIONS_CAP, freeze_memory, read_instructions
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    assert read_instructions(tmp_path) == ("", "")
+    (tmp_path / "CLAUDE.md").write_text("claude rules", encoding="utf-8")
+    assert read_instructions(tmp_path)[0] == "CLAUDE.md"
+    (tmp_path / "AGENTS.md").write_text("x" * (INSTRUCTIONS_CAP + 500), encoding="utf-8")
+    name, text = read_instructions(tmp_path)
+    assert name == "AGENTS.md"
+    assert "clipped" in text and len(text) < INSTRUCTIONS_CAP + 100
+    (tmp_path / "ROCKY.md").write_text("rocky first", encoding="utf-8")
+    assert read_instructions(tmp_path) == ("ROCKY.md", "rocky first")
+    assert "PROJECT INSTRUCTIONS (ROCKY.md" in freeze_memory(tmp_path)

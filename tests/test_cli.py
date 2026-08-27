@@ -44,7 +44,7 @@ def test_rocky_help_prints_english_guide(capsys):
     assert "Rocky — how to use it" in out
     assert "Detach and reattach" in out
     assert "OPENROUTER_API_KEY" in out
-    assert "not a sandbox" in out
+    assert "ROCKY_SANDBOX" in out
     assert "ROCKY_TOKEN" in out
     assert "/Users/aurimas" not in out
     assert "uv tool install --force --reinstall ." in out
@@ -84,3 +84,82 @@ def test_interactive_session_runs_typed_goal(monkeypatch):
     monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
     assert main([]) == 0
     assert called["goal"] == "write notes.md"
+
+
+def test_json_mode_prints_one_object_and_answers_questions(tmp_path, monkeypatch, capsys):
+    import json
+
+    from rocky.events import Event
+    from rocky.runs import append_event, read_meta, run_dir, take_answer, write_ask, write_meta
+
+    monkeypatch.setattr("rocky.cli.api_key", lambda: "sk-test")
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
+
+    def fake_spawn(meta):
+        folder = run_dir(meta["workspace"], meta["id"])
+        append_event(folder, Event(type="run_started", payload={"goal": meta["goal"]}))
+        append_event(folder, Event(type="cast", payload={"models": {"worker": "google/flash"}}))
+        append_event(folder, Event(type="plan", payload={"deliverable_path": "out.md", "steps": []}))
+        write_ask(folder, "Raise budget?", ["yes", "keep"])
+        meta["status"] = "waiting"
+        meta["pid"] = __import__("os").getpid()  # alive, so refresh_meta does not mark it crashed
+        write_meta(folder, meta)
+        return meta["pid"]
+
+    monkeypatch.setattr("rocky.cli.spawn_worker", fake_spawn)
+
+    # Finish the run as soon as the CLI has answered the question.
+    original_read_ask = __import__("rocky.cli", fromlist=["read_ask"]).read_ask
+
+    def finishing_read_ask(folder):
+        ask = original_read_ask(folder)
+        answer = take_answer(folder)
+        if answer is not None:
+            assert "documented assumptions" in answer
+            append_event(folder, Event(type="verify", payload={"passed": True, "score": 0.9, "issues": []}))
+            append_event(
+                folder,
+                Event(type="done", payload={"passed": True, "summary": "ok", "loops": 1, "usd": 0.01, "eur": 0.009, "receipt": "r"}),
+            )
+            meta = read_meta(folder)
+            meta["status"] = "passed"
+            meta["passed"] = True
+            write_meta(folder, meta)
+            return None
+        return ask
+
+    monkeypatch.setattr("rocky.cli.read_ask", finishing_read_ask)
+
+    code = main(["write out.md", "--json", "-d", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert code == 0
+    data = json.loads(out)
+    assert data["passed"] is True
+    assert data["status"] == "passed"
+    assert data["deliverable_path"] == "out.md"
+    assert data["models"] == {"worker": "google/flash"}
+    assert data["eur"] == 0.009
+    assert data["events"].endswith("events.jsonl")
+    assert "Goal" not in out  # no rich transcript in JSON mode
+
+
+def test_json_mode_needs_a_goal(monkeypatch, capsys):
+    monkeypatch.setattr("rocky.cli.api_key", lambda: "sk-test")
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
+    assert main(["--json"]) == 2

@@ -26,6 +26,7 @@ from rocky.usage import (
     suggest_cap_eur,
     usd_from_eur,
 )
+from rocky.mcp import MCPError, MCPRegistry
 from rocky.memory import freeze_memory, recent_runs_block, snapshot_event_payload
 from rocky.pipeline import ensure_pipeline
 from rocky.skills import catalog_for_prompt
@@ -196,6 +197,14 @@ def orchestrate(
     tools = WorkspaceTools(workspace_path)
     searcher = WebTools()
     browser = BrowserSession()
+    mcp: MCPRegistry | None = None
+    try:
+        mcp = MCPRegistry.load(workspace_path)
+        if not mcp.names:
+            mcp = None
+    except MCPError as exc:
+        fire("error", message=f"mcp config ignored: {exc}")
+        mcp = None
     tally = Usage()
     rate = fetch_usd_eur_rate() if eur_rate is None else eur_rate
     usd_cap = float(budget) if budget is not None else usd_from_eur(budget_eur, rate)
@@ -350,6 +359,7 @@ def orchestrate(
             memory_snapshot=memory_snapshot,
             worker_context=worker_context,
             summarize=summarize,
+            mcp=mcp,
         )
         try:
             verify = _verify(
@@ -428,6 +438,9 @@ def orchestrate(
         browser.close()
     except Exception:
         pass
+    if mcp is not None:
+        fire("mcp", **mcp.summary())
+        mcp.close()
     return RunResult(
         passed=passed,
         goal=goal,
@@ -752,6 +765,7 @@ def _run_subagents(
     memory_snapshot: str = "",
     worker_context: int = DEFAULT_CONTEXT,
     summarize=None,
+    mcp=None,
 ) -> str:
     summaries: list[str] = []
     for wave in schedule_waves(plan.get("steps") or []):
@@ -781,6 +795,7 @@ def _run_subagents(
                 memory_snapshot=memory_snapshot,
                 worker_context=worker_context,
                 summarize=summarize,
+                mcp=mcp,
             )
 
         if len(wave) == 1:
@@ -816,9 +831,12 @@ def _run_subtask(
     memory_snapshot: str = "",
     worker_context: int = DEFAULT_CONTEXT,
     summarize=None,
+    mcp=None,
 ) -> str:
     fire("subtask_start", id=step.get("id"), title=step.get("title"), detail=step.get("detail"))
     specs = worker_tools(include_server_tools)
+    if mcp is not None:
+        specs = specs + mcp.tool_specs()
     messages: list[dict] = [
         {
             "role": "system",
@@ -921,6 +939,7 @@ def _run_subtask(
                         ask_user=ask_user,
                         llm=llm,
                         browser=browser,
+                        mcp=mcp,
                     )
                 except ToolError as exc:
                     result = f"error: {exc}"

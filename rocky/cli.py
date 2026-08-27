@@ -83,6 +83,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--no-server-tools", action="store_true")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_out",
+        help="Headless: run to completion, print one JSON object, no live view",
+    )
     args = parser.parse_args(rest)
     goal = " ".join(args.goal).strip()
     workspace = Path(args.dir).expanduser().resolve()
@@ -120,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
     client = OpenRouterClient(key, base_url())
     try:
-        if sys.stdout.isatty() and command not in {"ps", "attach", "help", "_job"}:
+        if sys.stdout.isatty() and not args.json_out and command not in {"ps", "attach", "help", "_job"}:
             from rocky.banner import print_banner
 
             print_banner(
@@ -142,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if goal:
             return _dispatch(command, client, goal, workspace, args)
+        if args.json_out:
+            console.print("[red]--json needs a goal on the command line[/]")
+            return 2
         if not sys.stdout.isatty():
             console.print("[bold]rocky[/]  Įrašyk užduotį. Tuščia eilutė arba [bold]q[/] — išeiti.")
             console.print(
@@ -167,6 +176,7 @@ def _dispatch(command, client, goal, workspace, args) -> int:
         max_loops=args.max_loops,
         budget_eur=args.budget,
         include_server_tools=not args.no_server_tools,
+        json_out=bool(getattr(args, "json_out", False)),
     )
 
 
@@ -195,7 +205,7 @@ def _ps(workspace: Path) -> int:
     return 0
 
 
-def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools) -> int:
+def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_out=False) -> int:
     meta = create_run(
         workspace=workspace,
         goal=goal,
@@ -204,10 +214,83 @@ def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools) -> int
         include_server_tools=include_server_tools,
     )
     spawn_worker(meta)
+    if json_out:
+        return _run_json(workspace, meta["id"])
     console.print(
         f"[dim]run {meta['id']}  ·  Enter detaches, job keeps running  ·  rocky attach {meta['id'][:18]}[/]"
     )
     return _attach(workspace, meta["id"])
+
+
+HEADLESS_ANSWER = "no human available; continue with documented assumptions"
+
+
+def collect_result(workspace: Path, run_id: str, events) -> dict:
+    """One JSON-friendly summary of a finished run from its meta and events."""
+    folder = run_dir(workspace, run_id)
+    meta = refresh_meta(folder)
+    done: dict = {}
+    plan: dict = {}
+    verify: dict = {}
+    cast: dict = {}
+    for event in events:
+        if event.type == "done":
+            done = event.payload
+        elif event.type == "plan":
+            plan = event.payload
+        elif event.type == "verify":
+            verify = event.payload
+        elif event.type == "cast":
+            cast = event.payload.get("models") or {}
+    status = meta.get("status") or ("passed" if done.get("passed") else "unmet")
+    return {
+        "run_id": run_id,
+        "status": status,
+        "passed": bool(meta.get("passed", done.get("passed", False))),
+        "goal": meta.get("goal"),
+        "workspace": str(workspace),
+        "deliverable_path": plan.get("deliverable_path"),
+        "summary": done.get("summary") or meta.get("summary") or "",
+        "score": verify.get("score"),
+        "issues": verify.get("issues") or [],
+        "loops": done.get("loops"),
+        "models": cast,
+        "usd": done.get("usd"),
+        "eur": done.get("eur"),
+        "prompt_tokens": done.get("prompt_tokens"),
+        "completion_tokens": done.get("completion_tokens"),
+        "total_tokens": done.get("total_tokens"),
+        "receipt": done.get("receipt"),
+        "events": str(folder / "events.jsonl"),
+    }
+
+
+def _run_json(workspace: Path, run_id: str, poll: float = 0.2) -> int:
+    """Headless follow: answer questions with a safe default, print JSON at the end."""
+    import json as _json
+
+    folder = run_dir(workspace, run_id)
+    cursor = EventCursor(folder / "events.jsonl")
+    seen = []
+    asked_ts = None
+    while True:
+        seen.extend(cursor.poll())
+        try:
+            meta = refresh_meta(folder)
+        except FileNotFoundError:
+            sys.stdout.write(_json.dumps({"run_id": run_id, "status": "error", "passed": False, "summary": "run folder vanished"}) + "\n")
+            return 1
+        ask = read_ask(folder)
+        if ask and ask.get("ts") != asked_ts:
+            asked_ts = ask.get("ts")
+            write_answer(folder, HEADLESS_ANSWER)
+        if (meta.get("status") or "") in TERMINAL:
+            seen.extend(cursor.poll())
+            result = collect_result(workspace, run_id, seen)
+            sys.stdout.write(_json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+            sys.stdout.flush()
+            return 0 if result["passed"] else 1
+        time.sleep(poll)
 
 
 def _attach(workspace: Path, run_id: str) -> int:

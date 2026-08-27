@@ -10,6 +10,9 @@ SEP = "\n§\n"
 USER_CAP = 1375
 MEMORY_CAP = 2200
 RECENT_LIMIT = 5
+# Project instruction files, first match wins. Same idea as every coding agent.
+INSTRUCTION_FILES = ("ROCKY.md", "AGENTS.md", "CLAUDE.md")
+INSTRUCTIONS_CAP = 8000
 
 
 def user_path() -> Path:
@@ -90,6 +93,26 @@ def recent_runs_block(workspace: str | Path, limit: int = RECENT_LIMIT) -> str:
     return f"{line}\nRECENT RUNS (this workspace)\n{line}\n" + "\n".join(rows)
 
 
+def instructions_path(workspace: str | Path) -> Path | None:
+    root = Path(workspace).expanduser().resolve()
+    for name in INSTRUCTION_FILES:
+        candidate = root / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def read_instructions(workspace: str | Path) -> tuple[str, str]:
+    """(filename, text) of the project instruction file, clipped; ("", "") when absent."""
+    path = instructions_path(workspace)
+    if path is None:
+        return "", ""
+    text = _read(path).strip()
+    if len(text) > INSTRUCTIONS_CAP:
+        text = text[:INSTRUCTIONS_CAP] + f"\n… (clipped at {INSTRUCTIONS_CAP} chars)"
+    return path.name, text
+
+
 def freeze_memory(workspace: str | Path) -> str:
     """Frozen snapshot for this run. Disk writes after this are visible next run."""
     user = _read(user_path())
@@ -98,6 +121,10 @@ def freeze_memory(workspace: str | Path) -> str:
         _block("USER (preferences)", user, USER_CAP),
         _block("MEMORY (this workspace)", mem, MEMORY_CAP),
     ]
+    name, instructions = read_instructions(workspace)
+    if instructions:
+        line = "═" * 46
+        parts.append(f"{line}\nPROJECT INSTRUCTIONS ({name} — follow these)\n{line}\n{instructions}")
     recent = recent_runs_block(workspace)
     if recent:
         parts.append(recent)
@@ -185,8 +212,11 @@ def snapshot_event_payload(workspace: str | Path) -> dict:
     user = _read(user_path())
     mem = _read(memory_path(workspace))
     recent = [r for r in list_runs(workspace, limit=40) if str(r.get("status") or "") in TERMINAL]
+    name, instructions = read_instructions(workspace)
     return {
         "user_chars": len(user),
         "memory_chars": len(mem),
         "recent_runs": min(len(recent), RECENT_LIMIT),
+        "instructions": name,
+        "instructions_chars": len(instructions),
     }

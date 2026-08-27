@@ -80,6 +80,7 @@ Every run prints a **receipt**: input / output / total tokens, USD (OpenRouter),
 | `rocky attach [id]` | Reattach (Enter detaches) |
 | `rocky serve` | Team web UI at http://127.0.0.1:8787 |
 | `rocky help` | Full English user guide |
+| `rocky "goal" --json` | Headless: print one JSON result, exit 0 on pass |
 | `rocky route "goal"` | Only assess + pick models (no tools) |
 
 ## Safety
@@ -98,7 +99,11 @@ The next goal in the same folder continues the last one. Frozen at each run star
 - `<workspace>/.rocky/MEMORY.md` — facts about this project (2,200 chars)
 - last 5 finished runs (goal + summary)
 
-Workers can `memory` add/replace/remove and `runs_search` older runs. Disk updates immediately; the prompt snapshot refreshes on the **next** run. Details: `rocky help`.
+Workers can `memory` add/replace/remove and `runs_search` older runs. Disk updates immediately; the prompt snapshot refreshes on the **next** run. A `ROCKY.md` / `AGENTS.md` / `CLAUDE.md` in the workspace is injected as project instructions. Details: `rocky help`.
+
+## MCP
+
+Add stdio MCP servers in `<workspace>/.rocky/mcp.json` or `~/.rocky/mcp.json`; their tools show up to workers as `mcp__<server>__<tool>`. Format and examples: `rocky help`.
 
 ## How models are chosen
 

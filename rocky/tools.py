@@ -464,12 +464,22 @@ def dispatch(
     ask_user=None,
     llm=None,
     browser=None,
+    mcp=None,
 ) -> str:
     if isinstance(arguments, str):
         args = parse_json_object(arguments) if arguments.strip() else {}
     else:
         args = arguments or {}
     try:
+        if name.startswith("mcp__"):
+            if mcp is None:
+                raise ToolError("no MCP servers configured (.rocky/mcp.json)")
+            from rocky.mcp import MCPError
+
+            try:
+                return _clip(mcp.call(name, args))
+            except MCPError as exc:
+                raise ToolError(str(exc)) from exc
         if name == "bash":
             return tools.bash(args.get("command") or "")
         if name == "write_file":
