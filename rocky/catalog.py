@@ -196,19 +196,30 @@ def eligible_workers(models: list[Model], complexity: str, domain: str) -> list[
     return sorted(pool, key=lambda m: (m.blended_per_million, -capability(m, families)))
 
 
+# A stall swap may pick a worker up to this blended $/M — strong, not frontier-priced.
+STALL_SWAP_MAX_PRICE = 12.0
+
+
 def alternate_worker(
     models: list[Model],
     complexity: str,
     domain: str,
     exclude: set[str],
 ) -> Model | None:
-    """Next worker to try after a stall: a different family first, then any other model."""
+    """Worker to try after a stall: the most capable affordable model from an unused family.
+
+    A stalled worker was too weak for the plan, so the swap goes *up* in
+    capability (never to the cheapest remaining model), preferring a family
+    that has not been tried yet.
+    """
     pool = [m for m in eligible_workers(models, complexity, domain) if m.id not in exclude]
     if not pool:
         return None
+    families = _work_families(domain)
     used_families = {mid.split("/", 1)[0] for mid in exclude}
-    fresh = [m for m in pool if m.family not in used_families]
-    return (fresh or pool)[0]
+    affordable = [m for m in pool if m.blended_per_million <= STALL_SWAP_MAX_PRICE] or pool
+    fresh = [m for m in affordable if m.family not in used_families] or affordable
+    return max(fresh, key=lambda m: (capability(m, families), -m.blended_per_million))
 
 
 def pick_cast(

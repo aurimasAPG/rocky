@@ -175,3 +175,23 @@ def test_verifier_skips_ultra_expensive_when_a_strong_peer_exists():
     verifier = next(m for m in models if m.id == cast.verifier)
     assert verifier.blended_per_million <= 20
     assert verifier.family != cast.planner.split("/")[0]
+
+
+def test_stall_swap_goes_up_in_capability_not_down():
+    from rocky.catalog import Model, alternate_worker
+
+    models = [
+        Model(id="google/flash", name="", prompt_price=1e-7, completion_price=4e-7, context_length=200_000, params={"tools", "structured_outputs"}),
+        Model(id="inclusionai/ling", name="", prompt_price=2e-8, completion_price=6e-8, context_length=128_000, params={"tools"}),
+        Model(id="deepseek/v4", name="", prompt_price=3e-7, completion_price=1.2e-6, context_length=128_000, params={"tools", "reasoning", "structured_outputs"}),
+        Model(id="openai/mini", name="", prompt_price=1e-6, completion_price=4e-6, context_length=200_000, params={"tools", "reasoning", "structured_outputs"}),
+        Model(id="anthropic/opus", name="", prompt_price=1.5e-5, completion_price=7.5e-5, context_length=200_000, params={"tools", "reasoning", "structured_outputs"}),
+    ]
+    swap = alternate_worker(models, "moderate", "marketing", exclude={"google/flash"})
+    assert swap is not None
+    assert swap.id != "inclusionai/ling", "must not fall back to the weakest model"
+    assert swap.family != "google"
+    assert swap.blended_per_million <= 12
+    # second stall: another family again, still not the cheapest
+    swap2 = alternate_worker(models, "moderate", "marketing", exclude={"google/flash", swap.id})
+    assert swap2 is not None and swap2.id not in {"google/flash", swap.id, "inclusionai/ling"}
