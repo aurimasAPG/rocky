@@ -100,7 +100,7 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable.
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
-3. **Cast** — live OpenRouter catalog. Planner (strong), worker (cheap, tools), verifier (other family, no tools).
+3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family, no tools).
 4. **Critic** — attacks the brief, sets a quality bar.
 5. **Plan** — subtasks with `depends_on`. Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.
@@ -142,7 +142,13 @@ If Rocky asks a budget or clarify question while you are detached, attach again 
 
 ---
 
-## 7. CLI keys
+## 7. Live status
+
+On a TTY, one spinner line is rewritten in place (Claude Code / OpenCode style): `thinking · plan`, `researching · …`, `writing · article.md`. Plan, critic, verify, and the price stay as panels. Detach with Enter.
+
+---
+
+## 8. CLI keys
 
 - Type a goal, Enter — start a run and attach.
 - Empty line or `q` at the **goal** prompt — leave Rocky.
@@ -153,7 +159,9 @@ Copy-paste in the CLI is normal terminal selection: drag, then Cmd+C (macOS) or 
 
 ---
 
-## 8. TUI keys
+## 9. TUI keys
+
+While a run is attached, one live line (Claude Code / OpenCode style) shows the current action: `thinking · plan`, `researching · …`, `writing · article.md`. It stays on the same row. The TUI puts that line above the three panes.
 
 Panes: **plan** | **work** | **verify**. Type in the box at the bottom.
 
@@ -171,7 +179,7 @@ Ctrl+C copies; it is not “kill the app”. Shift+drag uses the terminal’s ow
 
 ---
 
-## 9. Team web UI
+## 10. Team web UI
 
 ```bash
 rocky serve
@@ -187,7 +195,7 @@ The web UI has no human-in-the-loop for budget raises. If a task looks expensive
 
 ---
 
-## 10. Workspace and safety
+## 11. Workspace and safety
 
 Rocky is **fully autonomous inside `--dir`**. There is no “are you sure?” on file writes. File tools reject paths that escape the folder.
 
@@ -201,15 +209,15 @@ Never commit `OPENROUTER_API_KEY`. Put it in `~/.env` or a project `.env` that s
 
 ---
 
-## 11. Tools the worker can call
+## 12. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `clarify`, `skills_list`, `skill_view`, `office_read`.
+`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`.
 
 Office/PDF (`.xlsx` `.docx` `.pptx` `.pdf`): the worker must `skill_view` the matching skill, then create the file with **openpyxl / python-docx / python-pptx / reportlab** via `bash`. Never `write_file` those binaries.
 
 ---
 
-## 12. Skills
+## 13. Skills
 
 Bundled: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`.
 
@@ -223,7 +231,7 @@ Ads / copy / campaign goals are planned as **research → VOC → copy → pptx 
 
 ---
 
-## 13. Budget hints
+## 14. Budget hints
 
 | Looks like | Typical guess vs €1 |
 | --- | --- |
@@ -234,7 +242,7 @@ Ads / copy / campaign goals are planned as **research → VOC → copy → pptx 
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
@@ -248,6 +256,26 @@ Ads / copy / campaign goals are planned as **research → VOC → copy → pptx 
 
 ---
 
-## 15. What Rocky is not
+## 16. Memory
+
+Each new goal used to start blank. Rocky now keeps Hermes-style memory in the same workspace.
+
+| Store | Where | Cap | What belongs there |
+| --- | --- | --- | --- |
+| **USER.md** | `~/.rocky/memories/USER.md` | 1,375 chars | You: language, tone, habits |
+| **MEMORY.md** | `<workspace>/.rocky/MEMORY.md` | 2,200 chars | This folder: paths, conventions, learned facts |
+| **Recent runs** | `.rocky/runs/*/meta.json` | last 5 finished | Previous goals and verifier summaries |
+
+USER + MEMORY are **frozen at run start** and injected into critic, planner, workers, and verifier. Writes via the `memory` tool hit disk immediately but show up in the **next** run’s prompt (same freeze as Hermes, so this run does not rewrite its own system prompt).
+
+`runs_search` looks through older runs when the user says “that article” / “the last deck”. Follow-up goals in the same folder (“now make a pptx from that”) should continue the last deliverable unless you clearly replace it.
+
+Do not dump transcripts into memory. Compact facts only. If a file is full, replace or remove an entry first.
+
+Override the home folder in tests or odd setups: `ROCKY_HOME=/path`.
+
+---
+
+## 17. What Rocky is not
 
 It is not a coding harness like Claude Code or Codex. Those keep one strong model in a long loop. Rocky is a **cast + budget + verify** shop: cheap hands, independent checker, euro cap. Use it for research, copy, decks, and bounded autonomous work in a folder. For a nasty repo refactor, a dedicated coding agent is usually better.

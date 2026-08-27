@@ -37,6 +37,9 @@ COMPLEXITY_FLOOR = {
     "hard": 0.7,
 }
 
+# Cheap multilingual workhorse (Lithuanian + tools). Overridable via ROCKY_WORKER.
+DEFAULT_WORKER_MODEL = "google/gemini-3.7-flash"
+
 
 @dataclass
 class Model:
@@ -151,7 +154,33 @@ def _tool_models(models: list[Model], min_context: int = 8000) -> list[Model]:
     return out or [m for m in models if m.has_tools and ":batch" not in m.id]
 
 
-def pick_cast(models: list[Model], complexity: str, domain: str) -> Cast:
+def _matches_preferred_worker(model_id: str, preferred: str) -> bool:
+    if not preferred or ":batch" in model_id:
+        return False
+    if model_id == preferred:
+        return True
+    if not model_id.startswith(preferred):
+        return False
+    rest = model_id[len(preferred) :].lower()
+    if rest.startswith("-lite") or "lite" in rest:
+        return False
+    return rest.startswith("-") or rest.startswith("/")
+
+
+def _pinned_worker(pool: list[Model], preferred: str) -> Model | None:
+    hits = [m for m in pool if _matches_preferred_worker(m.id, preferred)]
+    if not hits:
+        return None
+    exact = next((m for m in hits if m.id == preferred), None)
+    return exact or min(hits, key=lambda m: m.blended_per_million)
+
+
+def pick_cast(
+    models: list[Model],
+    complexity: str,
+    domain: str,
+    preferred_worker: str | None = None,
+) -> Cast:
     complexity = complexity if complexity in COMPLEXITY_FLOOR else "moderate"
     tool = _tool_models(models)
     if not tool:
@@ -179,10 +208,14 @@ def pick_cast(models: list[Model], complexity: str, domain: str) -> Cast:
         if capability(m, work_families) >= floor
         and m.context_length >= (16_000 if complexity == "trivial" else 32_000)
     ] or tool
-    worker = min(
-        eligible,
-        key=lambda m: (m.blended_per_million, -capability(m, work_families)),
-    )
+    pin = DEFAULT_WORKER_MODEL if preferred_worker is None else preferred_worker.strip()
+    worker = _pinned_worker(eligible, pin) or _pinned_worker(tool, pin)
+    pinned = worker is not None
+    if worker is None:
+        worker = min(
+            eligible,
+            key=lambda m: (m.blended_per_million, -capability(m, work_families)),
+        )
 
     verify_pool = [
         m
@@ -192,6 +225,11 @@ def pick_cast(models: list[Model], complexity: str, domain: str) -> Cast:
     affordable = [m for m in verify_pool if m.blended_per_million <= 20]
     verifier = (affordable or verify_pool or [planner])[0]
 
+    worker_reason = (
+        f"default worker {worker.id} ({worker.blended_per_million:.3f}/M)"
+        if pinned
+        else f"cheapest tool model above {complexity} floor ({worker.blended_per_million:.3f}/M)"
+    )
     return Cast(
         assess=assess.id,
         critic=critic.id,
@@ -202,7 +240,7 @@ def pick_cast(models: list[Model], complexity: str, domain: str) -> Cast:
             "assess": f"cheapest structured/tool model ({assess.blended_per_million:.3f}/M blended)",
             "critic": f"critiques the brief before work is split ({critic.family})",
             "planner": f"highest planning capability in {planner.family}",
-            "worker": f"cheapest tool model above {complexity} floor ({worker.blended_per_million:.3f}/M)",
+            "worker": worker_reason,
             "verifier": f"strong model in {verifier.family}, not {planner.family}",
         },
     )

@@ -30,6 +30,21 @@ def serve_token() -> str:
     return (os.environ.get("ROCKY_TOKEN") or os.environ.get("ORCHE_TOKEN") or "").strip()
 
 
+def preferred_worker() -> str | None:
+    """None = catalog default (Gemini 3.7 Flash). Non-empty = pin that OpenRouter id."""
+    load_env()
+    raw = (os.environ.get("ROCKY_WORKER") or os.environ.get("ORCHE_WORKER") or "").strip()
+    return raw or None
+
+
+def rocky_home() -> Path:
+    load_env()
+    raw = (os.environ.get("ROCKY_HOME") or "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return Path.home() / ".rocky"
+
+
 def allowed_workspaces() -> list[Path]:
     load_env()
     raw = os.environ.get("ROCKY_WORKSPACES") or os.environ.get("ORCHE_WORKSPACES") or ""

@@ -93,6 +93,16 @@ Rocky **visiškai autonomiškas** kataloge `--dir`. Failų įrankiai neleidžia 
 
 Raktą laikyk `~/.env` arba projekto `.env`, kurio git nemato.
 
+## Atmintis
+
+Kitas tikslas tame pačiame kataloge tęsia ankstesnį. Paleidimo pradžioje užšaldoma (kaip Hermes):
+
+- `~/.rocky/memories/USER.md` — kas tu (1 375 ženklai)
+- `<katalogas>/.rocky/MEMORY.md` — šio projekto faktai (2 200 ženklų)
+- paskutiniai 5 baigti paleidimai (tikslas + santrauka)
+
+Darbuotojas gali `memory` (add / replace / remove) ir `runs_search`. Į diską rašoma iškart; į promptą pateks **kitą** paleidimą.
+
 ## Kas vyksta paleidus
 
 1. Pigus modelis įvertina sudėtingumą.
@@ -100,7 +110,7 @@ Raktą laikyk `~/.env` arba projekto `.env`, kurio git nemato.
 3. Iš gyvo katalogo parenkamas trejetas: planuotojas, darbuotojas, tikrintojas.
 4. Kritikas užpuola užduotį ir nustato kokybės kartelę.
 5. Planuotojas skaido darbą (`depends_on`, lygiagrečios bangos).
-6. Darbuotojai — po pokalbį kiekvienai daliai, bendras katalogas.
+6. Darbuotojai — po pokalbį kiekvienai daliai, bendras katalogas. Numatytasis modelis — Gemini 3.7 Flash (`ROCKY_WORKER` pakeičia).
 7. Tikrintojas vertina **visą** rezultatą. „Beveik gerai“ — nesėkmė, planas perskirstomas.
 
 Rinkodaros / skelbimų / tekstų tikslai planuojami seka **tyrimas → VOC → tekstas → pptx + xlsx**.

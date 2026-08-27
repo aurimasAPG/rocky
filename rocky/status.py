@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from rocky.events import Event
+
+# Events that still get a full log/panel. Everything else is status-line only on a TTY.
+TRANSCRIPT_TYPES = frozenset(
+    {
+        "run_started",
+        "assessed",
+        "budget_offer",
+        "budget_set",
+        "budget_warn",
+        "cast",
+        "critique",
+        "plan",
+        "subtask_start",
+        "verify",
+        "done",
+        "error",
+    }
+)
+
+_TOOL_VERB = {
+    "web_search": "researching",
+    "web_fetch": "reading the web",
+    "browser_navigate": "browsing",
+    "browser_snapshot": "browsing",
+    "browser_close": "closing browser",
+    "read_file": "reading",
+    "write_file": "writing",
+    "patch": "editing",
+    "grep": "searching files",
+    "list_dir": "listing",
+    "bash": "running",
+    "todo": "tracking",
+    "memory": "remembering",
+    "runs_search": "recalling",
+    "skill_view": "loading skill",
+    "skills_list": "listing skills",
+    "office_read": "reading office",
+    "vision_analyze": "looking",
+    "clarify": "asking you",
+}
+
+_HINT_KEYS = ("path", "query", "url", "command", "name", "pattern", "text", "title")
+
+
+def _hint(arguments: dict) -> str:
+    for key in _HINT_KEYS:
+        value = arguments.get(key)
+        if value:
+            text = " ".join(str(value).split())
+            return text[:56]
+    return ""
+
+
+def status_line(event: Event) -> str | None:
+    """One-line Claude Code / OpenCode style activity. None = keep the previous line."""
+    kind = event.type
+    payload = event.payload or {}
+    if kind == "run_started":
+        return "starting"
+    if kind == "catalog":
+        if payload.get("status") == "fetching":
+            return "fetching models"
+        return "catalog ready"
+    if kind == "memory":
+        return "loading memory"
+    if kind == "assessed":
+        return f"thinking · assess · {payload.get('complexity')}/{payload.get('domain')}"
+    if kind == "budget_offer":
+        return "waiting for budget"
+    if kind == "budget_set":
+        return "thinking · plan"
+    if kind == "cast":
+        return "picking models"
+    if kind == "critique":
+        return "thinking · critic"
+    if kind == "plan":
+        return "thinking · plan"
+    if kind == "loop":
+        return f"thinking · loop {payload.get('n')}/{payload.get('max')}"
+    if kind == "subtask_start":
+        title = payload.get("title") or "subtask"
+        return f"working · {title}"
+    if kind == "subtask_done":
+        return "thinking · worker"
+    if kind == "tool_call":
+        name = str(payload.get("name") or "tool")
+        verb = _TOOL_VERB.get(name, name)
+        hint = _hint(payload.get("arguments") or {})
+        return f"{verb} · {hint}" if hint else verb
+    if kind == "tool_result":
+        return "thinking · worker"
+    if kind == "worker":
+        return "thinking · worker"
+    if kind == "verify":
+        return "checking result" if not payload.get("passed") else "verified"
+    if kind == "error":
+        msg = str(payload.get("message") or "error")
+        return f"error · {msg[:72]}"
+    if kind == "done":
+        return "done · passed" if payload.get("passed") else "done · unmet"
+    if kind == "cost":
+        return None
+    return None

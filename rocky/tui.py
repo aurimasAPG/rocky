@@ -13,6 +13,7 @@ from textual.widgets import Footer, Header, Input, Log, Static
 from rocky.banner import tui_splash
 from rocky.clip import copy_text, paste_text
 from rocky.events import Event
+from rocky.status import status_line
 from rocky.job import spawn_worker
 from rocky.runs import (
     TERMINAL,
@@ -49,6 +50,7 @@ class OrcheTui(App):
     Footer { background: #152228; color: #7D8B90; }
     #cast { height: 9; padding: 1 2; color: #E8F0EA; background: #243540; }
     #bill { height: 3; padding: 0 2; color: #F07167; background: #152228; }
+    #pulse { height: 1; padding: 0 2; color: #E8A87C; background: #152228; }
     #body { height: 1fr; }
     .col { border: solid #E8A87C; background: #243540; }
     .col Log { color: #E8F0EA; }
@@ -75,11 +77,13 @@ class OrcheTui(App):
         self._awaiting_ask = False
         self._ask_ts = None
         self._follow_stop = threading.Event()
+        self._pulse = "ready"
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(tui_splash(), id="cast")
         yield Static("0 in · 0 out · 0 tokens  ·  $0.00  ·  €0.00", id="bill")
+        yield Static("ready", id="pulse")
         with Horizontal(id="body"):
             with Vertical(classes="col", id="plan"):
                 yield Log(id="plan_log", max_lines=8000)
@@ -154,6 +158,7 @@ class OrcheTui(App):
             self.query_one(f"#{log_id}", Log).clear()
         self.query_one("#cast", Static).update(f"run {meta['id']}\nq atsikabina — darbas tęsiasi")
         self.query_one("#work_log", Log).write_line(f"start · {goal}")
+        self.query_one("#pulse", Static).update("starting")
         self._watch(meta["id"])
 
     def _watch(self, run_id: str) -> None:
@@ -201,6 +206,9 @@ class OrcheTui(App):
 
     def _idle(self) -> None:
         self._busy = False
+        if not self._pulse.startswith("done"):
+            self._pulse = "ready"
+            self.query_one("#pulse", Static).update("ready")
         self.query_one("#goal_in", GoalInput).disabled = False
         self.query_one("#goal_in", GoalInput).focus()
 
@@ -208,6 +216,10 @@ class OrcheTui(App):
         self.call_from_thread(self._on_event, event)
 
     def _on_event(self, event: Event) -> None:
+        line = status_line(event)
+        if line:
+            self._pulse = line
+            self.query_one("#pulse", Static).update(line)
         payload = event.payload
         kind = event.type
         if kind == "run_started":

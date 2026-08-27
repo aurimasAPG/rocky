@@ -99,6 +99,68 @@ def test_batch_only_models_are_ignored():
     assert ":batch" not in cast.verifier
 
 
+def test_worker_defaults_to_gemini_37_flash_when_present():
+    models = FIXTURE + [
+        _m(
+            "google/gemini-3.7-flash",
+            0.000000375,
+            0.000001875,
+            context=1_000_000,
+            params=["tools", "structured_outputs", "reasoning"],
+            desc="agentic flash",
+        ),
+        _m(
+            "google/gemini-3.7-flash-lite",
+            0.0000001,
+            0.0000004,
+            context=1_000_000,
+            params=["tools", "structured_outputs"],
+            desc="lite",
+        ),
+    ]
+    cast = pick_cast(models, complexity="moderate", domain="writing")
+    assert cast.worker == "google/gemini-3.7-flash"
+    assert "default worker" in cast.reasons["worker"]
+
+
+def test_worker_skips_gemini_37_batch_and_lite():
+    models = FIXTURE + [
+        _m(
+            "google/gemini-3.7-flash:batch",
+            0.0000001,
+            0.0000005,
+            params=["tools", "structured_outputs"],
+        ),
+        _m(
+            "google/gemini-3.7-flash-lite",
+            0.0000001,
+            0.0000004,
+            params=["tools", "structured_outputs"],
+        ),
+    ]
+    cast = pick_cast(models, complexity="moderate", domain="research")
+    assert cast.worker != "google/gemini-3.7-flash:batch"
+    assert cast.worker != "google/gemini-3.7-flash-lite"
+
+
+def test_worker_pin_overrides_default():
+    models = FIXTURE + [
+        _m(
+            "google/gemini-3.7-flash",
+            0.000000375,
+            0.000001875,
+            params=["tools", "structured_outputs"],
+        )
+    ]
+    cast = pick_cast(
+        models,
+        complexity="moderate",
+        domain="research",
+        preferred_worker="deepseek/v4-flash",
+    )
+    assert cast.worker == "deepseek/v4-flash"
+
+
 def test_verifier_skips_ultra_expensive_when_a_strong_peer_exists():
     models = FIXTURE + [
         _m(

@@ -123,7 +123,8 @@ MODELS = [
 ]
 
 
-def test_loop_writes_deliverable_and_passes(tmp_path):
+def test_loop_writes_deliverable_and_passes(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
     events = []
     result = orchestrate(
         goal="Write a short article",
@@ -155,6 +156,43 @@ def test_loop_writes_deliverable_and_passes(tmp_path):
     assert done["eur"] == 0.009
     assert "$0.010" in done["receipt"]
     assert "€0.009" in done["receipt"]
+    assert "memory" in types
+
+
+def test_loop_injects_frozen_memory_into_cast(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    rocky = tmp_path / ".rocky"
+    rocky.mkdir()
+    (rocky / "MEMORY.md").write_text("Last deliverable is article.md\n", encoding="utf-8")
+    seen: list[str] = []
+
+    class Recording(ScriptedClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            seen.append(messages[0]["content"] if messages else "")
+            if len(messages) > 1:
+                seen.append(str(messages[1].get("content") or ""))
+            return super().complete(
+                model=model,
+                messages=messages,
+                tools=tools,
+                json_schema=json_schema,
+                extra=extra,
+            )
+
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=Recording(),
+        models=MODELS,
+        max_loops=2,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    blob = "\n".join(seen)
+    assert "Last deliverable is article.md" in blob
+    assert "You critique briefs" in blob
+    assert "You write the plan" in blob
+    assert "You execute this subtask" in blob
 
 
 class TwoSubtaskClient:
@@ -256,7 +294,8 @@ class TwoSubtaskClient:
         raise AssertionError(system[:80])
 
 
-def test_two_subagents_run_in_dependency_order(tmp_path):
+def test_two_subagents_run_in_dependency_order(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
     events = []
     result = orchestrate(
         goal="Research then write",

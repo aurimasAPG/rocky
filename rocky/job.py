@@ -78,6 +78,7 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
         meta = read_meta(folder)
         meta["status"] = "passed" if result.passed else "unmet"
         meta["passed"] = result.passed
+        meta["summary"] = (result.summary or "")[:500]
         meta["finished"] = _now()
         write_meta(folder, meta)
         return 0 if result.passed else 1

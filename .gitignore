@@ -22,3 +22,6 @@ runs/
 
 deliverables/
 node_modules/
+
+# stray run outputs written to the repo root
+/užduotis

@@ -379,6 +379,43 @@ CLIENT_TOOL_SPECS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory",
+            "description": (
+                "Add, replace, or remove a durable memory entry. "
+                "target=user is global preferences (~/.rocky/memories/USER.md, 1375 chars). "
+                "target=memory is facts about THIS workspace (.rocky/MEMORY.md, 2200 chars). "
+                "Writes hit disk now but the prompt snapshot refreshes next run. "
+                "Store compact facts, not transcripts."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["add", "replace", "remove"]},
+                    "target": {"type": "string", "enum": ["memory", "user"]},
+                    "text": {"type": "string"},
+                    "old_text": {"type": "string"},
+                },
+                "required": ["action", "target"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "runs_search",
+            "description": (
+                "Search prior Rocky runs in this workspace (goal, status, summary). "
+                "Use when the user refers to earlier work ('that article', 'the last deck')."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+            },
+        },
+    },
 ]
 
 SERVER_TOOLS = [
@@ -496,6 +533,14 @@ def dispatch(
             if not path.exists():
                 raise ToolError(f"not found: {args.get('path')}")
             return read_office(path)[:50000] or "(empty)"
+        if name == "memory":
+            from rocky.memory import apply_memory
+
+            return apply_memory(tools.root, args)
+        if name == "runs_search":
+            from rocky.memory import search_runs
+
+            return search_runs(tools.root, str(args.get("query") or ""))
         raise ToolError(f"unknown tool: {name}")
     except ToolError:
         raise

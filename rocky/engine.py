@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from rocky.catalog import Cast, Model, parse_models, pick_cast
+from rocky.config import preferred_worker
 from rocky.events import Emit, Event
 from rocky.jsonutil import JsonParseError, parse_json_object
 from rocky.extras import BrowserSession
@@ -24,6 +25,7 @@ from rocky.usage import (
     suggest_cap_eur,
     usd_from_eur,
 )
+from rocky.memory import freeze_memory, recent_runs_block, snapshot_event_payload
 from rocky.pipeline import ensure_pipeline
 from rocky.skills import catalog_for_prompt
 from rocky.tools import (
@@ -180,6 +182,7 @@ def orchestrate(
 
     workspace_path = Path(workspace).expanduser().resolve()
     workspace_path.mkdir(parents=True, exist_ok=True)
+    memory_snapshot = freeze_memory(workspace_path)
     tools = WorkspaceTools(workspace_path)
     searcher = WebTools()
     browser = BrowserSession()
@@ -195,6 +198,7 @@ def orchestrate(
         budget_eur=round(float(budget_eur if budget is None else eur_from_usd(usd_cap, rate)), 3),
         max_loops=max_loops,
     )
+    fire("memory", **snapshot_event_payload(workspace_path))
 
     if models is None:
         fire("catalog", status="fetching")
@@ -209,7 +213,7 @@ def orchestrate(
         fire("cost", model=completion.model, receipt=receipt, **bill)
 
     # Cheap default cast for assess model id; refine after assessment.
-    draft = pick_cast(models, "moderate", "mixed")
+    draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
     assess_raw = _chat(
         client,
         model=draft.assess,
@@ -220,7 +224,7 @@ def orchestrate(
             "domain: code | research | writing | marketing | ops | mixed. "
             "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO."
         ),
-        user=f"User instruction:\n{goal}",
+        user=_assess_user(goal, workspace_path),
         json_schema=ASSESS_SCHEMA,
     )
     spend(assess_raw)
@@ -255,6 +259,7 @@ def orchestrate(
         models,
         str(assessment.get("complexity") or "moderate"),
         str(assessment.get("domain") or "mixed"),
+        preferred_worker=preferred_worker(),
     )
     fire("cast", **{"models": {
         "assess": cast.assess,
@@ -264,9 +269,19 @@ def orchestrate(
         "verifier": cast.verifier,
     }, "reasons": cast.reasons})
 
-    critique = _critique(client, cast.critic, goal, assessment, spend, fire)
+    critique = _critique(
+        client, cast.critic, goal, assessment, spend, fire, memory_snapshot=memory_snapshot
+    )
     plan = _make_plan(
-        client, cast.planner, goal, assessment, workspace_path, spend, fire, critique=critique
+        client,
+        cast.planner,
+        goal,
+        assessment,
+        workspace_path,
+        spend,
+        fire,
+        critique=critique,
+        memory_snapshot=memory_snapshot,
     )
     worker_summary = ""
     passed = False
@@ -296,6 +311,7 @@ def orchestrate(
             ask_user=ask_user,
             llm=client,
             browser=browser,
+            memory_snapshot=memory_snapshot,
         )
         try:
             verify = _verify(
@@ -309,6 +325,7 @@ def orchestrate(
                 tools,
                 spend,
                 fire,
+                memory_snapshot=memory_snapshot,
             )
         except Exception as exc:  # noqa: BLE001
             fire("error", message=f"verifier failed: {exc}")
@@ -333,6 +350,7 @@ def orchestrate(
             fire,
             critique=critique,
             revision=verify,
+            memory_snapshot=memory_snapshot,
         )
 
     summary = (verify.get("summary") if verify else worker_summary) or ""
@@ -376,6 +394,24 @@ def _chat(client: LLM, **kwargs) -> Completion:
     kwargs.pop("system", None)
     kwargs.pop("user", None)
     return client.complete(**kwargs)
+
+
+def _with_memory(base: str, snapshot: str) -> str:
+    extra = (snapshot or "").strip()
+    if not extra:
+        return base
+    return base + "\n\n" + extra
+
+
+def _assess_user(goal: str, workspace: Path) -> str:
+    text = f"User instruction:\n{goal}"
+    recent = recent_runs_block(workspace)
+    if recent:
+        text += (
+            "\n\nPrior work in this folder (continue it unless the goal replaces it):\n"
+            + recent
+        )
+    return text
 
 
 def _safe_json(text: str, fallback: dict) -> dict:
@@ -444,18 +480,20 @@ def _maybe_lift_budget(
     return usd_cap, new_eur
 
 
-def _critique(client, model, goal, assessment, spend, fire) -> dict:
+def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str = "") -> dict:
     completion = _chat(
         client,
         model=model,
         messages=[
             {
                 "role": "system",
-                "content": (
+                "content": _with_memory(
                     "You critique briefs for Rocky. Be strict. "
                     "Point out missing constraints, hidden risks, and the quality bar. "
                     "Reframe the goal so a worker cannot hide behind a vague prompt. "
-                    "Suggest how to split the work. Return JSON only. Do not refuse the task."
+                    "Suggest how to split the work. Return JSON only. Do not refuse the task. "
+                    "If MEMORY or RECENT RUNS name a deliverable, treat follow-up goals as continuations.",
+                    memory_snapshot,
                 ),
             },
             {
@@ -512,7 +550,16 @@ def _normalize_steps(plan: dict, goal: str) -> dict:
 
 
 def _make_plan(
-    client, model, goal, assessment, workspace, spend, fire, critique=None, revision=None
+    client,
+    model,
+    goal,
+    assessment,
+    workspace,
+    spend,
+    fire,
+    critique=None,
+    revision=None,
+    memory_snapshot: str = "",
 ) -> dict:
     listing = ""
     try:
@@ -540,7 +587,7 @@ def _make_plan(
         messages=[
             {
                 "role": "system",
-                "content": (
+                "content": _with_memory(
                     "You write the plan for Rocky. Return JSON only. "
                     "Split work into subtasks that can be given to separate workers. "
                     "Use depends_on so independent research can run in parallel, "
@@ -550,7 +597,10 @@ def _make_plan(
                     "1 research (skill_view deep-research) → 2 VOC (skill_view voc-to-copy) → "
                     "3 copy (skill_view copywriting plus channel skill) → "
                     "4 pptx and xlsx (skill_view pptx then xlsx). Do not skip a wave. "
-                    "Name the final deliverable_path. Workers are fully autonomous in the workspace."
+                    "Name the final deliverable_path. Workers are fully autonomous in the workspace. "
+                    "Continue MEMORY and RECENT RUNS: 'that' / 'the article' / 'now make X from it' "
+                    "means the last deliverable unless the goal clearly replaces it.",
+                    memory_snapshot,
                 ),
             },
             {"role": "user", "content": json.dumps(user, ensure_ascii=False, indent=2)},
@@ -593,6 +643,7 @@ def _run_subagents(
     ask_user=None,
     llm=None,
     browser=None,
+    memory_snapshot: str = "",
 ) -> str:
     summaries: list[str] = []
     for wave in schedule_waves(plan.get("steps") or []):
@@ -619,6 +670,7 @@ def _run_subagents(
                 ask_user=ask_user,
                 llm=llm,
                 browser=browser,
+                memory_snapshot=memory_snapshot,
             )
 
         if len(wave) == 1:
@@ -651,13 +703,14 @@ def _run_subtask(
     ask_user=None,
     llm=None,
     browser=None,
+    memory_snapshot: str = "",
 ) -> str:
     fire("subtask_start", id=step.get("id"), title=step.get("title"), detail=step.get("detail"))
     specs = worker_tools(include_server_tools)
     messages: list[dict] = [
         {
             "role": "system",
-            "content": (
+            "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 "Prefer patch for small file edits, write_file for new files. "
@@ -667,7 +720,11 @@ def _run_subtask(
                 "If the subtask names a skill, skill_view it first "
                 "(deep-research, marketing-pipeline, voc-to-copy, copywriting, pptx, xlsx, …). "
                 "For .xlsx .docx .pptx .pdf: skills_list then skill_view, then bash with openpyxl/python-docx/python-pptx/pypdf/reportlab. Never write_file those binaries. Use office_read to inspect them. "
-                "Cite sources. When the subtask is done, stop calling tools and summarize."
+                "Cite sources. When the subtask is done, stop calling tools and summarize. "
+                "Continue prior workspace work from MEMORY and RECENT RUNS. "
+                "After learning a durable fact (path, convention, preference), call memory. "
+                "Use runs_search if the user points at older work.",
+                memory_snapshot,
             ),
         },
         {
@@ -747,7 +804,19 @@ def _run_subtask(
     return f"{step.get('title')}: {last_text}"
 
 
-def _verify(client, model, goal, assessment, critique, plan, worker_summary, tools, spend, fire) -> dict:
+def _verify(
+    client,
+    model,
+    goal,
+    assessment,
+    critique,
+    plan,
+    worker_summary,
+    tools,
+    spend,
+    fire,
+    memory_snapshot: str = "",
+) -> dict:
     listing = tools.list_dir(".")
     deliverable = plan.get("deliverable_path") or assessment.get("deliverable") or ""
     body = ""
@@ -762,11 +831,12 @@ def _verify(client, model, goal, assessment, critique, plan, worker_summary, too
         messages=[
             {
                 "role": "system",
-                "content": (
+                "content": _with_memory(
                     "You verify completed work against the original goal and the critic's quality bar. You are Rocky's verifier. "
                     "Judge the WHOLE result, not one subtask. Be strict. "
                     "passed=true only if the deliverable exists and meets every success criterion. "
-                    "Return JSON only."
+                    "Return JSON only. Follow-ups may complete prior work named in MEMORY or RECENT RUNS.",
+                    memory_snapshot,
                 ),
             },
             {

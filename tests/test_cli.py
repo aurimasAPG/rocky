@@ -31,6 +31,13 @@ def test_help_exits_zero():
     assert exc.value.code == 0
 
 
+def test_help_mentions_live_status_line(capsys):
+    assert main(["help"]) == 0
+    out = capsys.readouterr().out
+    assert "thinking · plan" in out
+    assert "same row" in out
+
+
 def test_rocky_help_prints_english_guide(capsys):
     assert main(["help"]) == 0
     out = capsys.readouterr().out
@@ -41,6 +48,8 @@ def test_rocky_help_prints_english_guide(capsys):
     assert "ROCKY_TOKEN" in out
     assert "/Users/aurimas" not in out
     assert "uv tool install --force --reinstall ." in out
+    assert "MEMORY.md" in out
+    assert "runs_search" in out
 
 
 def test_prompt_goal_returns_typed_text(monkeypatch):

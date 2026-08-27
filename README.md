@@ -55,6 +55,8 @@ rocky -d /tmp/rocky-demo "write a 3-sentence summary to summary.md"
 
 Three-pane viewer: `rocky tui -d /tmp/rocky-demo`.
 
+On a TTY the attach view keeps **one live status line** (`thinking · plan`, `researching · …`, `writing · article.md`) like Claude Code / OpenCode. Plan, critic, verify, and the price stay as panels.
+
 A run keeps going if you detach. Enter (CLI) or `q` (TUI) unhooks the viewer; the worker continues. Reattach later:
 
 ```bash
@@ -88,6 +90,16 @@ Rocky is **fully autonomous** in `--dir`. File tools reject paths outside that f
 
 `rocky serve` binds `127.0.0.1` by default. `rocky serve --host 0.0.0.0` without `ROCKY_TOKEN` is **refused** (the server does not bind). Set `ROCKY_TOKEN` and optionally `ROCKY_WORKSPACES` before exposing the UI.
 
+## Memory
+
+The next goal in the same folder continues the last one. Frozen at each run start (Hermes-style):
+
+- `~/.rocky/memories/USER.md` — who you are (1,375 chars)
+- `<workspace>/.rocky/MEMORY.md` — facts about this project (2,200 chars)
+- last 5 finished runs (goal + summary)
+
+Workers can `memory` add/replace/remove and `runs_search` older runs. Disk updates immediately; the prompt snapshot refreshes on the **next** run. Details: `rocky help`.
+
 ## How models are chosen
 
 On every run Rocky fetches OpenRouter’s `/models` catalog (tool-capable models + pricing):
@@ -95,7 +107,7 @@ On every run Rocky fetches OpenRouter’s `/models` catalog (tool-capable models
 1. A cheap model **assesses** complexity (`trivial` / `moderate` / `hard`) and domain.
 2. A **critic** challenges the brief and sets a quality bar.
 3. **Planner** splits work into subtasks with `depends_on` (independent steps can run in parallel).
-4. **Workers** — one subagent per subtask, cheap tool model, isolated conversation, shared folder.
+4. **Workers** — one subagent per subtask. Default model: **Google Gemini 3.7 Flash** (`google/gemini-3.7-flash`). Override with `ROCKY_WORKER`. Isolated conversation, shared folder.
 5. **Verifier** judges the **whole** result against the original goal and the critic’s quality bar.
 
 Failures go back to the planner. Marketing / ads / copy goals are planned as **research → VOC → copy → pptx + xlsx**.

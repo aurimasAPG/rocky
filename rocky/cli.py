@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from rocky.catalog import parse_models, pick_cast
-from rocky.config import api_key, base_url
+from rocky.config import api_key, base_url, preferred_worker
 from rocky.job import spawn_worker
 from rocky.jsonutil import parse_json_object
 from rocky.llm import OpenRouterClient
@@ -22,7 +22,9 @@ from rocky.runs import (
     run_dir,
     write_answer,
 )
+from rocky.status import TRANSCRIPT_TYPES, status_line
 from rocky.usage import DEFAULT_BUDGET_EUR
+from rocky.theme import CORAL
 from rocky.view import console, render_event
 
 
@@ -214,36 +216,73 @@ def _attach(workspace: Path, run_id: str) -> int:
     console.print(f"[bold]attach[/] {run_id}")
     if sys.stdin.isatty():
         console.print("[dim]Enter = detach (do not kill)[/]")
+    live = sys.stdout.isatty()
+    pulse = None
+    if live:
+        from rich.status import Status
+
+        pulse = Status("starting", console=console, spinner="dots", spinner_style=f"#{CORAL}")
+        pulse.start()
     asked_ts = None
     idle_after_done = 0
-    while True:
-        for event in cursor.poll():
+    try:
+        while True:
+            for event in cursor.poll():
+                _show_event(event, pulse)
+            try:
+                meta = refresh_meta(folder)
+            except FileNotFoundError:
+                if pulse is not None:
+                    pulse.stop()
+                console.print("[red]run folder vanished[/]")
+                return 1
+            ask = read_ask(folder)
+            if ask and ask.get("ts") != asked_ts:
+                asked_ts = ask.get("ts")
+                if pulse is not None:
+                    pulse.stop()
+                console.print(f"\n[bold #F07167]Agent asks[/] {ask.get('question')}")
+                for i, opt in enumerate(ask.get("options") or [], 1):
+                    console.print(f"  {i}. {opt}")
+                write_answer(folder, prompt_goal("Atsakymas"))
+                if pulse is not None:
+                    pulse.start()
+                    pulse.update("thinking")
+            status = meta.get("status") or ""
+            if status in TERMINAL:
+                leftover = cursor.poll()
+                for event in leftover:
+                    _show_event(event, pulse)
+                idle_after_done += 1
+                if idle_after_done >= 2:
+                    if pulse is not None:
+                        pulse.stop()
+                    console.print(f"[dim]{status}  ·  {folder}[/]")
+                    return 0 if status == "passed" else 1
+            line = _stdin_line(0.15)
+            if line is not None:
+                if pulse is not None:
+                    pulse.stop()
+                console.print(f"[dim]detached  {run_id}  still {status or 'running'}[/]")
+                return 0
+    finally:
+        if pulse is not None:
+            pulse.stop()
+
+
+def _show_event(event, pulse) -> None:
+    line = status_line(event)
+    if pulse is not None and line:
+        pulse.update(line)
+    if pulse is None or event.type in TRANSCRIPT_TYPES:
+        if pulse is not None and event.type in TRANSCRIPT_TYPES:
+            pulse.stop()
             render_event(event)
-        try:
-            meta = refresh_meta(folder)
-        except FileNotFoundError:
-            console.print("[red]run folder vanished[/]")
-            return 1
-        ask = read_ask(folder)
-        if ask and ask.get("ts") != asked_ts:
-            asked_ts = ask.get("ts")
-            console.print(f"\n[bold #F07167]Agent asks[/] {ask.get('question')}")
-            for i, opt in enumerate(ask.get("options") or [], 1):
-                console.print(f"  {i}. {opt}")
-            write_answer(folder, prompt_goal("Atsakymas"))
-        status = meta.get("status") or ""
-        if status in TERMINAL:
-            leftover = cursor.poll()
-            for event in leftover:
-                render_event(event)
-            idle_after_done += 1
-            if idle_after_done >= 2:
-                console.print(f"[dim]{status}  ·  {folder}[/]")
-                return 0 if status == "passed" else 1
-        line = _stdin_line(0.15)
-        if line is not None:
-            console.print(f"[dim]detached  {run_id}  still {status or 'running'}[/]")
-            return 0
+            pulse.start()
+            if line:
+                pulse.update(line)
+        else:
+            render_event(event)
 
 
 def _stdin_line(timeout: float) -> str | None:
@@ -262,7 +301,7 @@ def _stdin_line(timeout: float) -> str | None:
 def _route(client: OpenRouterClient, goal: str) -> int:
     models = parse_models(client.list_models())
     assess = client.complete(
-        model=pick_cast(models, "moderate", "mixed").assess,
+        model=pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker()).assess,
         messages=[
             {
                 "role": "system",
@@ -275,7 +314,12 @@ def _route(client: OpenRouterClient, goal: str) -> int:
         data = parse_json_object(assess.content)
     except Exception:
         data = {"complexity": "moderate", "domain": "mixed", "goal": goal}
-    cast = pick_cast(models, data.get("complexity") or "moderate", data.get("domain") or "mixed")
+    cast = pick_cast(
+        models,
+        data.get("complexity") or "moderate",
+        data.get("domain") or "mixed",
+        preferred_worker=preferred_worker(),
+    )
     console.print(f"[bold]goal[/] {data.get('goal') or goal}")
     console.print(f"[bold]complexity[/] {data.get('complexity')}  [bold]domain[/] {data.get('domain')}")
     for role in ("assess", "critic", "planner", "worker", "verifier"):
