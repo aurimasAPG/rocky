@@ -47,6 +47,8 @@ MAX_SUBTASK_TURNS = 20
 MAX_VERIFY_TURNS = 6
 # Consecutive failed verifications before the worker model is swapped.
 STALL_AFTER = 2
+# The verifier may run this far over the cap so a finished deliverable still gets judged.
+VERIFY_GRACE = 1.10
 
 ASSESS_SCHEMA = {
     "name": "assessment",
@@ -366,6 +368,15 @@ def orchestrate(
             summarize=summarize,
             mcp=mcp,
         )
+        if tally.usd >= usd_cap * VERIFY_GRACE:
+            fire(
+                "budget",
+                cap=round(usd_cap, 3),
+                stage="before verify",
+                receipt=format_receipt(tally, rate),
+                **tally.payload(rate),
+            )
+            break
         try:
             verify = _verify(
                 client,
@@ -392,6 +403,16 @@ def orchestrate(
             fire("verify", **verify)
         passed = bool(verify.get("passed"))
         if passed:
+            break
+        if tally.usd >= usd_cap or loops >= max_loops:
+            if tally.usd >= usd_cap:
+                fire(
+                    "budget",
+                    cap=round(usd_cap, 3),
+                    stage="before replan",
+                    receipt=format_receipt(tally, rate),
+                    **tally.payload(rate),
+                )
             break
         fail_streak += 1
         if fail_streak >= STALL_AFTER:

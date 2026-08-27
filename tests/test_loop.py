@@ -626,8 +626,8 @@ def test_two_failed_verifications_swap_the_worker_instead_of_replanning(tmp_path
     assert third == stalls[0]["worker"]
     assert third != first
     assert third.split("/")[0] != first.split("/")[0], "swap should prefer another family"
-    # plans: initial, after loop 1, after loop 3 — none after the stall in loop 2
-    assert client.plan_calls == 3
+    # plans: initial, after loop 1 — none after the stall in loop 2, none after the final loop
+    assert client.plan_calls == 2
 
 
 class McpClient(ScriptedClient):
@@ -848,3 +848,53 @@ def test_verifier_extra_keys_do_not_leak_fallback_issues(tmp_path, monkeypatch):
     assert verify["remaining"] == ["none"]
     assert verify["checks"] == {"slides": 3}
     assert verify["score"] == 1.0
+
+
+def test_no_replan_or_verify_over_the_cap(tmp_path, monkeypatch):
+    """Workers finish under the cap, the verifier's own bill crosses it: no second plan."""
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class PriceyVerifier(StubbornClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You verify completed work" in system:
+                return Completion(
+                    content=json.dumps(
+                        {"passed": False, "score": 0.5, "summary": "meh", "issues": ["x"], "remaining": []}
+                    ),
+                    cost=0.5,
+                )
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    client = PriceyVerifier()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=4,
+        budget=0.4,  # USD cap; the verifier alone costs 0.5
+        eur_rate=1.0,
+    )
+    assert result.passed is False
+    assert client.plan_calls == 1, "must not replan once the cap is blown"
+    budget = [e.payload for e in events if e.type == "budget"]
+    assert budget and budget[0]["stage"] == "before replan"
+    assert result.loops == 1
+
+
+def test_last_loop_failure_does_not_replan(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = StubbornClient()
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert client.plan_calls == 1
