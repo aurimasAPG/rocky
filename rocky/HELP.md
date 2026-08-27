@@ -101,8 +101,8 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable.
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
 3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family, no tools).
-4. **Critic** — attacks the brief, sets a quality bar.
-5. **Plan** — subtasks with `depends_on`. Independent steps can run in parallel (up to 4).
+4. **Critic** — attacks the brief, sets a quality bar. Skipped for `trivial` goals.
+5. **Plan** — subtasks with `depends_on`. Skipped for `trivial` goals (one worker step straight to the verifier; the planner only steps in if verification fails). Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.
 7. **Verifier** — judges the **whole** result. Almost-right is a fail; the planner resplits and workers continue.
 8. Stop when it passes, loops run out, or the euro cap is hit.
@@ -237,6 +237,7 @@ Ads / copy / campaign goals are planned as **research → VOC → copy → pptx 
 
 | Looks like | Typical guess vs €1 |
 | --- | --- |
+| One-liner (`trivial`) | No critic, no planner: assess → worker → verifier, usually well under €0.01 |
 | Short rewrite, no web | Stays under the cap — no question |
 | Hard research, ads, multi-file | Rocky asks to raise **this run only** |
 

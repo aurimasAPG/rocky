@@ -105,7 +105,7 @@ Workers can `memory` add/replace/remove and `runs_search` older runs. Disk updat
 On every run Rocky fetches OpenRouter’s `/models` catalog (tool-capable models + pricing):
 
 1. A cheap model **assesses** complexity (`trivial` / `moderate` / `hard`) and domain.
-2. A **critic** challenges the brief and sets a quality bar.
+2. A **critic** challenges the brief and sets a quality bar (skipped, together with the planner, when the task is `trivial`).
 3. **Planner** splits work into subtasks with `depends_on` (independent steps can run in parallel).
 4. **Workers** — one subagent per subtask. Default model: **Google Gemini 3.7 Flash** (`google/gemini-3.7-flash`). Override with `ROCKY_WORKER`. Isolated conversation, shared folder.
 5. **Verifier** judges the **whole** result against the original goal and the critic’s quality bar.

@@ -428,3 +428,104 @@ def test_worker_thread_is_compacted_against_small_context(tmp_path, monkeypatch)
     assert compacts, "expected at least one compaction event"
     assert any(c["mode"] == "summary" for c in compacts)
     assert client.summaries >= 1
+
+
+class TrivialClient(ScriptedClient):
+    def __init__(self):
+        super().__init__()
+        self.prompts: list[str] = []
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        self.prompts.append(system[:40])
+        if "You assess tasks" in system:
+            return Completion(
+                content=json.dumps(
+                    {
+                        "goal": "Answer 5+5",
+                        "complexity": "trivial",
+                        "domain": "writing",
+                        "success_criteria": ["answer.md says 10"],
+                        "needs_web": False,
+                        "deliverable": "answer.md",
+                    }
+                ),
+                cost=0.001,
+            )
+        if "You execute this subtask" in system:
+            self.worker_round += 1
+            if self.worker_round == 1:
+                return Completion(
+                    content="",
+                    tool_calls=[
+                        ToolCall(id="c1", name="write_file", arguments={"path": "answer.md", "content": "10\n"})
+                    ],
+                )
+            return Completion(content="Wrote answer.md")
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_trivial_goal_skips_critic_and_planner(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    client = TrivialClient()
+    result = orchestrate(
+        goal="kiek bus 5+5",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=2,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is True
+    assert (tmp_path / "answer.md").read_text() == "10\n"
+    assert not any("You critique briefs" in p for p in client.prompts)
+    assert not any("You write the plan" in p for p in client.prompts)
+    critique = next(e.payload for e in events if e.type == "critique")
+    plan = next(e.payload for e in events if e.type == "plan")
+    assert critique["skipped"] == "trivial"
+    assert plan["skipped"] == "trivial"
+    assert plan["deliverable_path"] == "answer.md"
+    assert plan["steps"][0]["depends_on"] == []
+    # only assess + worker + verifier paid anything
+    assert result.cost == 0.011
+
+
+class TrivialThenFailClient(TrivialClient):
+    """Verifier rejects the first pass so the real planner must step in."""
+
+    def __init__(self):
+        super().__init__()
+        self.verify_round = 0
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You verify completed work" in system:
+            self.verify_round += 1
+            if self.verify_round == 1:
+                self.prompts.append(system[:40])
+                return Completion(
+                    content=json.dumps(
+                        {"passed": False, "score": 0.2, "summary": "wrong file", "issues": ["x"], "remaining": []}
+                    )
+                )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_trivial_goal_falls_back_to_planner_after_a_failed_verify(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = TrivialThenFailClient()
+    result = orchestrate(
+        goal="kiek bus 5+5",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        max_loops=2,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is True
+    assert result.loops == 2
+    assert any("You write the plan" in p for p in client.prompts)

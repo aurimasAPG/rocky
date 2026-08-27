@@ -273,20 +273,27 @@ def orchestrate(
         "verifier": cast.verifier,
     }, "reasons": cast.reasons})
 
-    critique = _critique(
-        client, cast.critic, goal, assessment, spend, fire, memory_snapshot=memory_snapshot
-    )
-    plan = _make_plan(
-        client,
-        cast.planner,
-        goal,
-        assessment,
-        workspace_path,
-        spend,
-        fire,
-        critique=critique,
-        memory_snapshot=memory_snapshot,
-    )
+    if _is_trivial(assessment):
+        # One short step: no critic, no planner. Straight to a worker and the verifier.
+        critique = _trivial_critique(goal, assessment)
+        fire("critique", **critique)
+        plan = _trivial_plan(goal, assessment)
+        fire("plan", **plan)
+    else:
+        critique = _critique(
+            client, cast.critic, goal, assessment, spend, fire, memory_snapshot=memory_snapshot
+        )
+        plan = _make_plan(
+            client,
+            cast.planner,
+            goal,
+            assessment,
+            workspace_path,
+            spend,
+            fire,
+            critique=critique,
+            memory_snapshot=memory_snapshot,
+        )
     worker_summary = ""
     passed = False
     verify: dict[str, Any] = {}
@@ -415,6 +422,44 @@ def _chat(client: LLM, **kwargs) -> Completion:
     kwargs.pop("system", None)
     kwargs.pop("user", None)
     return client.complete(**kwargs)
+
+
+def _is_trivial(assessment: dict) -> bool:
+    return str(assessment.get("complexity") or "").lower() == "trivial"
+
+
+def _trivial_critique(goal: str, assessment: dict) -> dict:
+    criteria = [str(c) for c in assessment.get("success_criteria") or []] or [
+        "The user's request is fully completed."
+    ]
+    return {
+        "clarity": "clear",
+        "missing": [],
+        "risks": [],
+        "quality_bar": " ".join(criteria),
+        "reframed_goal": str(assessment.get("goal") or goal),
+        "assumptions": [],
+        "split_hint": [],
+        "skipped": "trivial",
+    }
+
+
+def _trivial_plan(goal: str, assessment: dict) -> dict:
+    deliverable = str(assessment.get("deliverable") or "output.md")
+    return {
+        "summary": str(assessment.get("goal") or goal),
+        "steps": [
+            {
+                "id": 1,
+                "title": "Complete the goal",
+                "detail": f"{goal}\nWrite the result to {deliverable}.",
+                "depends_on": [],
+            }
+        ],
+        "deliverable_path": deliverable,
+        "notes": "trivial task: critic and planner skipped",
+        "skipped": "trivial",
+    }
 
 
 def _context_length(models: list[Model] | None, model_id: str) -> int:
