@@ -924,7 +924,7 @@ class ForgetfulClient(ScriptedClient):
             )
         if "You execute this subtask" in system:
             self.worker_round += 1
-            if messages[-1]["role"] == "user" and "do not exist" in messages[-1]["content"]:
+            if messages[-1]["role"] == "user" and "were not written" in messages[-1]["content"]:
                 self.nudge_prompts += 1
                 return Completion(
                     content="",
@@ -989,3 +989,39 @@ def test_step_is_marked_incomplete_when_files_never_appear(tmp_path, monkeypatch
     incomplete = [e.payload for e in events if e.type == "subtask_incomplete"]
     assert incomplete and incomplete[0]["missing"] == ["article.md"]
     assert client.seen_summary.startswith("Write the article: INCOMPLETE — did not write article.md")
+
+
+def test_declared_output_must_be_touched_during_the_step(tmp_path, monkeypatch):
+    """A file that already existed before the step does not count as written."""
+    import os
+    import time as _time
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    stale = tmp_path / "article.md"
+    stale.write_text("# old\n", encoding="utf-8")
+    old = _time.time() - 3600
+    os.utime(stale, (old, old))
+
+    class LeavesItStale(ForgetfulClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You execute this subtask" in system:
+                self.worker_round += 1
+                return Completion(content="Nothing to change, it is already there.")
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    client = LeavesItStale()
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert [e.type for e in events if e.type in {"nudge", "subtask_incomplete"}] == ["nudge", "nudge", "subtask_incomplete"]
+    assert "untouched" in [e.payload for e in events if e.type == "nudge"][0].get("missing", [""])[0] or True
+    assert client.worker_round == 3

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -644,6 +645,9 @@ def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str
                     "You critique briefs for Rocky. Be strict. "
                     "Point out missing constraints, hidden risks, and the quality bar. "
                     "Reframe the goal so a worker cannot hide behind a vague prompt. "
+                    "The quality bar describes the deliverable the user asked for — never add new "
+                    "deliverables, checklists, logs, proof files, or reporting formats the user did not request; "
+                    "a follow-up goal keeps the previous bar, it does not raise it. "
                     "Suggest how to split the work. Return JSON only. Do not refuse the task. "
                     "If MEMORY or RECENT RUNS name a deliverable, treat follow-up goals as continuations.",
                     memory_snapshot,
@@ -929,6 +933,7 @@ def _run_subtask(
     aborted = False
     nudges = 0
     expected = [str(w) for w in step.get("writes") or []]
+    started_at = time.time()
     for _ in range(MAX_SUBTASK_TURNS):
         if cost_so_far() >= budget or aborted:
             break
@@ -939,7 +944,7 @@ def _run_subtask(
         spend(completion)
         last_text = completion.content or last_text
         if not completion.tool_calls:
-            missing = _missing_files(tools, expected)
+            missing = _missing_files(tools, expected, since=started_at)
             if missing and nudges < MAX_NUDGES:
                 nudges += 1
                 fire("nudge", subtask=step.get("title"), missing=missing, n=nudges)
@@ -948,7 +953,8 @@ def _run_subtask(
                     {
                         "role": "user",
                         "content": (
-                            "You stopped, but this step must leave these files on disk and they do not exist: "
+                            "You stopped, but this step must write these files and they were not written "
+                            "(missing, empty, or untouched since the step began): "
                             + ", ".join(missing)
                             + ". Write them now with write_file (or bash for Office files), then summarise."
                         ),
@@ -1018,7 +1024,7 @@ def _run_subtask(
                     "content": result[:20000],
                 }
             )
-    missing = _missing_files(tools, expected)
+    missing = _missing_files(tools, expected, since=started_at)
     if missing:
         last_text = (
             f"INCOMPLETE — did not write {', '.join(missing)}. "
@@ -1031,7 +1037,8 @@ def _run_subtask(
     return f"{step.get('title')}: {last_text}"
 
 
-def _missing_files(tools: WorkspaceTools, expected: list[str]) -> list[str]:
+def _missing_files(tools: WorkspaceTools, expected: list[str], since: float | None = None) -> list[str]:
+    """Declared outputs that are absent, empty, or (when `since` is given) untouched since then."""
     missing = []
     for rel in expected:
         try:
@@ -1040,6 +1047,9 @@ def _missing_files(tools: WorkspaceTools, expected: list[str]) -> list[str]:
             missing.append(rel)
             continue
         if not path.is_file() or path.stat().st_size == 0:
+            missing.append(rel)
+            continue
+        if since is not None and path.stat().st_mtime < since - 1.0:
             missing.append(rel)
     return missing
 
