@@ -110,10 +110,11 @@ def estimate_run_eur(assessment: dict | None, goal: str = "") -> float:
     complexity = str(assessment.get("complexity") or "moderate").lower()
     domain = str(assessment.get("domain") or "mixed").lower()
     base = _COMPLEXITY_EUR.get(complexity, 0.90)
-    from rocky.pipeline import is_marketing
+    from rocky.recipes import find_recipe
 
-    if domain == "marketing" or is_marketing(goal, assessment):
-        base *= 1.8
+    recipe = find_recipe(goal, assessment)
+    if recipe is not None:
+        base *= float(recipe.cost_multiplier or 1.0)
     elif domain == "research":
         base *= 1.4
     elif domain == "code" and complexity == "hard":

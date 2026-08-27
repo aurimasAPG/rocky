@@ -51,7 +51,7 @@ orche = "rocky.cli:main"
 include = ["rocky*"]
 
 [tool.setuptools.package-data]
-rocky = ["static/*", "skills/*/SKILL.md", "HELP.md"]
+rocky = ["static/*", "skills/*/SKILL.md", "recipes/*.toml", "HELP.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

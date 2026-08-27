@@ -257,7 +257,17 @@ Rocky also loads a **research + marketing allowlist** from `~/.claude/skills` (c
 export ROCKY_SKILLS=/path/to/more/skills
 ```
 
-Ads / copy / campaign goals are planned as **research → VOC → copy → pptx + xlsx**.
+Ads / copy / campaign goals are planned as **research → VOC → copy → pptx + xlsx** — that is the bundled `marketing` recipe.
+
+### Recipes
+
+A recipe is a plan skeleton Rocky enforces when a goal matches: ordered steps, `depends_on`, the deliverable path, and keyword hints. Files are TOML:
+
+- bundled: `rocky/recipes/*.toml` (`marketing` today)
+- shared: folders in `ROCKY_RECIPES=/path/a,/path/b`
+- this workspace: `<workspace>/.rocky/recipes/*.toml` (wins on the same name)
+
+Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint words. If the planner already covers every required stage the plan is kept; otherwise the recipe steps replace it. Workers can `recipe list / view / save` — a saved recipe is used from the **next** run, so review it. See `rocky/recipes/marketing.toml` for the format.
 
 ---
 

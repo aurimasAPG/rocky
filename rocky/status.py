@@ -36,6 +36,7 @@ _TOOL_VERB = {
     "todo": "tracking",
     "memory": "remembering",
     "runs_search": "recalling",
+    "recipe": "recipes",
     "skill_view": "loading skill",
     "skills_list": "listing skills",
     "office_read": "reading office",

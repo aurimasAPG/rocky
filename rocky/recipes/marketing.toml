@@ -1,0 +1,58 @@
+# Rocky recipe: marketing deliverables.
+# A recipe is a plan skeleton the planner must follow when the goal matches.
+# {goal} is replaced with the user's goal. `requires` are keywords a
+# planner-written step must mention for Rocky to accept it as covering
+# this recipe step; otherwise the recipe steps replace the plan.
+
+name = "marketing"
+description = "Research → VOC → copy → pptx + xlsx. Ads, campaigns, landing copy, SEO / CRO briefs."
+deliverable_path = "deliverables/campaign.pptx"
+notes = "Also write research.md, voc.md, copy.md, and deliverables/variants.xlsx."
+cost_multiplier = 1.8
+
+[match]
+domains = ["marketing"]
+hints = [
+  "marketing", "copywriting", "landing page", "landing-page", "voice of customer",
+  " voc", "voc ", "meta ads", "facebook ad", "instagram ad", "google ads", "google ad ",
+  "paid ads", "ad copy", "ad campaign", "kampanij", "skelbim", "reklam", "seo audit",
+  "seo ", " cro", "cro ", "headline", "cta ", "pitch deck",
+]
+
+[[steps]]
+id = 1
+title = "Research"
+depends_on = []
+requires = ["research", "tyrim", "deep-research"]
+detail = """skill_view deep-research (and research-prompt if listed). \
+Investigate the market, competitors, and claims for: {goal}. \
+web_search + web_fetch primary sources. Write research.md with URL, claim, why it matters. \
+Separate fact / inference / unknown. Do not invent statistics."""
+
+[[steps]]
+id = 2
+title = "VOC"
+depends_on = [1]
+requires = ["voc", "voice of customer"]
+detail = """skill_view voc-to-copy. If product-marketing-context is listed, skill_view it too. \
+Mine customer language from research.md plus public reviews, Reddit, G2, forums via web_search. \
+Write voc.md: pains, desires, objections, outcomes, phrase bank with sources. \
+Do not invent quotes."""
+
+[[steps]]
+id = 3
+title = "Copy"
+depends_on = [2]
+requires = ["copy", "copywrit", "headline", "ad text", "tekst"]
+detail = """skill_view copywriting. If the goal is ads, also skill_view meta-ads-copy or google-ads-copy. \
+Write copy.md from VOC phrases (headlines, body, CTAs). No invented proof."""
+
+[[steps]]
+id = 4
+title = "Deck and spreadsheet"
+depends_on = [3]
+requires = ["pptx", "xlsx", "spreadsheet", "deck", "slides"]
+detail = """skill_view pptx then skill_view xlsx. \
+Build deliverables/campaign.pptx (one idea per slide from the copy) and \
+deliverables/variants.xlsx (headlines, CTAs, VOC phrases, source URLs). \
+Never write_file those binaries — use python-pptx and openpyxl via bash. office_read to QA."""

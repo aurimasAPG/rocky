@@ -417,6 +417,29 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "recipe",
+            "description": (
+                "List, view, or save plan recipes (ordered step skeletons Rocky enforces for a kind of goal, "
+                "e.g. marketing: research → VOC → copy → pptx+xlsx). "
+                "save writes <workspace>/.rocky/recipes/<name>.toml for the NEXT run; the user should review it."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["list", "view", "save"]},
+                    "name": {"type": "string", "description": "for view"},
+                    "recipe": {
+                        "type": "object",
+                        "description": "for save: {name, description, deliverable_path, notes, match:{domains,hints}, steps:[{id,title,detail,depends_on,requires}]}",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "runs_search",
             "description": (
                 "Search prior Rocky runs in this workspace (goal, status, summary). "
@@ -565,6 +588,10 @@ def dispatch(
             from rocky.memory import apply_memory
 
             return apply_memory(tools.root, args)
+        if name == "recipe":
+            from rocky.recipes import recipe_tool
+
+            return recipe_tool(tools.root, args)
         if name == "runs_search":
             from rocky.memory import search_runs
 

@@ -29,6 +29,7 @@ from rocky.usage import (
 from rocky.mcp import MCPError, MCPRegistry
 from rocky.memory import freeze_memory, recent_runs_block, snapshot_event_payload
 from rocky.pipeline import ensure_pipeline
+from rocky.recipes import catalog as recipe_catalog, find_recipe, load_recipes
 from rocky.skills import catalog_for_prompt
 from rocky.tools import (
     VERIFY_TOOL_NAMES,
@@ -685,6 +686,8 @@ def _make_plan(
         listing = WorkspaceTools(workspace).list_dir(".")
     except ToolError:
         listing = ""
+    recipes = load_recipes(workspace)
+    recipe = find_recipe(goal, assessment, recipes)
     user = {
         "goal": goal,
         "assessment": assessment,
@@ -692,12 +695,21 @@ def _make_plan(
         "workspace_files": listing,
         "revision_from_verifier": revision,
         "available_skills": catalog_for_prompt(),
-        "marketing_pipeline": (
-            "If domain is marketing or the goal is ads/copy/campaign/landing/VOC/SEO: "
-            "MUST split research → VOC → copy → pptx+xlsx. "
-            "Workers skill_view deep-research, voc-to-copy, copywriting, pptx, xlsx in that order. "
-            "Independent research may run in parallel; VOC waits on research; copy waits on VOC; "
-            "deck and spreadsheet wait on copy."
+        "available_recipes": recipe_catalog(recipes),
+        "recipe": (
+            {
+                "name": recipe.name,
+                "description": recipe.description,
+                "steps": recipe.render_steps(goal),
+                "deliverable_path": recipe.deliverable_path,
+                "notes": recipe.notes,
+                "rule": (
+                    "This goal matches the recipe above. The plan MUST contain its steps in this order "
+                    "with the same depends_on chain. You may add steps; you may not skip or merge these."
+                ),
+            }
+            if recipe
+            else None
         ),
     }
     completion = _chat(
@@ -712,10 +724,8 @@ def _make_plan(
                     "Use depends_on so independent research can run in parallel, "
                     "and writing/assembly waits on research. Each step must be concrete. "
                     "If the deliverable is xlsx/docx/pptx/pdf, that worker step must skill_view the matching skill. "
-                    "Marketing/ads/copy/campaign tasks MUST be four waves: "
-                    "1 research (skill_view deep-research) → 2 VOC (skill_view voc-to-copy) → "
-                    "3 copy (skill_view copywriting plus channel skill) → "
-                    "4 pptx and xlsx (skill_view pptx then xlsx). Do not skip a wave. "
+                    "If a recipe is given, its steps are mandatory and ordered — a recipe is a proven "
+                    "sequence for this kind of deliverable; Rocky will enforce it. "
                     "Name the final deliverable_path. Workers are fully autonomous in the workspace. "
                     "Continue MEMORY and RECENT RUNS: 'that' / 'the article' / 'now make X from it' "
                     "means the last deliverable unless the goal clearly replaces it.",
@@ -738,7 +748,9 @@ def _make_plan(
         },
     )
     plan = _normalize_steps(plan, goal)
-    plan = ensure_pipeline(plan, goal, assessment)
+    plan = ensure_pipeline(plan, goal, assessment, recipe=recipe)
+    if recipe:
+        plan["recipe"] = recipe.name
     fire("plan", **plan)
     return plan
 
@@ -853,7 +865,8 @@ def _run_subtask(
                 "Cite sources. When the subtask is done, stop calling tools and summarize. "
                 "Continue prior workspace work from MEMORY and RECENT RUNS. "
                 "After learning a durable fact (path, convention, preference), call memory. "
-                "Use runs_search if the user points at older work.",
+                "Use runs_search if the user points at older work. "
+                "If this kind of deliverable will recur and no recipe covers it, propose one with the recipe tool (action=save).",
                 memory_snapshot,
             ),
         },
