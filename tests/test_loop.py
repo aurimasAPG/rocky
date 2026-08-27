@@ -314,3 +314,117 @@ def test_two_subagents_run_in_dependency_order(tmp_path, monkeypatch):
     assert starts == ["Take notes", "Write article"]
     critique = next(e.payload for e in events if e.type == "critique")
     assert critique["clarity"] == "underspecified"
+
+
+class LoopingClient(ScriptedClient):
+    """Worker that keeps fetching the same URL forever."""
+
+    def __init__(self):
+        super().__init__()
+        self.tool_errors: list[str] = []
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You execute this subtask" in system:
+            self.worker_round += 1
+            for msg in messages:
+                if msg.get("role") == "tool" and str(msg.get("content", "")).startswith("error:"):
+                    self.tool_errors.append(msg["content"])
+            return Completion(
+                content="",
+                tool_calls=[
+                    ToolCall(id=f"c{self.worker_round}", name="list_dir", arguments={"path": "."})
+                ],
+            )
+        if "You verify completed work" in system:
+            return Completion(
+                content=json.dumps(
+                    {"passed": False, "score": 0.0, "summary": "nothing", "issues": ["no file"], "remaining": []}
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_repeat_guard_aborts_a_looping_worker(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    events = []
+    client = LoopingClient()
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.passed is False
+    guard = [e.payload for e in events if e.type == "loop_guard"]
+    assert [g["action"] for g in guard] == ["block", "abort"]
+    assert guard[0]["name"] == "list_dir"
+    # four identical calls, not twenty
+    assert client.worker_round == 4
+    done = next(e.payload for e in events if e.type == "subtask_done")
+    assert "Aborted" in done["text"]
+
+
+class LongResultClient(ScriptedClient):
+    """Worker whose tool results are huge, forcing compaction."""
+
+    def __init__(self):
+        super().__init__()
+        self.summaries = 0
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "Summarise this agent transcript" in system:
+            self.summaries += 1
+            return Completion(content="Read five pages about ads.")
+        if "You execute this subtask" in system:
+            self.worker_round += 1
+            if self.worker_round <= 6:
+                return Completion(
+                    content="",
+                    tool_calls=[
+                        ToolCall(
+                            id=f"c{self.worker_round}",
+                            name="write_file",
+                            arguments={"path": f"page{self.worker_round}.md", "content": "y" * 6000},
+                        )
+                    ],
+                )
+            return Completion(content="Wrote article.md")
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_worker_thread_is_compacted_against_small_context(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ROCKY_WORKER", "google/flash")
+    tiny = [
+        Model(
+            id="google/flash",
+            name="flash",
+            prompt_price=1e-7,
+            completion_price=4e-7,
+            context_length=9_000,
+            params={"tools", "structured_outputs"},
+        ),
+        *MODELS[1:],
+    ]
+    events = []
+    client = LongResultClient()
+    orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=tiny,
+        emit=events.append,
+        max_loops=1,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    compacts = [e.payload for e in events if e.type == "compact"]
+    assert compacts, "expected at least one compaction event"
+    assert any(c["mode"] == "summary" for c in compacts)
+    assert client.summaries >= 1

@@ -94,6 +94,11 @@ def status_line(event: Event) -> str | None:
         return "thinking · worker"
     if kind == "worker":
         return "thinking · worker"
+    if kind == "compact":
+        mode = payload.get("mode") or "prune"
+        return f"compacting · {mode} · {payload.get('before_tokens')}→{payload.get('after_tokens')} tok"
+    if kind == "loop_guard":
+        return f"loop guard · {payload.get('action')} · {payload.get('name')}"
     if kind == "verify":
         return "checking result" if not payload.get("passed") else "verified"
     if kind == "error":

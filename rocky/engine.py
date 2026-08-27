@@ -9,6 +9,7 @@ from typing import Any
 
 from rocky.catalog import Cast, Model, parse_models, pick_cast
 from rocky.config import preferred_worker
+from rocky.context import DEFAULT_CONTEXT, RepeatGuard, compact
 from rocky.events import Emit, Event
 from rocky.jsonutil import JsonParseError, parse_json_object
 from rocky.extras import BrowserSession
@@ -35,6 +36,9 @@ from rocky.tools import (
     worker_tools,
 )
 from rocky.waves import schedule_waves
+
+# Turns one worker chat may take. Compaction keeps long steps affordable.
+MAX_SUBTASK_TURNS = 20
 
 ASSESS_SCHEMA = {
     "name": "assessment",
@@ -287,6 +291,21 @@ def orchestrate(
     passed = False
     verify: dict[str, Any] = {}
     loops = 0
+    worker_context = _context_length(models, cast.worker)
+
+    def summarize(transcript: str) -> str:
+        completion = _chat(
+            client,
+            model=cast.assess,
+            system=(
+                "Summarise this agent transcript for the same agent. Keep: files written "
+                "(paths), facts and sources found, decisions made, what is still left. "
+                "Plain text, under 300 words."
+            ),
+            user=transcript[:60000],
+        )
+        spend(completion)
+        return completion.content or ""
 
     for loops in range(1, max_loops + 1):
         if tally.usd >= usd_cap:
@@ -312,6 +331,8 @@ def orchestrate(
             llm=client,
             browser=browser,
             memory_snapshot=memory_snapshot,
+            worker_context=worker_context,
+            summarize=summarize,
         )
         try:
             verify = _verify(
@@ -394,6 +415,13 @@ def _chat(client: LLM, **kwargs) -> Completion:
     kwargs.pop("system", None)
     kwargs.pop("user", None)
     return client.complete(**kwargs)
+
+
+def _context_length(models: list[Model] | None, model_id: str) -> int:
+    for m in models or []:
+        if m.id == model_id and m.context_length:
+            return int(m.context_length)
+    return DEFAULT_CONTEXT
 
 
 def _with_memory(base: str, snapshot: str) -> str:
@@ -644,6 +672,8 @@ def _run_subagents(
     llm=None,
     browser=None,
     memory_snapshot: str = "",
+    worker_context: int = DEFAULT_CONTEXT,
+    summarize=None,
 ) -> str:
     summaries: list[str] = []
     for wave in schedule_waves(plan.get("steps") or []):
@@ -671,6 +701,8 @@ def _run_subagents(
                 llm=llm,
                 browser=browser,
                 memory_snapshot=memory_snapshot,
+                worker_context=worker_context,
+                summarize=summarize,
             )
 
         if len(wave) == 1:
@@ -704,6 +736,8 @@ def _run_subtask(
     llm=None,
     browser=None,
     memory_snapshot: str = "",
+    worker_context: int = DEFAULT_CONTEXT,
+    summarize=None,
 ) -> str:
     fire("subtask_start", id=step.get("id"), title=step.get("title"), detail=step.get("detail"))
     specs = worker_tools(include_server_tools)
@@ -746,9 +780,14 @@ def _run_subtask(
         },
     ]
     last_text = ""
-    for _ in range(12):
-        if cost_so_far() >= budget:
+    guard = RepeatGuard()
+    aborted = False
+    for _ in range(MAX_SUBTASK_TURNS):
+        if cost_so_far() >= budget or aborted:
             break
+        squeezed = compact(messages, context_length=worker_context, summarize=summarize)
+        if squeezed:
+            fire("compact", subtask=step.get("title"), **squeezed)
         completion = _chat(client, model=model, messages=messages, tools=specs)
         spend(completion)
         last_text = completion.content or last_text
@@ -778,18 +817,35 @@ def _run_subtask(
                 arguments=_short_args(call.arguments),
                 subtask=step.get("title"),
             )
-            try:
-                result = dispatch(
-                    tools,
-                    call.name,
-                    call.arguments,
-                    searcher=searcher,
-                    ask_user=ask_user,
-                    llm=llm,
-                    browser=browser,
+            verdict = guard.check(call.name, call.arguments)
+            if verdict == "abort":
+                fire("loop_guard", action="abort", name=call.name, subtask=step.get("title"))
+                result = "error: subtask aborted — the same call was repeated four times"
+                aborted = True
+                last_text = (
+                    f"Aborted: {call.name} was called with identical arguments four times "
+                    "without finishing. Work so far stays on disk."
                 )
-            except ToolError as exc:
-                result = f"error: {exc}"
+            elif verdict == "block":
+                fire("loop_guard", action="block", name=call.name, subtask=step.get("title"))
+                result = (
+                    "error: this exact call already ran twice with the same arguments. "
+                    "Do not repeat it — use the earlier result, change the arguments, "
+                    "or stop and summarise."
+                )
+            else:
+                try:
+                    result = dispatch(
+                        tools,
+                        call.name,
+                        call.arguments,
+                        searcher=searcher,
+                        ask_user=ask_user,
+                        llm=llm,
+                        browser=browser,
+                    )
+                except ToolError as exc:
+                    result = f"error: {exc}"
             fire("tool_result", name=call.name, result=result[:2500], subtask=step.get("title"))
             messages.append(
                 {

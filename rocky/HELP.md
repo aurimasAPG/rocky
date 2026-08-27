@@ -105,6 +105,8 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 5. **Plan** — subtasks with `depends_on`. Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.
 7. **Verifier** — judges the **whole** result. Almost-right is a fail; the planner resplits and workers continue.
+
+Each worker chat is capped at 20 turns and kept small: old tool results become one-line stubs, and past ~60 % of the model's window the middle of the thread is summarised by the cheap assess model (`compact` event). A worker that repeats the exact same tool call is refused on the third try and stopped on the fourth (`loop_guard` event).
 8. Stop when it passes, loops run out, or the euro cap is hit.
 
 Every completion prints a **receipt**: input / output / total tokens, USD, EUR (3 decimals).
