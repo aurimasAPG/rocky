@@ -202,7 +202,12 @@ The web UI has no human-in-the-loop for budget raises. If a task looks expensive
 
 Rocky is **fully autonomous inside `--dir`**. There is no “are you sure?” on file writes. File tools reject paths that escape the folder.
 
-`bash` is **not a sandbox**. The process starts in `--dir`, but a shell command can still `cd`, `curl`, or touch files elsewhere. Treat the workspace as a machine the agent may operate.
+`bash` has two guards:
+
+1. **Deny list** — commands that are destructive whatever the folder are refused before they run: wiping `/` or `~`, `mkfs`, `dd` to a device, fork bombs, `curl … | sh`, `sudo`, shutdown, `git push --force`, `git reset --hard`, `git clean -fdx`, `chmod 777 /`. Add your own regexes with `ROCKY_BASH_DENY="npm\s+publish;terraform\s+apply"`.
+2. **Sandbox** (opt-in) — `ROCKY_SANDBOX=sandbox-exec` (macOS) lets a command read anything but write only inside `--dir` and temp folders. `ROCKY_SANDBOX=docker` runs it in a container with the workspace mounted at `/work` (`ROCKY_SANDBOX_IMAGE`, default `python:3.12-slim`; install `python-pptx`, `openpyxl` etc. in your image if workers build Office files). Default is `none`: the process starts in `--dir`, but a shell command can still `cd`, `curl`, or touch files elsewhere.
+
+Set `ROCKY_SANDBOX=sandbox-exec` on a Mac. It costs nothing and it is the difference between “the agent edited my project” and “the agent edited my home folder”.
 
 Do not point `-d` at your home directory. Use a dedicated project folder.
 

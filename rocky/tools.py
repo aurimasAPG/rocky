@@ -5,7 +5,9 @@ import re
 import subprocess
 from pathlib import Path
 
+from rocky.config import extra_bash_deny, sandbox_image, sandbox_mode
 from rocky.jsonutil import parse_json_object
+from rocky.sandbox import check_command, sandbox_available, wrap_command
 
 MAX_OUTPUT = 50_000
 
@@ -129,11 +131,21 @@ class WorkspaceTools:
             return []
         return data if isinstance(data, list) else []
 
-    def bash(self, command: str, timeout: int = 60) -> str:
+    def bash(self, command: str, timeout: int = 60, sandbox: str | None = None) -> str:
+        if not (command or "").strip():
+            raise ToolError("bash needs a command")
+        reason = check_command(command, extra_bash_deny())
+        if reason:
+            raise ToolError(f"refused ({reason}): {command[:200]}")
+        mode = sandbox_mode() if sandbox is None else sandbox
+        blocker = sandbox_available(mode)
+        if blocker:
+            raise ToolError(f"ROCKY_SANDBOX={mode} but {blocker}")
+        argv = wrap_command(command, self.root, mode, sandbox_image())
         try:
             proc = subprocess.run(
-                command,
-                shell=True,
+                argv,
+                shell=isinstance(argv, str),
                 cwd=self.root,
                 capture_output=True,
                 text=True,

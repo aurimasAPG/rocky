@@ -86,7 +86,7 @@ Every run prints a **receipt**: input / output / total tokens, USD (OpenRouter),
 
 Rocky is **fully autonomous** in `--dir`. File tools reject paths outside that folder. There is no confirmation on writes.
 
-`bash` is **not a sandbox**. The process starts in the workspace, but a shell command can still leave it. Do not point `-d` at your home directory.
+`bash` refuses a deny list of destructive commands (`rm -rf /`, `sudo`, `mkfs`, `curl | sh`, `git push --force`, …; extend with `ROCKY_BASH_DENY`). It is **not sandboxed by default**: set `ROCKY_SANDBOX=sandbox-exec` (macOS, writes only inside the workspace) or `ROCKY_SANDBOX=docker` (workspace mounted at `/work`). Do not point `-d` at your home directory.
 
 `rocky serve` binds `127.0.0.1` by default. `rocky serve --host 0.0.0.0` without `ROCKY_TOKEN` is **refused** (the server does not bind). Set `ROCKY_TOKEN` and optionally `ROCKY_WORKSPACES` before exposing the UI.
 

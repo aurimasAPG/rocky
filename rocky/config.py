@@ -54,3 +54,31 @@ def allowed_workspaces() -> list[Path]:
         if part:
             paths.append(Path(part).expanduser().resolve())
     return paths
+
+
+SANDBOX_MODES = ("none", "docker", "sandbox-exec")
+
+
+def sandbox_mode() -> str:
+    """How `bash` runs: none (host), docker (workspace mounted at /work), sandbox-exec (macOS)."""
+    load_env()
+    raw = (os.environ.get("ROCKY_SANDBOX") or "none").strip().lower()
+    if raw in {"", "off", "0", "false"}:
+        return "none"
+    if raw in {"seatbelt", "macos"}:
+        return "sandbox-exec"
+    if raw not in SANDBOX_MODES:
+        raise ValueError(f"ROCKY_SANDBOX must be one of {', '.join(SANDBOX_MODES)} (got {raw!r})")
+    return raw
+
+
+def sandbox_image() -> str:
+    load_env()
+    return (os.environ.get("ROCKY_SANDBOX_IMAGE") or "python:3.12-slim").strip()
+
+
+def extra_bash_deny() -> list[str]:
+    """Extra regexes (one per line or ;-separated) that block a bash command."""
+    load_env()
+    raw = os.environ.get("ROCKY_BASH_DENY") or ""
+    return [part.strip() for part in raw.replace("\n", ";").split(";") if part.strip()]
