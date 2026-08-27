@@ -290,6 +290,19 @@ class OrcheTui(App):
             else:
                 log.write_line(str(payload.get("text") or "")[:400])
             return
+        if kind in {"compact", "loop_guard", "stall", "mcp"}:
+            log = self.query_one("#work_log", Log)
+            if kind == "compact":
+                log.write_line(
+                    f"· compact {payload.get('mode')} {payload.get('before_tokens')}→{payload.get('after_tokens')} tok"
+                )
+            elif kind == "loop_guard":
+                log.write_line(f"· loop guard {payload.get('action')} {payload.get('name')}")
+            elif kind == "stall":
+                log.write_line(f"· stall — worker {payload.get('previous_worker')} → {payload.get('worker')}")
+            else:
+                log.write_line(f"· mcp {payload.get('tools')} tools from {payload.get('servers')}")
+            return
         if kind == "verify":
             log = self.query_one("#verify_log", Log)
             mark = "PASS" if payload.get("passed") else "FAIL"

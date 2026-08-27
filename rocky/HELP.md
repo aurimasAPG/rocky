@@ -102,7 +102,7 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable.
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
-3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family, no tools).
+3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family; read-only tools).
 4. **Critic** — attacks the brief, sets a quality bar. Skipped for `trivial` goals.
 5. **Plan** — subtasks with `depends_on`. Skipped for `trivial` goals (one worker step straight to the verifier; the planner only steps in if verification fails). Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.
