@@ -13,17 +13,39 @@ rocky help
 
 ## Install
 
-Needs [uv](https://docs.astral.sh/uv/) and Python 3.11+.
+One line. It installs [uv](https://docs.astral.sh/uv/) if you do not have it, then Rocky as an isolated tool.
+
+**macOS / Linux**
 
 ```bash
-git clone <this-repository>
-cd <repo>
+curl -fsSL https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.sh | sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.ps1 | iex
+```
+
+**uv / pipx**
+
+```bash
+uv tool install git+https://github.com/aurimasAPG/rocky
+pipx install git+https://github.com/aurimasAPG/rocky
+```
+
+**From a clone** (developers — rerun after every code change)
+
+```bash
+git clone https://github.com/aurimasAPG/rocky && cd rocky
 uv tool install --force --reinstall .
 ```
 
-Put `~/.local/bin` on your `PATH`. After you change the code, run the same install command again from the clone.
+Then `rocky --version`. Browser tools: `ROCKY_EXTRAS=browser` before the one-liner, or `uv tool install "rocky[browser] @ git+…"` plus `playwright install chromium`. Pin a branch or tag with `ROCKY_REF=v0.1.0`. Python 3.11+; the installer picks 3.12.
 
 **Python 3.13:** do not use `pip install -e .`. Hidden `.pth` files are skipped and `rocky` will fail to import.
+
+Upgrade: run the same one-liner again. Remove: `uv tool uninstall rocky`.
 
 Key (never commit it) in `~/.env`, project `.env`, or the environment:
 

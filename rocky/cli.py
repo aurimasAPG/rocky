@@ -61,13 +61,19 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "attach", "help", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "attach", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
     else:
         command = "run"
         rest = argv
+
+    if argv and argv[0] in {"--version", "-V", "version"}:
+        from rocky import __version__
+
+        sys.stdout.write(f"rocky {__version__}\n")
+        return 0
 
     parser = argparse.ArgumentParser(prog="rocky", add_help=True)
     parser.add_argument("goal", nargs="*", help="What to accomplish, or a run id for attach")

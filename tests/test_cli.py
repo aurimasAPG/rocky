@@ -163,3 +163,11 @@ def test_json_mode_needs_a_goal(monkeypatch, capsys):
 
     monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
     assert main(["--json"]) == 2
+
+
+def test_version_flag(capsys):
+    from rocky import __version__
+
+    assert main(["--version"]) == 0
+    assert capsys.readouterr().out.strip() == f"rocky {__version__}"
+    assert main(["version"]) == 0

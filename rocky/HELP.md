@@ -8,13 +8,17 @@ The command is `rocky`. `orche` is a silent alias for the same binary.
 
 ## 1. One-time setup
 
-From a clone of this repository:
+One line — it installs `uv` if needed, then Rocky as an isolated tool:
 
 ```bash
-uv tool install --force --reinstall .
+curl -fsSL https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.sh | sh
 ```
 
-Put `~/.local/bin` on your `PATH`. After you change the code, run the same command again from the clone.
+Windows (PowerShell): `irm https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.ps1 | iex`
+
+Upgrade = run it again. Remove = `uv tool uninstall rocky`. Check = `rocky --version`.
+
+Developers, from a clone: `uv tool install --force --reinstall .` (rerun after every code change). Put `~/.local/bin` on your `PATH`.
 
 Put your key in `~/.env` (never commit it):
 
