@@ -53,6 +53,8 @@ Key (never commit it) in `~/.env`, project `.env`, or the environment:
 OPENROUTER_API_KEY=sk-or-...
 ```
 
+No key yet? Run `rocky` — it asks for the key, saves it to `~/.env`, and runs `rocky doctor` (key, OpenRouter access, folder, sandbox, browser, skills).
+
 Optional browser tools:
 
 ```bash
@@ -101,6 +103,8 @@ Every run prints a **receipt**: input / output / total / cached tokens, USD (Ope
 | `rocky ps` | List runs in this folder |
 | `rocky attach [id]` | Reattach (Enter detaches) |
 | `rocky serve` | Team web UI at http://127.0.0.1:8787 |
+| `rocky resume [id]` | Continue an unmet / error / crashed run from its saved plan |
+| `rocky doctor` | Check key, OpenRouter access, sandbox, browser, skills |
 | `rocky help` | Full English user guide |
 | `rocky "goal" --json` | Headless: print one JSON result, exit 0 on pass |
 | `rocky route "goal"` | Only assess + pick models (no tools) |

@@ -82,3 +82,33 @@ def extra_bash_deny() -> list[str]:
     load_env()
     raw = os.environ.get("ROCKY_BASH_DENY") or ""
     return [part.strip() for part in raw.replace("\n", ";").split(";") if part.strip()]
+
+
+def home_env_path() -> Path:
+    return Path.home() / ".env"
+
+
+def save_api_key(key: str, path: Path | None = None) -> Path:
+    """Write OPENROUTER_API_KEY into ~/.env (replace an existing line), chmod 600, export it."""
+    key = (key or "").strip()
+    if not key:
+        raise ValueError("empty key")
+    path = path or home_env_path()
+    lines: list[str] = []
+    if path.exists():
+        lines = path.read_text(encoding="utf-8").splitlines()
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.strip().removeprefix("export ").split("=", 1)[0].strip() == "OPENROUTER_API_KEY":
+            lines[i] = f"OPENROUTER_API_KEY={key}"
+            replaced = True
+    if not replaced:
+        lines.append(f"OPENROUTER_API_KEY={key}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    os.environ["OPENROUTER_API_KEY"] = key
+    return path

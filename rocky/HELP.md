@@ -26,7 +26,13 @@ Put your key in `~/.env` (never commit it):
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-Project `.env` and the process environment also work.
+Project `.env` and the process environment also work. No key yet? Just run `rocky` — on a terminal it asks for the key (LT / EN), saves it to `~/.env` with mode 600, and runs `rocky doctor` right away.
+
+```bash
+rocky doctor
+```
+
+checks the machine: Python version, key present and accepted by OpenRouter, `~/.env` permissions, workspace writable, sandbox mode, Playwright + Chromium, skills found, pinned models. `✓` fine, `!` works but could be safer, `✗` must be fixed. Exit code 1 when anything is `✗`.
 
 Python 3.13: do **not** use `pip install -e .`. Hidden `.pth` files are skipped and `rocky` will fail to import. Use a normal install or `uv tool install` as above.
 
@@ -83,6 +89,7 @@ rocky help
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
+| `rocky doctor` | Check key, OpenRouter access, folder, sandbox, browser, skills. Exit 1 if anything is broken. |
 | `rocky help` | Print this guide. |
 
 ---
@@ -330,7 +337,7 @@ While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of
 
 | Symptom | Fix |
 | --- | --- |
-| `OPENROUTER_API_KEY is missing` | Put the key in `~/.env` |
+| `OPENROUTER_API_KEY is missing` | Run `rocky` on a terminal and paste the key, or put it in `~/.env`; then `rocky doctor` |
 | `ModuleNotFoundError: rocky` | Reinstall without `--editable` (Python 3.13) |
 | `rocky: command not found` | `uv tool install --force --reinstall .` from the clone; ensure `~/.local/bin` is on `PATH` |
 | TUI “nothing happens” | Wait for catalog fetch; you should see “working…” immediately. Check the key. |

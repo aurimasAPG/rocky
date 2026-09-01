@@ -83,8 +83,9 @@ esac
 cat <<EOF
 
   Next:
-    1. put your key in ~/.env      OPENROUTER_API_KEY=sk-or-...
-    2. cd into a project folder and run:   rocky
+    1. cd into a project folder and run:   rocky
+       (it asks for your OpenRouter key once and saves it to ~/.env)
+    2. check the setup:                    rocky doctor
     3. guide:                              rocky help
 
 EOF

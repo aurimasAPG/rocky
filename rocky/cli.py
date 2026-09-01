@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from rocky.catalog import parse_models, pick_cast
-from rocky.config import api_key, base_url, preferred_worker
+from rocky.config import api_key, base_url, home_env_path, preferred_worker, save_api_key
 from rocky.job import spawn_worker
 from rocky.jsonutil import parse_json_object
 from rocky.llm import OpenRouterClient
@@ -63,7 +63,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -129,10 +129,12 @@ def main(argv: list[str] | None = None) -> int:
             console.print(f"[red]{exc}[/]")
             return 1
         return _attach(workspace, run_id)
+    if command == "doctor":
+        return _doctor(workspace)
 
-    key = api_key()
+    key = api_key() or _onboard(workspace)
     if not key:
-        console.print("[red]OPENROUTER_API_KEY is missing.[/] Put it in .env or ~/.env")
+        console.print("[red]OPENROUTER_API_KEY is missing.[/] Put it in .env or ~/.env, then run [bold]rocky doctor[/]")
         return 2
 
     if command == "resume":
@@ -241,6 +243,39 @@ def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_o
         f"[dim]run {meta['id']}  ·  Enter detaches, job keeps running  ·  rocky attach {meta['id'][:18]}[/]"
     )
     return _attach(workspace, meta["id"])
+
+
+def _doctor(workspace: Path) -> int:
+    from rocky.doctor import healthy, print_report, run_checks
+
+    checks = run_checks(workspace)
+    print_report(checks, console)
+    return 0 if healthy(checks) else 1
+
+
+def _onboard(workspace: Path) -> str:
+    """No key yet: on a terminal, ask for it once, save to ~/.env, then run the doctor."""
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return ""
+    console.print(
+        "[bold]Nėra OPENROUTER_API_KEY.[/] Įklijuok raktą iš https://openrouter.ai/keys — įrašysiu jį į "
+        f"[bold]{home_env_path()}[/] (tik tau skaitomą).\n"
+        "[dim]No OPENROUTER_API_KEY yet. Paste your key from https://openrouter.ai/keys — "
+        "it will be saved to ~/.env (mode 600). Empty line = quit.[/]"
+    )
+    try:
+        raw = input("OPENROUTER_API_KEY: ").strip()
+    except EOFError:
+        return ""
+    if not raw:
+        return ""
+    if not raw.startswith("sk-or-"):
+        console.print("[yellow]Raktas paprastai prasideda „sk-or-“ / keys usually start with sk-or- — saving anyway.[/]")
+    path = save_api_key(raw)
+    console.print(f"[green]Įrašyta / saved →[/] {path}\n")
+    _doctor(workspace)
+    console.print()
+    return raw
 
 
 def _resume(workspace: Path, ident: str | None, *, budget_eur: float | None, json_out: bool = False) -> int:
