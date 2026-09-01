@@ -171,3 +171,25 @@ def test_version_flag(capsys):
     assert main(["--version"]) == 0
     assert capsys.readouterr().out.strip() == f"rocky {__version__}"
     assert main(["version"]) == 0
+
+
+def test_lithuanian_guide_keeps_parity_with_help():
+    from pathlib import Path
+
+    from rocky.cli import help_path
+
+    en = help_path().read_text(encoding="utf-8")
+    lt = (Path(__file__).resolve().parent.parent / "docs" / "lt.md").read_text(encoding="utf-8")
+    # same section count, same commands, same feature keywords
+    import re
+
+    assert len(re.findall(r"\n## \d+\. ", en)) == len(re.findall(r"\n## \d+\. ", lt)) == 18
+    for token in (
+        "rocky resume", "rocky doctor", "rocky ps", "rocky attach", "rocky serve", "rocky route", "--json",
+        "passed_with_notes", "image_generate", "ROCKY_IMAGE_MODEL", "runs/notes/", "deliverables/",
+        "ROCKY_SANDBOX", "ROCKY_TOKEN", "MEMORY.md", "runs_search", "recipe:", "subtask_skipped",
+        "100k", "cache", "ROCKY_WORKER", "mcp.json", "AGENTS.md", "budget_warn",
+    ):
+        assert token in en, f"{token} missing from HELP.md"
+        assert token.replace("100k", "100 tūkst.") in lt, f"{token} missing from docs/lt.md"
+    assert "„" in lt and '"citata"' not in lt  # Lithuanian quotes

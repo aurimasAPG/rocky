@@ -43,8 +43,9 @@ if ($Extras -eq "browser") {
 
 Write-Host ""
 Write-Host "  Next:"
-Write-Host "    1. put your key in %USERPROFILE%\.env    OPENROUTER_API_KEY=sk-or-..."
-Write-Host "    2. cd into a project folder and run:    rocky"
-Write-Host "    3. guide:                               rocky help"
+Write-Host "    1. cd into a project folder and run:   rocky"
+Write-Host "       (it asks for your OpenRouter key once and saves it to %USERPROFILE%\.env)"
+Write-Host "    2. check the setup:                    rocky doctor"
+Write-Host "    3. guide:                              rocky help"
 Write-Host "  Open a new terminal if 'rocky' is not found yet."
 Write-Host ""

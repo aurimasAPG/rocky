@@ -1,43 +1,56 @@
 # Rocky — kaip naudotis
 
-Rocky — „OpenRouter“ agentų orkestratorius. Duodi tikslą ir katalogą. Jis iš gyvo katalogo parenka modelius, suskaido darbą, naudoja įrankius ir patikrina rezultatą. Numatytosios išlaidų lubos — **1 EUR vienam paleidimui**.
+Rocky — „OpenRouter“ **agentų orkestratorius**. Duodi tikslą ir katalogą. Jis iš gyvo modelių katalogo parenka modelius, suskaido darbą, naudoja įrankius ir patikrina rezultatą. Numatytosios išlaidų lubos — **1 EUR vienam paleidimui**.
 
 Komanda — `rocky`. `orche` yra tylus tos pačios programos sinonimas.
 
-Pilnas angliškas vadovas: `rocky help` (tas pats tekstas kaip `rocky/HELP.md`).
+Angliškas vadovas su tuo pačiu turiniu: `rocky help` (failas `rocky/HELP.md`).
 
-## Diegimas
+---
 
-Reikia [uv](https://docs.astral.sh/uv/) ir Python 3.11 ar naujesnės versijos.
+## 1. Vienkartinis diegimas
+
+Viena eilutė — įdiegia `uv`, jei jo nėra, ir Rocky kaip izoliuotą įrankį:
 
 ```bash
-git clone <ši-saugykla>
-cd <repo>
-uv tool install --force --reinstall .
+curl -fsSL https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.sh | sh
 ```
 
-Į `PATH` įtrauk `~/.local/bin`. Pakeitus kodą, tą pačią komandą paleisk dar kartą iš klono katalogo.
+Windows (PowerShell): `irm https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.ps1 | iex`
 
-**Python 3.13:** nenaudok `pip install -e .`. Paslėpti `.pth` failai praleidžiami ir `rocky` neimportuos.
+Atnaujinti = paleisti tą pačią eilutę dar kartą. Pašalinti = `uv tool uninstall rocky`. Patikrinti = `rocky --version`.
 
-Raktas (niekada neįrašyk į git) faile `~/.env`, projekto `.env` arba aplinkoje:
+Kūrėjams iš klono: `uv tool install --force --reinstall .` (po kiekvieno kodo pakeitimo paleisti iš naujo). Į `PATH` įtrauk `~/.local/bin`.
+
+Raktą laikyk faile `~/.env` (niekada neįrašyk į git):
 
 ```
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-Naršyklės įrankiai (neprivaloma):
+Veikia ir projekto `.env`, ir aplinkos kintamasis. Rakto dar nėra? Tiesiog paleisk `rocky` — terminale jis paprašys rakto (LT / EN), įrašys jį į `~/.env` su teisėmis 600 ir iškart paleis `rocky doctor`.
+
+```bash
+rocky doctor
+```
+
+patikrina mašiną: Python versiją, ar raktas yra ir ar „OpenRouter“ jį priima, `~/.env` teises, ar darbo katalogas rašomas, smėlio dėžės režimą, Playwright + Chromium, rastus įgūdžius, prisegtus modelius. `✓` — gerai, `!` — veikia, bet galėtų būti saugiau, `✗` — būtina sutvarkyti. Jei yra bent vienas `✗`, išeities kodas 1.
+
+**Python 3.13:** **nenaudok** `pip install -e .`. Paslėpti `.pth` failai praleidžiami ir `rocky` neimportuos. Diek įprastai arba per `uv tool install`, kaip aukščiau.
+
+Neprivalomi naršyklės įrankiai (Playwright + Chromium):
 
 ```bash
 uv tool install --force --reinstall ".[browser]"
 playwright install chromium
 ```
 
-## Pirmas paleidimas
+---
+
+## 2. Pirmas paleidimas
 
 ```bash
-mkdir -p /tmp/rocky-demo
-cd /tmp/rocky-demo
+cd /kelias/iki/projekto/kuri/nori/redaguoti
 rocky
 ```
 
@@ -49,71 +62,321 @@ Vienu kartu:
 rocky -d /tmp/rocky-demo "parašyk trijų sakinių santrauką į summary.md"
 ```
 
-Trys langai (planas / darbas / tikrinimas):
+Interaktyvi trijų langų žiūryklė:
 
 ```bash
 rocky tui -d /tmp/rocky-demo
 ```
 
-## Komandos
+Šį vadovą (angliškai) perskaityti bet kada:
+
+```bash
+rocky help
+```
+
+---
+
+## 3. Komandos
 
 | Komanda | Ką daro |
 | --- | --- |
 | `rocky` | Interaktyvi CLI. Įrašai tikslą, stebi ciklą, rašai kitą. |
-| `rocky "tikslas"` | Paleidžia foninį darbą ir prisijungia. |
-| `rocky tui` | Tas pats variklis, trys langai (`q` atjungia). |
-| `rocky ps` | Sąrašas šio katalogo paleidimų. |
-| `rocky attach [id]` | Vėl prisijungti (Enter atjungia). |
-| `rocky serve` | Komandos tinklo sąsaja, http://127.0.0.1:8787 |
-| `rocky help` | Pilnas angliškas vadovas |
-| `rocky route "tikslas"` | Tik įvertina ir parenka modelius (be įrankių) |
+| `rocky "tikslas"` | Paleidžia tą tikslą kaip **foninį darbą** ir prisijungia. |
+| `rocky tui` | Tas pats variklis, trys langai (planas / darbas / tikrinimas). |
+| `rocky tui --attach ID` | Atveria TUI ant esamo paleidimo. |
+| `rocky ps` | Šio katalogo paleidimų sąrašas. |
+| `rocky attach` | Vėl prisijungti prie naujausio paleidimo. |
+| `rocky attach ID` | Prisijungti prie to paleidimo (užtenka pradžios). |
+| `rocky resume [ID]` | Pratęsti `unmet` / `error` / `crashed` paleidimą iš išsaugoto plano ir failų. Be ID — naujausią tokį. |
+| `rocky serve` | Komandos tinklo sąsaja (numatytai http://127.0.0.1:8787). |
+| `rocky route "tikslas"` | Tik įvertina ir parenka modelius. Be įrankių, be failų. |
+| `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
+| `rocky doctor` | Patikrina raktą, „OpenRouter“ pasiekiamumą, katalogą, smėlio dėžę, naršyklę, įgūdžius. Išeities kodas 1, jei kas nors sugedę. |
+| `rocky help` | Angliškas vadovas. |
 
-Parametrai: `--dir`, `--budget` (eurais, numatytai **1,00**), `--max-loops` (numatytai 4).
+---
 
-Kiekvienas paleidimas spausdina **kvitą**: įėjimo / išėjimo / viso žetonai, USD, EUR (3 skaitmenys po kablelio).
+## 4. Parametrai
 
-## Atjungti ir vėl prisijungti
+| Parametras | Numatytoji reikšmė | Reikšmė |
+| --- | --- | --- |
+| `-d`, `--dir` | dabartinis katalogas | Darbo katalogas. Failų įrankiai gali liesti tik failus jame. |
+| `--budget` | `1.00` | Šio paleidimo lubos **eurais**. `resume` be šio parametro palieka senojo paleidimo lubas. |
+| `--max-loops` | `4` | Ciklų planas → darbas → tikrinimas skaičius. |
+| `--no-server-tools` | išjungta | Nenaudoti „OpenRouter“ serverio interneto įrankių. |
+| `--host` / `--port` | `127.0.0.1` `8787` | Tik `serve`. |
+| `--attach` | tuščia | TUI: prisijungti prie esamo paleidimo ID. |
+| `--json` | išjungta | Be gyvo vaizdo; galutinį rezultatą spausdinti JSON formatu (skriptams, CI, kitiems agentams). |
 
-Darbas eina **atskiru procesu**. Uždaręs žiūryklę jo nenužudai.
+**Kitas** paleidimas vėl turi 1 EUR lubas, nebent vėl nurodai `--budget`.
 
-- CLI: **Enter** atjungia.
-- TUI: **q**, tada Enter (arba Ctrl+Q).
+---
 
-Sugrįžti: `rocky ps`, `rocky attach`, `rocky tui --attach ID`.
+## 5. Kas vyksta paleidus
 
-Žurnalai: `.rocky/runs/<id>/`.
+1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas.
+2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).
+3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (stiprus), darbuotojas (numatytai **Gemini 3.7 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai).
+4. **Kritikas** — puola užduotį, nustato kokybės kartelę. `trivial` tikslams praleidžiamas.
+5. **Planas** — dalys su `depends_on`. `trivial` tikslams praleidžiamas (vienas darbuotojo žingsnis tiesiai tikrintojui; planuotojas įsijungia tik jei tikrinimas nepavyksta). Nepriklausomos dalys gali vykti lygiagrečiai (iki 4).
+6. **Darbuotojai** — kiekviena dalis yra atskiras pokalbis, bendras katalogas.
+7. **Tikrintojas** — vertina **visą** rezultatą. Failus atsidaro pats (`read_file`, `list_dir`, `grep`, `office_read` skaidrėms ir lentelėms; iki 6 skaitymo kvietimų). Ciklo viduje „beveik gerai“ = nesėkmė; planuotojas perskirsto, darbuotojai tęsia.
+   Jei dvi patikros iš eilės nepavyksta, Rocky laiko, kad problema — darbuotojo modelis: planą palieka, o **darbuotoją keičia** stipresniu — pajėgiausiu modeliu iki ~12 $/M iš dar nebandytos šeimos (`stall` įvykis), užuot planavęs iš naujo.
+8. Stabdo, kai pavyksta, baigiasi ciklai arba pasiekiamos eurų lubos. Trys pabaigos: **passed** — pavyko; **passed_with_notes** — ciklai ar lubos baigėsi, bet paskutinis įvertis ≥ 0,7 ir galutinis failas yra diske, tad gauni failą ir tikrintojo pastabas (`--json` jas grąžina lauke `notes`, išeities kodas 0); **unmet** — nieko naudojamo. Ciklo viduje „beveik gerai“ vis tiek yra nesėkmė — būtent ji verčia perplanuoti.
 
-## Saugumas
+Kiekvienas darbuotojo pokalbis ribojamas 20 ėjimų ir laikomas mažas: seni įrankių rezultatai virsta vienos eilutės nuorodomis, o viršijus ~60 % modelio lango **arba 100 tūkst. žetonų** (kas anksčiau) pokalbio vidurį apibendrina pigus įvertinimo modelis (`compact` įvykis). 100 tūkst. lubos svarbios darbuotojams su 1 mln. langu: be jų ilgas tyrimo žingsnis kiekvienu ėjimu iš naujo siųstų šimtus tūkstančių žetonų.
 
-Rocky **visiškai autonomiškas** kataloge `--dir`. Failų įrankiai neleidžia kelių už to katalogo ribų. Rašant failus nėra klausimo „ar tikrai?“.
+„Anthropic“ modeliams sistemos blokas ir užduoties žinutė pažymimi **prompt-cache** taškais, todėl kiekvienas kitas darbuotojo ar tikrintojo ėjimas juos perskaito kešo kaina (kvite — `cached`). OpenAI, Gemini ir DeepSeek stabilų pradžios fragmentą kešuoja patys; Rocky kiekvieno pokalbio sistemą + užduotį tarp ėjimų laiko baitas į baitą tokią pačią, kad kešas pataikytų.
 
-`bash` **nėra smėlio dėžė**. Procesas startuoja darbo kataloge, bet komanda vis tiek gali išeiti (`cd`, `curl` ir t. t.). Nenukreipk `-d` į namų katalogą.
+Darbuotojas, kartojantis lygiai tą patį įrankio kvietimą, trečią kartą atmetamas, ketvirtą — stabdomas (`loop_guard` įvykis).
 
-`rocky serve` numatytai klausosi `127.0.0.1` (tik ši mašina). `rocky serve --host 0.0.0.0` **be** `ROCKY_TOKEN` atsisako paleisti: procesas baigiasi, serveris neprisijungia. Prieš atverdamas sąsają nustatyk `ROCKY_TOKEN` ir, jei reikia, `ROCKY_WORKSPACES`.
+Kiekvienas atsakymas spausdina **kvitą**: įėjimo / išėjimo / viso žetonai (plius samprotavimo ir kešuoti žetonai, kai tiekėjas juos praneša), USD, EUR (3 skaitmenys po kablelio). Galutinis kvitas dar **suskaidytas pagal vaidmenis** — `assess €0.001 · critic €0.021 · planner €0.034 · worker €0.012 · verifier €0.009` — kad matytum, kuris modelis valgo biudžetą. `--json` tą patį grąžina lauke `by_role`.
 
-Raktą laikyk `~/.env` arba projekto `.env`, kurio git nemato.
+---
 
-## Atmintis
+## 6. Atsijungti ir vėl prisijungti (kaip tmux)
 
-Kitas tikslas tame pačiame kataloge tęsia ankstesnį. Paleidimo pradžioje užšaldoma (kaip Hermes):
+Paleidimas yra **atskiras procesas**. Uždarius žiūryklę darbas nenutrūksta.
 
-- `~/.rocky/memories/USER.md` — kas tu (1 375 ženklai)
-- `<katalogas>/.rocky/MEMORY.md` — šio projekto faktai (2 200 ženklų)
-- paskutiniai 5 baigti paleidimai (tikslas + santrauka)
+| Esi | Atsijungti (darbas tęsiasi) |
+| --- | --- |
+| CLI attach | **Enter** |
+| TUI | **q**, tada Enter (arba Ctrl+Q) |
 
-Darbuotojas gali `memory` (add / replace / remove) ir `runs_search`. Į diską rašoma iškart; į promptą pateks **kitą** paleidimą.
+Sugrįžti:
 
-## Kas vyksta paleidus
+```bash
+rocky ps
+rocky attach
+rocky attach 20260827-14
+rocky tui --attach 20260827-14
+```
 
-1. Pigus modelis įvertina sudėtingumą.
-2. Jei spėjama kaina viršija lubas, Rocky klausia, ar šiam paleidimui jas pakelti (`yes`, `keep` arba skaičius).
-3. Iš gyvo katalogo parenkamas trejetas: planuotojas, darbuotojas, tikrintojas.
-4. Kritikas užpuola užduotį ir nustato kokybės kartelę.
-5. Planuotojas skaido darbą (`depends_on`, lygiagrečios bangos).
-6. Darbuotojai — po pokalbį kiekvienai daliai, bendras katalogas. Numatytasis modelis — Gemini 3.7 Flash (`ROCKY_WORKER` pakeičia).
-7. Tikrintojas vertina **visą** rezultatą. „Beveik gerai“ — nesėkmė, planas perskirstomas.
+Žurnalai darbo kataloge:
 
-Rinkodaros / skelbimų / tekstų tikslai planuojami seka **tyrimas → VOC → tekstas → pptx + xlsx**.
+```
+.rocky/runs/<paleidimo-id>/
+  meta.json
+  events.jsonl
+  worker.log
+```
+
+Jei Rocky klausia biudžeto ar patikslinimo, kol esi atsijungęs, prisijunk ir atsakyk. Darbuotojas laukia (apie 10 minučių), tada tęsia su saugia numatytąja reikšme.
+
+### Pratęsti nulūžusį paleidimą
+
+```bash
+rocky resume            # naujausias unmet / error / crashed paleidimas šiame kataloge
+rocky resume 20260828-11
+rocky resume --budget 3 # naujos lubos tęsiniui
+```
+
+Viskas, ko reikia, jau guli `events.jsonl` ir darbo kataloge: įvertinimas, kritiko kartelė, planas, sudėtis, paskutinis verdiktas ir kurie žingsniai baigti. Pratęstas paleidimas **nemoka** už įvertinimą / kritiką / planą antrą kartą. Žingsniai, baigti po paskutinio plano ir kurių `writes` failai tebėra diske, praleidžiami (`subtask_skipped` įvykis); kiti vykdomi įprastai. Jei senąjį paleidimą tikrintojas jau buvo įvertinęs, pratęsimas pradedamas perplanavimu nuo to verdikto. Naujas paleidimas gauna savo ID, susiejamas su senuoju (`rocky ps` rodo `↻`) ir palieka senąsias lubas, nebent nurodai `--budget`.
+
+Laikini „OpenRouter“ sutrikimai — laiko limitai, nutrūkęs ryšys, 408 / 429 / 5xx, tušti atsakymai — kartojami iki 3 kartų su pauze, kol paleidimas pasiduoda, tad vienas sutrikimas 25 minučių darbo nebenužudo.
+
+---
+
+## 7. Gyva būsena
+
+Terminale viena būsenos eilutė perrašoma toje pačioje vietoje (kaip Claude Code / OpenCode): `thinking · plan`, `researching · …`, `writing · article.md`. Planas, kritikas, tikrinimas ir kaina lieka kaip skydeliai. Enter atjungia.
+
+---
+
+## 8. CLI klavišai
+
+- Įrašyk tikslą, Enter — paleidžia ir prisijungia.
+- Tuščia eilutė arba `q` **tikslo** eilutėje — išeiti iš Rocky.
+- **Enter**, kol paleidimas rodomas — atsijungti.
+- Jei agentas klausia — įrašyk `yes` / `keep` / skaičių / trumpą atsakymą.
+
+Kopijavimas CLI — įprastas terminalo žymėjimas: pažymėk, tada Cmd+C (macOS) arba Ctrl+C.
+
+---
+
+## 9. TUI klavišai
+
+Kol paleidimas prijungtas, viena gyva eilutė rodo dabartinį veiksmą: `thinking · plan`, `researching · …`, `writing · article.md`. Ji lieka toje pačioje eilutėje virš trijų langų.
+
+Langai: **planas** | **darbas** | **tikrinimas**. Rašyk laukelyje apačioje.
+
+| Klavišas | Veiksmas |
+| --- | --- |
+| Enter | Pateikti naują tikslą arba atsakyti į klausimą |
+| q, tada Enter | Atsijungti (paleidimo **nenužudo**) |
+| Ctrl+Q | Uždaryti TUI |
+| Page Up / Page Down | Slinkti darbo žurnalą |
+| Tempimas pele | Žymėti tekstą |
+| Cmd+C arba Ctrl+C | Kopijuoti pažymėjimą (macOS naudoja tikrą iškarpinę) |
+| Cmd+V arba Ctrl+V | Įklijuoti į įvesties laukelį |
+
+Ctrl+C kopijuoja, o ne „nužudo programą“. Shift+tempimas naudoja paties terminalo žymėjimą, jei kada prireiktų.
+
+---
+
+## 10. Komandos tinklo sąsaja
+
+```bash
+rocky serve
+rocky serve --host 0.0.0.0 --port 8787
+```
+
+Aplinkos kintamieji:
+
+- `ROCKY_TOKEN` — bendras puslapio slaptažodis. **Nustatyk prieš klausydamas ne vien vietinio adreso.**
+- `ROCKY_WORKSPACES` — kableliais atskirti leidžiami katalogai
+
+Tinklo sąsajoje nėra žmogaus biudžetui pakelti. Jei užduotis atrodo brangi, lubos paliekamos ir įrašomas įspėjimas.
+
+---
+
+## 11. Darbo katalogas ir saugumas
+
+Rocky **visiškai autonomiškas kataloge `--dir`**. Rašant failus klausimo „ar tikrai?“ nėra. Failų įrankiai atmeta kelius už katalogo ribų.
+
+`bash` turi dvi apsaugas:
+
+1. **Draudžiamųjų sąrašas** — komandos, griaunančios nepriklausomai nuo katalogo, atmetamos dar nepaleistos: `/` ar `~` trynimas, `mkfs`, `dd` į įrenginį, „fork bomb“, `curl … | sh`, `sudo`, išjungimas, `git push --force`, `git reset --hard`, `git clean -fdx`, `chmod 777 /`. Savų taisyklių pridėk per `ROCKY_BASH_DENY="npm\s+publish;terraform\s+apply"`.
+2. **Smėlio dėžė** (įjungiama atskirai) — `ROCKY_SANDBOX=sandbox-exec` (macOS) leidžia komandai skaityti viską, o rašyti tik `--dir` ir laikinuose kataloguose. `ROCKY_SANDBOX=docker` vykdo konteineryje, darbo katalogas prijungtas kaip `/work` (`ROCKY_SANDBOX_IMAGE`, numatytai `python:3.12-slim`; jei darbuotojai kuria „Office“ failus, į savo atvaizdą įdiek `python-pptx`, `openpyxl` ir pan.). Numatytoji reikšmė `none`: procesas startuoja `--dir`, bet komanda vis tiek gali `cd`, `curl` ar liesti failus kitur.
+
+Mac'e nustatyk `ROCKY_SANDBOX=sandbox-exec`. Tai nieko nekainuoja ir yra skirtumas tarp „agentas redagavo mano projektą“ ir „agentas redagavo mano namų katalogą“.
+
+Nenukreipk `-d` į namų katalogą. Naudok atskirą projekto katalogą.
+
+Niekada neįrašyk `OPENROUTER_API_KEY` į git. Laikyk `~/.env` arba projekto `.env`, kurio git nemato.
+
+`rocky serve` numatytai klausosi `127.0.0.1` (tik ši mašina). `rocky serve --host 0.0.0.0` **be** `ROCKY_TOKEN` atsisako paleisti: procesas baigiasi, serveris neprisijungia. Prieš atverdamas sąsają nustatyk `ROCKY_TOKEN`.
+
+---
+
+## 12. Darbo katalogo tvarka
+
+Kiekvienas planas laikosi vienos konvencijos — su receptu ar be jo:
+
+| Kas | Kur |
+| --- | --- |
+| Darbiniai failai — tyrimai, užrašai, juodraščiai, skriptai, tarpiniai duomenys | `runs/notes/` |
+| Galutiniai failai — tai, ko prašei | `deliverables/` |
+| Katalogo šaknis | nieko, nebent tiksle nurodai kelią šaknyje |
+
+Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas galutinio failo pavadinimas iš įvertinimo ar planuotojo (`summary.md`) automatiškai dedamas į `deliverables/`. Įmontuotas rinkodaros receptas rašo `runs/notes/research.md`, `runs/notes/voc.md`, `runs/notes/copy.md`, tada `deliverables/campaign.pptx` ir `deliverables/variants.xlsx`.
+
+---
+
+## 13. Įrankiai, kuriuos gali kviesti darbuotojas
+
+`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+
+### Vaizdai
+
+`image_generate` nupiešia PNG „OpenRouter“ vaizdų modeliu ir įrašo į `deliverables/` (`prompt`, neprivalomi `path`, `reference_path` — esamas vaizdas redagavimui ar stiliui, `aspect_ratio` — `1:1`, `9:16`, `16:9` ir pan.). Numatytasis modelis `google/gemini-3.1-flash-image`; kitą prisegk per `ROCKY_IMAGE_MODEL` (pvz., `google/gemini-3-pro-image`, `openai/gpt-5-image`). Jei pirmasis modelis atsisako, bandomas kitas. Kiekvienas vaizdas įtraukiamas į paleidimo kvitą kaip bet kuris kitas kvietimas. `vision_analyze` leidžia darbuotojui patikrinti rezultatą pagal jo brief'ą.
+
+### MCP serveriai
+
+Rocky kalba MCP per stdio. Serverius surašyk į `<katalogas>/.rocky/mcp.json` (projektas) arba `~/.rocky/mcp.json` (visur); to paties pavadinimo serveriui projekto failas laimi. Priimamas ir `mcpServers` (Claude Code / Cursor stilius).
+
+```json
+{
+  "servers": {
+    "playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]},
+    "notion": {"command": "notion-mcp", "env": {"NOTION_TOKEN": "${NOTION_TOKEN}"}},
+    "old": {"command": "x", "disabled": true}
+  }
+}
+```
+
+Kiekvieno serverio įrankiai darbuotojams matomi kaip `mcp__<serveris>__<įrankis>` su paties serverio schema. Serveriai startuoja pirmą kartą pakvietus ir sustoja paleidimui pasibaigus; nepasileidęs serveris praleidžiamas ir įvardijamas `mcp` įvykyje.
+
+### Projekto instrukcijos
+
+Jei darbo kataloge yra `ROCKY.md`, `AGENTS.md` arba `CLAUDE.md` (pirmas rastas, iki 8 000 ženklų), jis įterpiamas į kiekvieno vaidmens prompt'ą kaip **PROJECT INSTRUCTIONS** — konvencijos, tonas, keliai, ko neliesti.
+
+„Office“ / PDF (`.xlsx` `.docx` `.pptx` `.pdf`): darbuotojas privalo `skill_view` atitinkamą įgūdį, tada failą kurti per **openpyxl / python-docx / python-pptx / reportlab** iš `bash`. Šių dvejetainių failų niekada nerašo `write_file`.
+
+---
+
+## 14. Įgūdžiai
+
+Įmontuoti: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`.
+
+Rocky iš `~/.claude/skills` dar įkelia **tyrimų + rinkodaros** leidžiamųjų sąrašą (copywriting, voc-to-copy, meta-ads-copy, …). Asmeniniai įgūdžiai lieka už borto. Papildomi katalogai:
+
+```bash
+export ROCKY_SKILLS=/kelias/iki/kitu/igudziu
+```
+
+Reklamos / tekstų / kampanijų tikslai planuojami kaip **tyrimas → VOC → tekstas → pptx + xlsx → vizualai** — tai įmontuotas `marketing` receptas. Vizualų žingsnis parašo `deliverables/visual-brief.md` (po bloką kiekvienam vizualui: formatas, žinutė, kompozicija, prekės ženklo hex spalvos, teksto užrašas), tada per `image_generate` kiekvieną bloką paverčia `deliverables/visual-1.png`, `visual-2.png`, …
+
+### Receptai
+
+Receptas — plano griaučiai, kuriuos Rocky priverstinai taiko, kai tikslas atitinka: sutvarkyti žingsniai, `depends_on`, galutinio failo kelias ir raktažodžių užuominos. Failai — TOML:
+
+- įmontuoti: `rocky/recipes/*.toml` (šiandien `marketing` — tyrimas, VOC, tekstas, skaidrės + lentelė, vizualai)
+- bendri: katalogai iš `ROCKY_RECIPES=/kelias/a,/kelias/b`
+- šio katalogo: `<katalogas>/.rocky/recipes/*.toml` (tuo pačiu pavadinimu laimi)
+
+Kiekvienas žingsnis gali deklaruoti `writes = ["runs/notes/research.md"]` — failus, kuriuos privalo palikti diske. Kai darbuotojas sustoja be jų, Rocky jį paragina (daugiausia dukart, `nudge` įvykis); jei failų vis tiek nėra, žingsnis tikrintojui pateikiamas kaip **INCOMPLETE**, kad tolesni žingsniai ir verdiktas negalėtų apsimesti, jog darbas atliktas. Planuotojo žingsniai `writes` sąrašą gauna irgi.
+
+Atitikimo tvarka: `recipe:<pavadinimas>` bet kur tiksle → įvertinta sritis → raktažodžiai. Jei planuotojas jau dengia visus privalomus etapus, planas paliekamas; kitaip recepto žingsniai jį pakeičia. Darbuotojai gali `recipe list / view / save` — išsaugotas receptas naudojamas nuo **kito** paleidimo, tad peržiūrėk jį. Formatas — `rocky/recipes/marketing.toml`.
+
+---
+
+## 15. Biudžeto užuominos
+
+| Atrodo kaip | Tipinis spėjimas prieš 1 EUR |
+| --- | --- |
+| Vienos eilutės užduotis (`trivial`) | Be kritiko, be planuotojo: įvertinimas → darbuotojas → tikrintojas, dažniausiai gerokai mažiau nei 0,01 EUR |
+| Trumpas perrašymas, be interneto | Telpa į lubas — klausimo nėra |
+| Sudėtingas tyrimas, reklamos, keli failai | Rocky klausia, ar pakelti **tik šiam paleidimui** |
+
+`--budget 10` komandinėje eilutėje praleidžia klausimą, jei spėjimas mažesnis nei 10 EUR.
+
+Spėjimas **kalibruojamas pagal šio katalogo istoriją**: Rocky ima medianą *faktinė ÷ spėta* iš baigtų paleidimų (to paties sudėtingumo, jei tokių bent du; kitaip visų; ribojama 0,5–4×) ir tuo daugikliu pakoreguoja lentelės reikšmę. `assessed` eilutė rodo `~€9.10 (×1.6 from 4 past runs)`, kai daugiklis pritaikytas; `--json` įvertinime pateikia `estimate_base_eur` ir `calibration`. Kiekvienas baigtas paleidimas į savo `meta.json` įrašo `eur`, `estimated_eur` ir `complexity`, kad kitas spėjimas iš jo pasimokytų.
+
+Kol darbuotojai dirba, Rocky vieną kartą įspėja (`budget_warn`, etapas `half`), kai **išleista 50 % lubų, o galutinio failo diske dar nėra** — tinkamas momentas prisijungti ir nuspręsti, ar leisti tęsti.
+
+---
+
+## 16. Trikčių šalinimas
+
+| Požymis | Sprendimas |
+| --- | --- |
+| `OPENROUTER_API_KEY is missing` | Paleisk `rocky` terminale ir įklijuok raktą arba įrašyk jį į `~/.env`; tada `rocky doctor` |
+| `ModuleNotFoundError: rocky` | Įdiek iš naujo be `--editable` (Python 3.13) |
+| `rocky: command not found` | `uv tool install --force --reinstall .` iš klono; `~/.local/bin` turi būti `PATH` |
+| TUI „nieko nevyksta“ | Palauk, kol atsisiųs katalogas; „working…“ turėtum matyti iškart. Patikrink raktą. |
+| Kopijavimas TUI neveikia | Pažymėk tekstą, tada Cmd+C. Išeik su **q**, ne Ctrl+C. |
+| Paleidimas mirė uždarius langą | Neturėtų. `rocky ps` — jei būsena `crashed`, skaityk `.rocky/runs/<id>/worker.log`, tada `rocky resume` |
+| Paleidimas baigėsi `error` / `crashed` pusiaukelėje | `rocky resume [id]` — tęsia nuo išsaugoto plano ir jau parašytų failų |
+| Tikrintojas „beveik“ praleidžia | Ciklo viduje tai nesėkmė ir Rocky perplanuoja. Po paskutinio ciklo įvertis ≥ 0,7 su failu diske baigiasi `passed_with_notes`. |
+
+---
+
+## 17. Atmintis
+
+Anksčiau kiekvienas naujas tikslas prasidėdavo nuo nulio. Dabar Rocky tame pačiame darbo kataloge laiko Hermes stiliaus atmintį.
+
+| Saugykla | Kur | Riba | Kas ten priklauso |
+| --- | --- | --- | --- |
+| **USER.md** | `~/.rocky/memories/USER.md` | 1 375 ženklai | Tu: kalba, tonas, įpročiai |
+| **MEMORY.md** | `<katalogas>/.rocky/MEMORY.md` | 2 200 ženklų | Šis katalogas: keliai, konvencijos, išmokti faktai |
+| **Paskutiniai paleidimai** | `.rocky/runs/*/meta.json` | 5 paskutiniai baigti | Ankstesni tikslai ir tikrintojo santraukos |
+
+USER + MEMORY **užšaldomi paleidimo pradžioje** ir įterpiami kritikui, planuotojui, darbuotojams ir tikrintojui. Įrašai per `memory` įrankį į diską patenka iškart, bet prompt'e pasirodo **kitą** paleidimą (tas pats užšaldymas kaip Hermes, kad paleidimas neperrašinėtų savo paties sistemos prompt'o).
+
+`runs_search` peržvelgia senesnius paleidimus, kai naudotojas sako „tas straipsnis“ / „paskutinės skaidrės“. Tęstiniai tikslai tame pačiame kataloge („dabar iš to padaryk pptx“) turėtų tęsti paskutinį galutinį failą, nebent aiškiai jį keiti.
+
+Nepilk į atmintį transkriptų. Tik glausti faktai. Jei failas pilnas, pirmiau pakeisk ar pašalink įrašą.
+
+Namų katalogo pakeitimas testams ar neįprastoms aplinkoms: `ROCKY_HOME=/kelias`.
+
+---
+
+## 18. Kas Rocky nėra
+
+Tai ne kodavimo aplinka kaip Claude Code ar Codex. Tos laiko vieną stiprų modelį ilgame cikle. Rocky — **sudėties + biudžeto + tikrinimo** dirbtuvė: pigios rankos, nepriklausomas tikrintojas, eurų lubos. Naudok tyrimams, tekstams, skaidrėms ir apribotam autonomiškam darbui kataloge. Sunkiam repozitorijos refaktoringui dažniausiai geriau tinka specializuotas kodavimo agentas.
+
+---
 
 ## Licencija
 
