@@ -108,7 +108,109 @@ class BrowserSession:
         return "browser closed"
 
 
-def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools) -> str:
+# Image models tried in order when ROCKY_IMAGE_MODEL is not set. First is the
+# cheap default; the others are fallbacks for a 400 / 404 on the first.
+IMAGE_MODEL_CANDIDATES = (
+    "google/gemini-3.1-flash-image",
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3-pro-image",
+)
+IMAGE_DIR = "deliverables"
+ASPECTS = {"1:1", "16:9", "9:16", "4:3", "3:4", "4:5", "5:4", "3:2", "2:3", "21:9"}
+
+
+def image_models() -> list[str]:
+    import os
+
+    pinned = (os.environ.get("ROCKY_IMAGE_MODEL") or "").strip()
+    if pinned:
+        return [pinned, *[m for m in IMAGE_MODEL_CANDIDATES if m != pinned]]
+    return list(IMAGE_MODEL_CANDIDATES)
+
+
+def _unique_path(workspace: WorkspaceTools, path: str) -> str:
+    """deliverables/visual.png → deliverables/visual-2.png when the first exists."""
+    target = workspace.resolve(path)
+    if not target.exists():
+        return path
+    stem, suffix = target.stem, target.suffix or ".png"
+    for n in range(2, 200):
+        candidate = target.with_name(f"{stem}-{n}{suffix}")
+        if not candidate.exists():
+            return str(candidate.relative_to(workspace.root))
+    raise ToolError(f"too many files named like {path}")
+
+
+def generate_image(
+    llm,
+    prompt: str,
+    path: str,
+    workspace: WorkspaceTools,
+    reference_path: str = "",
+    aspect_ratio: str = "",
+    spend=None,
+) -> str:
+    """Generate a PNG with an OpenRouter image model and save it in the workspace."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise ToolError("image_generate needs a prompt")
+    generate = getattr(llm, "generate_image", None)
+    if generate is None:
+        raise ToolError("image_generate needs an OpenRouter client")
+    aspect = (aspect_ratio or "").strip()
+    if aspect and aspect not in ASPECTS:
+        raise ToolError(f"aspect_ratio must be one of {', '.join(sorted(ASPECTS))}")
+    reference = None
+    if reference_path:
+        ref = workspace.resolve(reference_path)
+        if not ref.is_file():
+            raise ToolError(f"reference image not found: {reference_path}")
+        reference = (mimetypes.guess_type(ref.name)[0] or "image/png", ref.read_bytes())
+    rel = (path or "").strip() or f"{IMAGE_DIR}/visual.png"
+    if "/" not in rel:
+        rel = f"{IMAGE_DIR}/{rel}"
+    if not rel.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        rel += ".png"
+    rel = _unique_path(workspace, rel)
+
+    errors: list[str] = []
+    result = None
+    for model in image_models():
+        try:
+            result = generate(prompt=prompt, model=model, reference=reference, aspect_ratio=aspect or None)
+        except Exception as exc:  # noqa: BLE001 — try the next model on any provider refusal
+            errors.append(f"{model}: {str(exc)[:160]}")
+            continue
+        if spend is not None:
+            try:
+                spend(result)
+            except Exception:  # noqa: BLE001
+                pass
+        if result.images:
+            break
+        errors.append(f"{model}: no image in the answer ({(result.text or '')[:120]})")
+        result = None
+    if result is None:
+        raise ToolError("image generation failed — " + " | ".join(errors))
+
+    mime, raw = result.images[0]
+    if mime.startswith("image/") and not rel.lower().endswith(_ext_for(mime)):
+        rel = str(workspace.resolve(rel).with_suffix(_ext_for(mime)).relative_to(workspace.root))
+    target = workspace.resolve(rel)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(raw)
+    extra = ""
+    if len(result.images) > 1:
+        extra = f" (+{len(result.images) - 1} more returned, first saved)"
+    note = f" · {result.text.strip()[:200]}" if result.text and result.text.strip() else ""
+    return f"wrote {rel} ({len(raw) // 1024} KB) · model {result.model}{extra}{note}"
+
+
+def _ext_for(mime: str) -> str:
+    return {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}.get(mime, ".png")
+
+
+def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools, spend=None) -> str:
     if not source:
         raise ToolError("vision_analyze needs path or url")
     question = prompt or "Describe this image. Note text, layout, and anything relevant to the task."
@@ -140,6 +242,11 @@ def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools) -> s
         ],
         extra={"provider": {"require_parameters": False}},
     )
+    if spend is not None:
+        try:
+            spend(completion)
+        except Exception:  # noqa: BLE001
+            pass
     text = completion.content or "(empty vision response)"
     return f"model {model}\n{text}"
 

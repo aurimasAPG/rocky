@@ -42,6 +42,7 @@ _TOOL_VERB = {
     "skills_list": "listing skills",
     "office_read": "reading office",
     "vision_analyze": "looking",
+    "image_generate": "drawing",
     "clarify": "asking you",
 }
 

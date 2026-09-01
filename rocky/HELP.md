@@ -254,7 +254,11 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plus any **MCP** tools you configure (below).
+
+### Images
+
+`image_generate` draws a PNG with an OpenRouter image model and saves it under `deliverables/` (`prompt`, optional `path`, `reference_path` to edit or match an existing image, `aspect_ratio` such as `1:1`, `9:16`, `16:9`). Default model `google/gemini-3.1-flash-image`; pin another with `ROCKY_IMAGE_MODEL` (e.g. `google/gemini-3-pro-image`, `openai/gpt-5-image`). If the first model refuses, the next candidate is tried. Every image is billed into the run's receipt like any other call. `vision_analyze` lets the worker check the result against its brief.
 
 ### MCP servers
 
@@ -290,13 +294,13 @@ Rocky also loads a **research + marketing allowlist** from `~/.claude/skills` (c
 export ROCKY_SKILLS=/path/to/more/skills
 ```
 
-Ads / copy / campaign goals are planned as **research → VOC → copy → pptx + xlsx** — that is the bundled `marketing` recipe.
+Ads / copy / campaign goals are planned as **research → VOC → copy → pptx + xlsx → visuals** — that is the bundled `marketing` recipe. The visuals step writes `deliverables/visual-brief.md` (one block per creative: format, message, composition, brand hex colours, text overlay) and then `image_generate`s each block into `deliverables/visual-1.png`, `visual-2.png`, …
 
 ### Recipes
 
 A recipe is a plan skeleton Rocky enforces when a goal matches: ordered steps, `depends_on`, the deliverable path, and keyword hints. Files are TOML:
 
-- bundled: `rocky/recipes/*.toml` (`marketing` today)
+- bundled: `rocky/recipes/*.toml` (`marketing` today — research, VOC, copy, deck + sheet, visuals)
 - shared: folders in `ROCKY_RECIPES=/path/a,/path/b`
 - this workspace: `<workspace>/.rocky/recipes/*.toml` (wins on the same name)
 

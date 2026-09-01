@@ -334,6 +334,30 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "image_generate",
+            "description": (
+                "Generate an image (ad visual, hero, illustration, social post) with an image model and save it "
+                "as PNG under deliverables/. Describe subject, composition, style, colours (hex), text overlay, "
+                "format. reference_path anchors style or edits an existing image. Costs a few cents per image."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "What to draw, in detail"},
+                    "path": {"type": "string", "description": "Where to save, e.g. deliverables/visual-1.png"},
+                    "reference_path": {"type": "string", "description": "Optional workspace image to edit or match"},
+                    "aspect_ratio": {
+                        "type": "string",
+                        "description": "1:1 (feed), 9:16 (story), 16:9 (banner), 4:5, 3:2 …",
+                    },
+                },
+                "required": ["prompt"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -488,6 +512,7 @@ def dispatch(
     llm=None,
     browser=None,
     mcp=None,
+    spend=None,
 ) -> str:
     if isinstance(arguments, str):
         args = parse_json_object(arguments) if arguments.strip() else {}
@@ -550,6 +575,21 @@ def dispatch(
                 str(args.get("path") or args.get("url") or ""),
                 str(args.get("prompt") or ""),
                 tools,
+                spend=spend,
+            )
+        if name == "image_generate":
+            if llm is None:
+                raise ToolError("image_generate needs an LLM client")
+            from rocky.extras import generate_image
+
+            return generate_image(
+                llm,
+                str(args.get("prompt") or ""),
+                str(args.get("path") or ""),
+                tools,
+                reference_path=str(args.get("reference_path") or ""),
+                aspect_ratio=str(args.get("aspect_ratio") or ""),
+                spend=spend,
             )
         if name == "browser_navigate":
             if browser is None:

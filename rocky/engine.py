@@ -1062,7 +1062,8 @@ def _run_subtask(
                 + LAYOUT_RULE +
                 "Prefer patch for small file edits, write_file for new files. "
                 "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
-                "Use todo to track steps. Use vision_analyze for images. "
+                "Use todo to track steps. Use vision_analyze to look at images, image_generate to make them "
+                "(ad visuals, hero images — PNG into deliverables/; write a one-line brief per image first). "
                 "Use clarify only when you cannot proceed without the human. "
                 "If the subtask names a skill, skill_view it first "
                 "(deep-research, marketing-pipeline, voc-to-copy, copywriting, pptx, xlsx, …). "
@@ -1178,6 +1179,7 @@ def _run_subtask(
                         llm=llm,
                         browser=browser,
                         mcp=mcp,
+                        spend=spend,
                     )
                 except ToolError as exc:
                     result = f"error: {exc}"

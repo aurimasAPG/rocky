@@ -8,7 +8,7 @@ def test_marketing_domain_is_marketing():
     assert not is_marketing("fix the failing pytest", {"domain": "code"})
 
 
-def test_thin_plan_becomes_four_stages():
+def test_thin_plan_becomes_five_stages():
     plan = ensure_pipeline(
         {
             "steps": [{"id": 1, "title": "Do it", "detail": "write ads", "depends_on": []}],
@@ -18,15 +18,16 @@ def test_thin_plan_becomes_four_stages():
         {"domain": "marketing"},
     )
     titles = [s["title"].lower() for s in plan["steps"]]
-    assert titles == ["research", "voc", "copy", "deck and spreadsheet"]
+    assert titles == ["research", "voc", "copy", "deck and spreadsheet", "visuals"]
     blob = " ".join(s["detail"].lower() for s in plan["steps"])
     assert "deep-research" in blob
     assert "voc-to-copy" in blob
     assert "copywriting" in blob
     assert "pptx" in blob and "xlsx" in blob
+    assert "image_generate" in blob
     assert plan["deliverable_path"].endswith(".pptx")
     waves = [s["depends_on"] for s in plan["steps"]]
-    assert waves == [[], [1], [2], [3]]
+    assert waves == [[], [1], [2], [3], [3]]  # deck and visuals both wait on copy, run in parallel
 
 
 def test_keeps_complete_marketing_plan():
@@ -35,6 +36,7 @@ def test_keeps_complete_marketing_plan():
         {"id": 2, "title": "VOC mining", "detail": "skill_view voc-to-copy", "depends_on": [1]},
         {"id": 3, "title": "Write copy", "detail": "skill_view copywriting", "depends_on": [2]},
         {"id": 4, "title": "Package pptx and xlsx", "detail": "skill_view pptx and xlsx", "depends_on": [3]},
+        {"id": 5, "title": "Ad visuals", "detail": "image_generate three creatives", "depends_on": [3]},
     ]
     out = ensure_pipeline(
         {"steps": steps, "deliverable_path": "deck.pptx"},

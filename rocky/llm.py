@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import random
 import time
 from dataclasses import dataclass, field
@@ -39,6 +40,14 @@ class Completion:
             total_tokens=self.total_tokens or (self.prompt_tokens + self.completion_tokens),
             usd=self.cost,
         )
+
+
+@dataclass
+class ImageResult:
+    images: list[tuple[str, bytes]] = field(default_factory=list)  # (mime, bytes)
+    text: str = ""
+    model: str = ""
+    usage: Usage = field(default_factory=Usage)
 
 
 class LLM(Protocol):
@@ -218,6 +227,53 @@ class OpenRouterClient:
             raw=data,
         )
 
+    def generate_image(
+        self,
+        *,
+        prompt: str,
+        model: str,
+        reference: tuple[str, bytes] | None = None,
+        aspect_ratio: str | None = None,
+    ) -> ImageResult:
+        """One image-generation call. ``reference`` = (mime, bytes) for an edit / style anchor."""
+        content: Any = prompt
+        if reference is not None:
+            mime, raw = reference
+            b64 = base64.b64encode(raw).decode("ascii")
+            content = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ]
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": content}],
+            "modalities": ["image", "text"],
+        }
+        if aspect_ratio:
+            body["image_config"] = {"aspect_ratio": aspect_ratio}
+        data = self._post(body)
+        choice = (data.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        images: list[tuple[str, bytes]] = []
+        for item in message.get("images") or []:
+            url = ""
+            if isinstance(item, dict):
+                url = str((item.get("image_url") or {}).get("url") or item.get("url") or "")
+            elif isinstance(item, str):
+                url = item
+            decoded = _decode_data_url(url)
+            if decoded:
+                images.append(decoded)
+        text = message.get("content") or ""
+        if isinstance(text, list):
+            text = "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in text)
+        return ImageResult(
+            images=images,
+            text=str(text),
+            model=str(data.get("model") or model),
+            usage=parse_usage(data.get("usage") or {}),
+        )
+
     # Transient failures are retried with backoff; a 25-minute run must not die
     # because one request timed out.
     RETRIES = 3
@@ -275,6 +331,16 @@ class OpenRouterClient:
         raise RuntimeError(
             f"OpenRouter unreachable after {self.RETRIES + 1} attempts: {last_exc}"
         ) from last_exc
+
+
+def _decode_data_url(url: str) -> tuple[str, bytes] | None:
+    if not url.startswith("data:") or ";base64," not in url:
+        return None
+    header, payload = url[5:].split(";base64,", 1)
+    try:
+        return (header or "image/png"), base64.b64decode(payload)
+    except (ValueError, TypeError):
+        return None
 
 
 def _body_problem(data: object) -> str:

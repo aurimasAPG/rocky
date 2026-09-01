@@ -40,9 +40,9 @@ detail = "skill_view docx. Write the report."
 def test_bundled_marketing_recipe_loads():
     recipes = load_recipes()
     m = recipes["marketing"]
-    assert [s["title"] for s in m.steps] == ["Research", "VOC", "Copy", "Deck and spreadsheet"]
+    assert [s["title"] for s in m.steps] == ["Research", "VOC", "Copy", "Deck and spreadsheet", "Visuals"]
     assert m.deliverable_path.endswith(".pptx")
-    assert m.cost_multiplier == 1.8
+    assert m.cost_multiplier == 2.0
     assert "reklam" in m.hints
 
 
@@ -163,7 +163,8 @@ def test_recipe_steps_carry_writes_and_merge_onto_covering_plan():
             {"id": 2, "title": "VOC", "detail": "voice of customer", "depends_on": [1]},
             {"id": 3, "title": "Copy", "detail": "copywriting", "depends_on": [2]},
             {"id": 4, "title": "Build deck", "detail": "pptx + xlsx", "depends_on": [3], "writes": ["extra.md"]},
-            {"id": 5, "title": "QA", "detail": "proofread", "depends_on": [4]},
+            {"id": 5, "title": "Visuals", "detail": "image_generate creatives", "depends_on": [3]},
+            {"id": 6, "title": "QA", "detail": "proofread", "depends_on": [4, 5]},
         ],
         "deliverable_path": "deliverables/campaign.pptx",
     }
@@ -171,5 +172,6 @@ def test_recipe_steps_carry_writes_and_merge_onto_covering_plan():
     assert out["steps"][0]["writes"] == ["runs/notes/research.md"]
     assert out["steps"][1]["writes"] == ["runs/notes/voc.md"]
     assert out["steps"][3]["writes"] == ["extra.md", "deliverables/campaign.pptx", "deliverables/variants.xlsx"]
-    assert "writes" not in out["steps"][4]
+    assert out["steps"][4]["writes"] == ["deliverables/visual-brief.md", "deliverables/visual-1.png"]
+    assert "writes" not in out["steps"][5]
     assert "writes = [\"runs/notes/research.md\"]" in to_toml(m)

@@ -7,10 +7,10 @@
 # if they are missing and reports the step as incomplete to the verifier.
 
 name = "marketing"
-description = "Research → VOC → copy → pptx + xlsx. Ads, campaigns, landing copy, SEO / CRO briefs."
+description = "Research → VOC → copy → pptx + xlsx → visuals. Ads, campaigns, landing copy, SEO / CRO briefs."
 deliverable_path = "deliverables/campaign.pptx"
-notes = "Working files go to runs/notes/ (research.md, voc.md, copy.md); finals to deliverables/ (campaign.pptx, variants.xlsx)."
-cost_multiplier = 1.8
+notes = "Working files go to runs/notes/ (research.md, voc.md, copy.md); finals to deliverables/ (campaign.pptx, variants.xlsx, visual-brief.md, visual-*.png)."
+cost_multiplier = 2.0
 
 [match]
 domains = ["marketing"]
@@ -62,3 +62,16 @@ detail = """skill_view pptx then skill_view xlsx. \
 Build deliverables/campaign.pptx (one idea per slide from the copy) and \
 deliverables/variants.xlsx (headlines, CTAs, VOC phrases, source URLs). \
 Never write_file those binaries — use python-pptx and openpyxl via bash. office_read to QA."""
+
+[[steps]]
+id = 5
+title = "Visuals"
+depends_on = [3]
+requires = ["visual", "vizual", "image", "png", "creative"]
+writes = ["deliverables/visual-brief.md", "deliverables/visual-1.png"]
+detail = """Write deliverables/visual-brief.md from runs/notes/copy.md: one block per visual — \
+format (1:1 feed, 9:16 story, 16:9 banner), the single message it carries, subject and composition, \
+brand colours as hex, text overlay (headline ≤ 6 words), what must NOT appear. \
+Then image_generate each block into deliverables/visual-1.png, visual-2.png … (2–3 visuals, aspect_ratio per format). \
+vision_analyze each result against its brief; regenerate once if the text or colours are off. \
+No stock-photo clichés, no invented logos or awards."""
