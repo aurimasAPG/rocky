@@ -55,6 +55,50 @@ class LLM(Protocol):
     def list_models(self) -> dict: ...
 
 
+# Families that need explicit cache breakpoints. OpenAI, Gemini, DeepSeek and
+# friends cache a stable prefix on their own; Anthropic bills the write and
+# then reads the prefix at ~10 % of the input price — but only when asked.
+CACHE_FAMILIES = frozenset({"anthropic"})
+# How many leading messages get a breakpoint: the system block and the task
+# message. Both are identical on every turn of a worker chat and across the
+# verifier's read-only turns, so each later turn re-reads them from cache.
+CACHE_HEAD = 2
+
+
+def with_cache_control(model: str, messages: list[dict]) -> list[dict]:
+    """Copy of ``messages`` with ``cache_control`` on the first ``CACHE_HEAD`` text blocks.
+
+    Only for families in ``CACHE_FAMILIES``; other models get the list back untouched.
+    """
+    family = (model or "").split("/", 1)[0].lower()
+    if family not in CACHE_FAMILIES or not messages:
+        return messages
+    out = list(messages)
+    marked = 0
+    for i, msg in enumerate(out):
+        if marked >= CACHE_HEAD:
+            break
+        if msg.get("role") not in {"system", "user"}:
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            if not content.strip():
+                continue
+            blocks = [{"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}]
+        elif isinstance(content, list) and content:
+            blocks = [dict(part) if isinstance(part, dict) else {"type": "text", "text": str(part)} for part in content]
+            last = blocks[-1]
+            if last.get("type") == "text":
+                last["cache_control"] = {"type": "ephemeral"}
+            else:
+                continue
+        else:
+            continue
+        out[i] = {**msg, "content": blocks}
+        marked += 1
+    return out
+
+
 class OpenRouterClient:
     def __init__(self, api_key: str, base_url: str = "https://openrouter.ai/api/v1"):
         if not api_key:
@@ -94,7 +138,7 @@ class OpenRouterClient:
     ) -> Completion:
         body: dict[str, Any] = {
             "model": model,
-            "messages": messages,
+            "messages": with_cache_control(model, messages),
             "provider": {"require_parameters": True},
         }
         if tools:

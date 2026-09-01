@@ -19,6 +19,9 @@ from typing import Callable
 
 CHARS_PER_TOKEN = 4
 COMPACT_THRESHOLD = 0.6
+# Compact at this many tokens even when the model's window is huge: a 1M-context
+# worker re-sending 400k tokens on every turn is the bill, not the answer.
+ABSOLUTE_COMPACT_TOKENS = 100_000
 KEEP_LAST_TURNS = 4
 STUB_AFTER_CHARS = 400
 BLOCK_AT = 3
@@ -94,13 +97,15 @@ def compact(
     threshold: float = COMPACT_THRESHOLD,
     keep_last_turns: int = KEEP_LAST_TURNS,
     head: int = 2,
+    absolute: int = ABSOLUTE_COMPACT_TOKENS,
 ) -> dict | None:
     """Prune, then summarise the middle if the thread is still too long.
 
     Mutates ``messages``. Returns an event payload or None when nothing changed.
-    ``head`` messages (system + task) are always kept verbatim.
+    ``head`` messages (system + task) are always kept verbatim. The limit is
+    ``threshold`` of the window or ``absolute`` tokens, whichever is smaller.
     """
-    limit = max(int(context_length or DEFAULT_CONTEXT) * threshold, 1)
+    limit = max(min(int(context_length or DEFAULT_CONTEXT) * threshold, float(absolute or 0) or float("inf")), 1)
     before = estimate_tokens(messages)
     if before < limit:
         return None

@@ -99,3 +99,18 @@ def test_repeat_guard_blocks_third_and_aborts_fourth():
     assert guard.check("web_fetch", args) == "abort"
     # different arguments are a different call
     assert guard.check("web_fetch", {"url": "https://y"}) == "ok"
+
+
+def test_compact_kicks_in_at_the_absolute_ceiling_on_huge_windows():
+    from rocky.context import ABSOLUTE_COMPACT_TOKENS, compact, estimate_tokens
+
+    msgs = [{"role": "system", "content": "s"}, {"role": "user", "content": "task"}]
+    for i in range(12):
+        msgs.append({"role": "assistant", "content": None, "tool_calls": [{"id": str(i), "type": "function", "function": {"name": "web_fetch", "arguments": "{}"}}]})
+        msgs.append({"role": "tool", "tool_call_id": str(i), "content": "x" * 40_000})
+    before = estimate_tokens(msgs)
+    assert ABSOLUTE_COMPACT_TOKENS < before < 1_000_000 * 0.6
+    out = compact(msgs, context_length=1_000_000, summarize=lambda t: "summary")
+    assert out is not None
+    assert out["limit"] == ABSOLUTE_COMPACT_TOKENS
+    assert out["after_tokens"] < before

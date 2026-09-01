@@ -115,7 +115,9 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
    If two verifications in a row fail, Rocky assumes the worker model is the problem: it keeps the plan and **swaps the worker** for a stronger one — the most capable model under ~$12/M from a family not tried yet (`stall` event) — instead of replanning again.
 8. Stop when it passes, loops run out, or the euro cap is hit.
 
-Each worker chat is capped at 20 turns and kept small: old tool results become one-line stubs, and past ~60 % of the model's window the middle of the thread is summarised by the cheap assess model (`compact` event). A worker that repeats the exact same tool call is refused on the third try and stopped on the fourth (`loop_guard` event).
+Each worker chat is capped at 20 turns and kept small: old tool results become one-line stubs, and past ~60 % of the model's window — or **100k tokens**, whichever comes first — the middle of the thread is summarised by the cheap assess model (`compact` event). The 100k ceiling matters for 1M-context workers: without it a long research step re-sends hundreds of thousands of tokens on every turn.
+
+Anthropic models get **prompt-cache breakpoints** on the system block and the task message, so every later turn of a worker or verifier chat re-reads them at cache price (`cached` in the receipt). OpenAI, Gemini, and DeepSeek cache a stable prefix automatically; Rocky keeps the system + task head of each chat byte-identical between turns so that prefix hits. A worker that repeats the exact same tool call is refused on the third try and stopped on the fourth (`loop_guard` event).
 
 Every completion prints a **receipt**: input / output / total tokens (plus reasoning and cached tokens when the provider reports them), USD, EUR (3 decimals). The final receipt is also **split by role** — `assess €0.001 · critic €0.021 · planner €0.034 · worker €0.012 · verifier €0.009` — so you can see which model is eating the budget. `--json` returns the same split under `by_role`.
 
