@@ -10,7 +10,9 @@ from typing import Any
 
 from rocky.events import Event
 
-TERMINAL = frozenset({"passed", "unmet", "error", "crashed"})
+TERMINAL = frozenset({"passed", "passed_with_notes", "unmet", "error", "crashed"})
+# Runs that `rocky resume` may pick up: they stopped without a clean pass.
+RESUMABLE = frozenset({"unmet", "error", "crashed"})
 
 
 def runs_root(workspace: str | Path) -> Path:
@@ -58,6 +60,7 @@ def create_run(
     budget_eur: float,
     max_loops: int,
     include_server_tools: bool,
+    resume_from: str | None = None,
 ) -> dict[str, Any]:
     workspace = Path(workspace).expanduser().resolve()
     run_id = new_run_id()
@@ -77,6 +80,8 @@ def create_run(
         "finished": None,
         "passed": None,
     }
+    if resume_from:
+        meta["resume_from"] = str(resume_from)
     write_meta(folder, meta)
     return meta
 
@@ -133,6 +138,88 @@ def resolve_run_id(workspace: str | Path, ident: str | None) -> str:
         if str(row["id"]) == needle or str(row["id"]).startswith(needle):
             return str(row["id"])
     raise FileNotFoundError(f"no run matching {ident!r}")
+
+
+def resolve_resumable(workspace: str | Path, ident: str | None) -> str:
+    """A run id `rocky resume` may continue: the given one, or the latest that did not pass."""
+    if ident:
+        run_id = resolve_run_id(workspace, ident)
+        status = str(refresh_meta(run_dir(workspace, run_id)).get("status") or "")
+        if status not in RESUMABLE:
+            raise FileNotFoundError(f"run {run_id} is {status or 'unknown'} — only unmet, error, or crashed runs can be resumed")
+        return run_id
+    for row in list_runs(workspace):
+        if str(row.get("status") or "") not in RESUMABLE:
+            continue
+        try:
+            load_resume_state(run_dir(workspace, str(row["id"])))
+        except (FileNotFoundError, OSError, ValueError):
+            continue  # died before it had a plan
+        return str(row["id"])
+    raise FileNotFoundError("no unmet, error, or crashed run with a plan to resume in this folder")
+
+
+def load_resume_state(folder: Path) -> dict[str, Any]:
+    """Everything a new run needs to continue this one: plan, cast, verdict, finished steps.
+
+    All of it already sits in events.jsonl. Steps count as done only when they
+    finished after the *last* plan and were not reported incomplete. If a
+    verification happened after that plan, the plan was judged and the resumed
+    run replans from that verdict instead of skipping anything.
+    """
+    meta = read_meta(folder)
+    events = EventCursor(folder / "events.jsonl").poll()
+    state: dict[str, Any] = {
+        "from": meta.get("id"),
+        "goal": meta.get("goal"),
+        "budget_eur": meta.get("budget_eur"),
+        "max_loops": meta.get("max_loops"),
+        "include_server_tools": meta.get("include_server_tools", True),
+        "assessment": None,
+        "critique": None,
+        "plan": None,
+        "cast": None,
+        "worker": None,
+        "verify": None,
+        "replan": False,
+        "done_steps": [],
+        "loops": 0,
+        "eur": None,
+    }
+    done: list[int] = []
+    incomplete: set[int] = set()
+    judged = False
+    for event in events:
+        p = event.payload
+        if event.type == "assessed":
+            state["assessment"] = dict(p)
+        elif event.type == "critique":
+            state["critique"] = dict(p)
+        elif event.type == "cast":
+            state["cast"] = dict(p.get("models") or {})
+        elif event.type == "plan":
+            state["plan"] = dict(p)
+            done, incomplete, judged = [], set(), False
+        elif event.type == "verify":
+            state["verify"] = dict(p)
+            judged = True
+        elif event.type == "loop":
+            state["loops"] = int(p.get("n") or 0)
+        elif event.type == "stall":
+            state["worker"] = p.get("worker")
+        elif event.type == "subtask_done" and p.get("id") is not None:
+            done.append(p.get("id"))
+        elif event.type == "subtask_incomplete" and p.get("id") is not None:
+            incomplete.add(p.get("id"))
+        elif event.type in {"cost", "done"} and p.get("eur") is not None:
+            state["eur"] = p.get("eur")
+    if state["plan"] is None or state["assessment"] is None:
+        raise FileNotFoundError(
+            f"run {meta.get('id')} stopped before it had a plan — nothing to resume, start the goal again"
+        )
+    state["replan"] = judged
+    state["done_steps"] = [] if judged else [i for i in done if i not in incomplete]
+    return state
 
 
 def append_event(folder: Path, event: Event) -> None:

@@ -191,7 +191,15 @@ def orchestrate(
     include_server_tools: bool = True,
     eur_rate: float | None = None,
     ask_user=None,
+    resume: dict | None = None,
 ) -> RunResult:
+    """Run one goal to a verdict.
+
+    ``resume`` is the dict from ``rocky.runs.load_resume_state``: the previous
+    run's assessment, critique, plan, cast, last verdict, and finished steps.
+    With it, no model is asked to assess, critique, or plan again, and steps
+    whose files are still on disk are skipped in the first loop.
+    """
     events: list[Event] = []
     event_lock = threading.Lock()
 
@@ -246,37 +254,54 @@ def orchestrate(
     def spender(role: str):
         return lambda completion: spend(completion, role)
 
-    # Cheap default cast for assess model id; refine after assessment.
-    draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
-    assess_raw = _chat(
-        client,
-        model=draft.assess,
-        system=(
-            "You assess tasks for Rocky. "
-            "Return JSON only. Judge complexity honestly. "
-            "trivial = one short step; moderate = a few steps; hard = research, code, or multi-file work. "
-            "domain: code | research | writing | marketing | ops | mixed. "
-            "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO."
-        ),
-        user=_assess_user(goal, workspace_path),
-        json_schema=ASSESS_SCHEMA,
-    )
-    spend(assess_raw, "assess")
-    assessment = _safe_json(
-        assess_raw.content,
-        {
-            "goal": goal,
-            "complexity": "moderate",
-            "domain": "mixed",
-            "success_criteria": ["The user's request is fully completed."],
-            "needs_web": True,
-            "deliverable": "output.md",
-        },
-    )
-    assessment["goal"] = assessment.get("goal") or goal
-    estimate_eur = estimate_run_eur(assessment, goal)
-    assessment["estimated_eur"] = estimate_eur
-    fire("assessed", **{k: assessment[k] for k in assessment})
+    if resume:
+        assessment = dict(resume.get("assessment") or {})
+        assessment["goal"] = assessment.get("goal") or goal
+        assessment.setdefault("complexity", "moderate")
+        assessment.setdefault("domain", "mixed")
+        estimate_eur = float(assessment.get("estimated_eur") or estimate_run_eur(assessment, goal))
+        assessment["estimated_eur"] = estimate_eur
+        fire(
+            "resumed",
+            from_run=resume.get("from"),
+            loops_before=resume.get("loops") or 0,
+            eur_before=resume.get("eur"),
+            replan=bool(resume.get("replan")),
+            done_steps=list(resume.get("done_steps") or []),
+        )
+        fire("assessed", resumed=True, **{k: assessment[k] for k in assessment})
+    else:
+        # Cheap default cast for assess model id; refine after assessment.
+        draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
+        assess_raw = _chat(
+            client,
+            model=draft.assess,
+            system=(
+                "You assess tasks for Rocky. "
+                "Return JSON only. Judge complexity honestly. "
+                "trivial = one short step; moderate = a few steps; hard = research, code, or multi-file work. "
+                "domain: code | research | writing | marketing | ops | mixed. "
+                "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO."
+            ),
+            user=_assess_user(goal, workspace_path),
+            json_schema=ASSESS_SCHEMA,
+        )
+        spend(assess_raw, "assess")
+        assessment = _safe_json(
+            assess_raw.content,
+            {
+                "goal": goal,
+                "complexity": "moderate",
+                "domain": "mixed",
+                "success_criteria": ["The user's request is fully completed."],
+                "needs_web": True,
+                "deliverable": "output.md",
+            },
+        )
+        assessment["goal"] = assessment.get("goal") or goal
+        estimate_eur = estimate_run_eur(assessment, goal)
+        assessment["estimated_eur"] = estimate_eur
+        fire("assessed", **{k: assessment[k] for k in assessment})
 
     budget_eur = float(budget_eur if budget is None else eur_from_usd(usd_cap, rate))
     usd_cap, budget_eur = _maybe_lift_budget(
@@ -289,12 +314,14 @@ def orchestrate(
         fire=fire,
     )
 
-    cast = pick_cast(
-        models,
-        str(assessment.get("complexity") or "moderate"),
-        str(assessment.get("domain") or "mixed"),
-        preferred_worker=preferred_worker(),
-    )
+    cast = _resumed_cast(resume, models) if resume else None
+    if cast is None:
+        cast = pick_cast(
+            models,
+            str(assessment.get("complexity") or "moderate"),
+            str(assessment.get("domain") or "mixed"),
+            preferred_worker=preferred_worker(),
+        )
     fire("cast", **{"models": {
         "assess": cast.assess,
         "critic": cast.critic,
@@ -303,7 +330,30 @@ def orchestrate(
         "verifier": cast.verifier,
     }, "reasons": cast.reasons})
 
-    if _is_trivial(assessment):
+    skip_steps: set[int] = set()
+    if resume:
+        critique = dict(resume.get("critique") or _trivial_critique(goal, assessment))
+        fire("critique", resumed=True, **critique)
+        plan = _normalize_steps(dict(resume.get("plan") or {}), goal)
+        if not plan.get("deliverable_path"):
+            plan["deliverable_path"] = assessment.get("deliverable") or "output.md"
+        if resume.get("replan"):
+            plan = _make_plan(
+                client,
+                cast.planner,
+                goal,
+                assessment,
+                workspace_path,
+                spender("planner"),
+                fire,
+                critique=critique,
+                revision=resume.get("verify") or None,
+                memory_snapshot=memory_snapshot,
+            )
+        else:
+            fire("plan", resumed=True, **plan)
+            skip_steps = _steps_still_done(plan, resume.get("done_steps") or [], tools)
+    elif _is_trivial(assessment):
         # One short step: no critic, no planner. Straight to a worker and the verifier.
         critique = _trivial_critique(goal, assessment)
         fire("critique", **critique)
@@ -326,7 +376,7 @@ def orchestrate(
         )
     worker_summary = ""
     passed = False
-    verify: dict[str, Any] = {}
+    verify: dict[str, Any] = dict((resume or {}).get("verify") or {})
     loops = 0
     worker_context = _context_length(models, cast.worker)
 
@@ -347,6 +397,13 @@ def orchestrate(
     fail_streak = 0
     tried_workers = {cast.worker}
     worker_model = cast.worker
+    if resume and resume.get("worker") and _context_length(models, str(resume["worker"])) and any(
+        m.id == resume["worker"] for m in models or []
+    ):
+        # The previous run had already swapped to a stronger worker; keep it.
+        worker_model = str(resume["worker"])
+        tried_workers.add(worker_model)
+        worker_context = _context_length(models, worker_model)
 
     for loops in range(1, max_loops + 1):
         if tally.usd >= usd_cap:
@@ -375,7 +432,9 @@ def orchestrate(
             worker_context=worker_context,
             summarize=summarize,
             mcp=mcp,
+            skip=skip_steps,
         )
+        skip_steps = set()
         if tally.usd >= usd_cap * VERIFY_GRACE:
             fire(
                 "budget",
@@ -548,6 +607,35 @@ def _context_length(models: list[Model] | None, model_id: str) -> int:
         if m.id == model_id and m.context_length:
             return int(m.context_length)
     return DEFAULT_CONTEXT
+
+
+def _resumed_cast(resume: dict, models: list[Model] | None) -> Cast | None:
+    """The previous run's cast, if every model is still in the catalog."""
+    saved = dict(resume.get("cast") or {})
+    roles = ("assess", "critic", "planner", "worker", "verifier")
+    if not all(saved.get(role) for role in roles):
+        return None
+    known = {m.id for m in models or []}
+    if known and not all(saved[role] in known for role in roles):
+        return None
+    return Cast(
+        **{role: str(saved[role]) for role in roles},
+        reasons={role: f"kept from run {resume.get('from')}" for role in roles},
+    )
+
+
+def _steps_still_done(plan: dict, done_ids: list, tools: WorkspaceTools) -> set[int]:
+    """Finished step ids whose declared files are still on disk."""
+    keep: set[int] = set()
+    by_id = {step.get("id"): step for step in plan.get("steps") or []}
+    for ident in done_ids:
+        step = by_id.get(ident)
+        if step is None:
+            continue
+        if _missing_files(tools, [str(w) for w in step.get("writes") or []]):
+            continue
+        keep.add(ident)
+    return keep
 
 
 def _with_memory(base: str, snapshot: str) -> str:
@@ -818,11 +906,22 @@ def _run_subagents(
     worker_context: int = DEFAULT_CONTEXT,
     summarize=None,
     mcp=None,
+    skip: set[int] | None = None,
 ) -> str:
     summaries: list[str] = []
-    for wave in schedule_waves(plan.get("steps") or []):
+    skip = set(skip or ())
+    for full_wave in schedule_waves(plan.get("steps") or []):
         if cost_so_far() >= budget:
             break
+        wave = []
+        for step in full_wave:
+            if step.get("id") in skip:
+                fire("subtask_skipped", id=step.get("id"), title=step.get("title"), writes=step.get("writes") or [])
+                summaries.append(f"{step.get('title')}: done in the previous run (files on disk: {', '.join(step.get('writes') or []) or 'see workspace'})")
+                continue
+            wave.append(step)
+        if not wave:
+            continue
 
         def run_one(step: dict) -> str:
             return _run_subtask(

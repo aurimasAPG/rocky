@@ -79,6 +79,7 @@ rocky help
 | `rocky ps` | List runs in this folder. |
 | `rocky attach` | Reattach to the latest run. |
 | `rocky attach ID` | Reattach to that run (prefix is enough). |
+| `rocky resume [ID]` | Continue an `unmet` / `error` / `crashed` run from its saved plan and files. No id = the latest one. |
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
@@ -148,6 +149,18 @@ Logs live under the workspace:
 ```
 
 If Rocky asks a budget or clarify question while you are detached, attach again and answer. The worker waits (about 10 minutes), then continues with a safe default.
+
+### Resume a run that died
+
+```bash
+rocky resume            # latest unmet / error / crashed run in this folder
+rocky resume 20260828-11
+rocky resume --budget 3 # new cap for the continuation
+```
+
+Everything Rocky needs is already in `events.jsonl` and the workspace: the assessment, the critic's bar, the plan, the cast, the last verdict, and which steps finished. A resumed run does **not** pay for assess / critic / plan again. Steps that finished after the last plan and whose `writes` files are still on disk are skipped (`subtask_skipped` event); the rest run as usual. If the old run had already been judged by the verifier, the resume starts with a replan from that verdict. The new run gets its own id, is linked to the old one (`rocky ps` shows `↻`), and keeps the old cap unless you pass `--budget`.
+
+Transient OpenRouter failures — timeouts, connection drops, 408 / 429 / 5xx, empty answers — are retried up to 3 times with backoff before a run gives up, so a single hiccup no longer kills a 25-minute job.
 
 ---
 
@@ -298,7 +311,8 @@ Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint w
 | `rocky: command not found` | `uv tool install --force --reinstall .` from the clone; ensure `~/.local/bin` is on `PATH` |
 | TUI “nothing happens” | Wait for catalog fetch; you should see “working…” immediately. Check the key. |
 | Copy does not work in TUI | Select text, then Cmd+C. Quit with **q**, not Ctrl+C. |
-| Run died after closing the window | It should not. `rocky ps` — if status is `crashed`, read `.rocky/runs/<id>/worker.log` |
+| Run died after closing the window | It should not. `rocky ps` — if status is `crashed`, read `.rocky/runs/<id>/worker.log`, then `rocky resume` |
+| Run ended `error` / `crashed` mid-way | `rocky resume [id]` — continues from the saved plan and the files already written |
 | Verifier almost-passes | That is a fail. Rocky replans until loops or budget run out. |
 
 ---

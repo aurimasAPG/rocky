@@ -16,8 +16,10 @@ from rocky.runs import (
     EventCursor,
     create_run,
     list_runs,
+    load_resume_state,
     read_ask,
     refresh_meta,
+    resolve_resumable,
     resolve_run_id,
     run_dir,
     write_answer,
@@ -61,7 +63,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "attach", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -76,14 +78,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     parser = argparse.ArgumentParser(prog="rocky", add_help=True)
-    parser.add_argument("goal", nargs="*", help="What to accomplish, or a run id for attach")
+    parser.add_argument("goal", nargs="*", help="What to accomplish, or a run id for attach / resume")
     parser.add_argument("-d", "--dir", default=".", help="Workspace folder")
     parser.add_argument("--attach", default="", help="TUI: attach to an existing run id")
     parser.add_argument(
         "--budget",
         type=float,
-        default=DEFAULT_BUDGET_EUR,
-        help="Max EUR for the run (default 1.00)",
+        default=None,
+        help="Max EUR for the run (default 1.00; resume keeps the old run's cap)",
     )
     parser.add_argument("--max-loops", type=int, default=4, dest="max_loops")
     parser.add_argument("--host", default="127.0.0.1")
@@ -96,6 +98,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Headless: run to completion, print one JSON object, no live view",
     )
     args = parser.parse_args(rest)
+    budget_given = args.budget is not None
+    if args.budget is None:
+        args.budget = DEFAULT_BUDGET_EUR
     goal = " ".join(args.goal).strip()
     workspace = Path(args.dir).expanduser().resolve()
 
@@ -129,6 +134,14 @@ def main(argv: list[str] | None = None) -> int:
     if not key:
         console.print("[red]OPENROUTER_API_KEY is missing.[/] Put it in .env or ~/.env")
         return 2
+
+    if command == "resume":
+        return _resume(
+            workspace,
+            goal or None,
+            budget_eur=args.budget if budget_given else None,
+            json_out=bool(args.json_out),
+        )
 
     client = OpenRouterClient(key, base_url())
     try:
@@ -206,8 +219,9 @@ def _ps(workspace: Path) -> int:
             "error": "red",
             "crashed": "red",
         }.get(status, "white")
-        console.print(f"{ident:26} [{color}]{status:<10}[/] {goal}")
-    console.print("[dim]rocky attach [id]   ·   Enter while attached detaches[/]")
+        origin = f" [dim]↻ {str(row.get('resume_from'))[:15]}[/]" if row.get("resume_from") else ""
+        console.print(f"{ident:26} [{color}]{status:<10}[/] {goal}{origin}")
+    console.print("[dim]rocky attach [id]   ·   rocky resume [id]   ·   Enter while attached detaches[/]")
     return 0
 
 
@@ -224,6 +238,35 @@ def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_o
         return _run_json(workspace, meta["id"])
     console.print(
         f"[dim]run {meta['id']}  ·  Enter detaches, job keeps running  ·  rocky attach {meta['id'][:18]}[/]"
+    )
+    return _attach(workspace, meta["id"])
+
+
+def _resume(workspace: Path, ident: str | None, *, budget_eur: float | None, json_out: bool = False) -> int:
+    """Continue an unmet / error / crashed run from its saved plan and files."""
+    try:
+        run_id = resolve_resumable(workspace, ident)
+        state = load_resume_state(run_dir(workspace, run_id))
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 1
+    meta = create_run(
+        workspace=workspace,
+        goal=str(state.get("goal") or ""),
+        budget_eur=float(budget_eur if budget_eur is not None else (state.get("budget_eur") or DEFAULT_BUDGET_EUR)),
+        max_loops=int(state.get("max_loops") or 4),
+        include_server_tools=bool(state.get("include_server_tools", True)),
+        resume_from=run_id,
+    )
+    spawn_worker(meta)
+    if json_out:
+        return _run_json(workspace, meta["id"])
+    done = state.get("done_steps") or []
+    what = "replan from the last verdict" if state.get("replan") else (
+        f"skip finished steps {done}" if done else "redo the plan's steps"
+    )
+    console.print(
+        f"[dim]resume {run_id} → run {meta['id']}  ·  {what}  ·  cap €{meta['budget_eur']:.2f}  ·  Enter detaches[/]"
     )
     return _attach(workspace, meta["id"])
 

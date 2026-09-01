@@ -13,6 +13,7 @@ from rocky.llm import OpenRouterClient
 from rocky.runs import (
     append_event,
     clear_ask,
+    load_resume_state,
     read_meta,
     run_dir,
     take_answer,
@@ -63,6 +64,14 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
         emit(Event(type="done", payload={"passed": False, "summary": "missing API key"}))
         return 2
 
+    resume = None
+    if meta.get("resume_from"):
+        try:
+            resume = load_resume_state(run_dir(workspace, str(meta["resume_from"])))
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            emit(Event(type="error", payload={"message": f"cannot resume {meta['resume_from']}: {exc}"}))
+            resume = None
+
     client = OpenRouterClient(key, base_url())
     try:
         result = orchestrate(
@@ -74,6 +83,7 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
             budget_eur=float(meta.get("budget_eur") or 1),
             include_server_tools=bool(meta.get("include_server_tools", True)),
             ask_user=ask_user,
+            resume=resume,
         )
         meta = read_meta(folder)
         meta["status"] = "passed" if result.passed else "unmet"

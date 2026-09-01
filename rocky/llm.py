@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -172,20 +174,82 @@ class OpenRouterClient:
             raw=data,
         )
 
+    # Transient failures are retried with backoff; a 25-minute run must not die
+    # because one request timed out.
+    RETRIES = 3
+    RETRY_STATUS = frozenset({408, 429, 500, 502, 503, 504, 520, 522, 524})
+
     def _post(self, body: dict) -> dict:
-        response = self._http.post(
-            f"{self.base_url}/chat/completions",
-            headers=self._headers(),
-            json=body,
-        )
-        if response.status_code >= 400:
-            detail = response.text[:800]
+        last_exc: Exception | None = None
+        for attempt in range(self.RETRIES + 1):
+            if attempt:
+                delay = min(2.0 * (2 ** (attempt - 1)), 15.0) + random.uniform(0, 0.5)
+                time.sleep(delay)
+            try:
+                response = self._http.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers(),
+                    json=body,
+                )
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                last_exc = exc
+                continue
+            if response.status_code in self.RETRY_STATUS and attempt < self.RETRIES:
+                retry_after = response.headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        time.sleep(min(float(retry_after), 30.0))
+                    except ValueError:
+                        pass
+                last_exc = httpx.HTTPStatusError(
+                    f"OpenRouter {response.status_code}: {response.text[:300]}",
+                    request=response.request,
+                    response=response,
+                )
+                continue
+            if response.status_code >= 400:
+                detail = response.text[:800]
+                raise httpx.HTTPStatusError(
+                    f"OpenRouter {response.status_code}: {detail}",
+                    request=response.request,
+                    response=response,
+                )
+            try:
+                data = response.json()
+            except ValueError as exc:
+                last_exc = exc
+                continue
+            # OpenRouter can answer 200 with an error body or with no choices
+            # (provider hiccup, moderation queue). Both are transient.
+            problem = _body_problem(data)
+            if problem and attempt < self.RETRIES:
+                last_exc = RuntimeError(problem)
+                continue
+            if problem:
+                raise RuntimeError(f"OpenRouter returned no usable answer: {problem}")
+            return data
+        raise RuntimeError(
+            f"OpenRouter unreachable after {self.RETRIES + 1} attempts: {last_exc}"
+        ) from last_exc
+
+
+def _body_problem(data: object) -> str:
+    """Why a 200 body is unusable ("" = fine). A 4xx hidden in the body is raised as HTTPStatusError."""
+    if not isinstance(data, dict):
+        return "response is not a JSON object"
+    err = data.get("error")
+    if isinstance(err, dict) and err:
+        code = err.get("code")
+        msg = str(err.get("message") or err)[:300]
+        if isinstance(code, int) and 400 <= code < 500 and code not in (408, 429):
+            # A real client error hides inside a 200: not worth retrying.
             raise httpx.HTTPStatusError(
-                f"OpenRouter {response.status_code}: {detail}",
-                request=response.request,
-                response=response,
+                f"OpenRouter {code}: {msg}", request=None, response=None  # type: ignore[arg-type]
             )
-        return response.json()
+        return f"error body: {msg}"
+    if not data.get("choices"):
+        return "empty choices"
+    return ""
 
 
 class WebTools:

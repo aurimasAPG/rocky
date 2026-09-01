@@ -6,6 +6,7 @@ from rocky.events import Event
 TRANSCRIPT_TYPES = frozenset(
     {
         "run_started",
+        "resumed",
         "assessed",
         "budget_offer",
         "budget_set",
@@ -62,6 +63,10 @@ def status_line(event: Event) -> str | None:
     payload = event.payload or {}
     if kind == "run_started":
         return "starting"
+    if kind == "resumed":
+        return f"resuming · {payload.get('from_run')}"
+    if kind == "subtask_skipped":
+        return f"skipping · {payload.get('title')} (done before)"
     if kind == "catalog":
         if payload.get("status") == "fetching":
             return "fetching models"
