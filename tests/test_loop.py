@@ -1025,3 +1025,82 @@ def test_declared_output_must_be_touched_during_the_step(tmp_path, monkeypatch):
     assert [e.type for e in events if e.type in {"nudge", "subtask_incomplete"}] == ["nudge", "nudge", "subtask_incomplete"]
     assert "untouched" in [e.payload for e in events if e.type == "nudge"][0].get("missing", [""])[0] or True
     assert client.worker_round == 3
+
+
+class AlmostClient(StubbornClient):
+    """Worker writes a decent article; verifier keeps scoring it 0.75 with two open points."""
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You execute this subtask" in system:
+            self.worker_models.append(model)
+            if not any(m.get("role") == "tool" for m in messages):
+                return Completion(
+                    content="",
+                    tool_calls=[ToolCall(id="w", name="write_file", arguments={"path": "article.md", "content": "# Ads\n\nok\n"})],
+                )
+            return Completion(content="done")
+        if "You verify completed work" in system:
+            return Completion(
+                content=json.dumps(
+                    {
+                        "passed": False,
+                        "score": self.score,
+                        "summary": "Solid, two gaps.",
+                        "issues": ["No sources cited"],
+                        "remaining": ["Add a CTA"],
+                    }
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_high_score_after_last_loop_ends_as_passed_with_notes(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = AlmostClient()
+    client.score = 0.75
+    events = []
+    result = orchestrate(
+        goal="Write a short article",
+        workspace=tmp_path,
+        client=client,
+        models=MODELS,
+        emit=events.append,
+        max_loops=2,
+        budget_eur=1.0,
+        eur_rate=0.92,
+    )
+    assert result.status == "passed_with_notes"
+    assert result.passed is True
+    assert result.notes == ["No sources cited", "Add a CTA"]
+    assert result.loops == 2, "inside the loop almost-right is still a fail"
+    done = events[-1].payload
+    assert done["status"] == "passed_with_notes" and done["passed"] is True
+    assert done["notes"] == ["No sources cited", "Add a CTA"]
+    assert "Notes: No sources cited; Add a CTA" in done["summary"]
+
+
+def test_low_score_stays_unmet(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = AlmostClient()
+    client.score = 0.5
+    result = orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                         max_loops=1, budget_eur=1.0, eur_rate=0.92)
+    assert result.status == "unmet" and result.passed is False and result.notes == []
+
+
+def test_high_score_without_the_deliverable_stays_unmet(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class NoFile(AlmostClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You execute this subtask" in system:
+                return Completion(content="I only talked about it.")
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    client = NoFile()
+    client.score = 0.9
+    result = orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                         max_loops=1, budget_eur=1.0, eur_rate=0.92)
+    assert result.status == "unmet" and result.passed is False

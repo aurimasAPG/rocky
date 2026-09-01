@@ -86,8 +86,9 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
             resume=resume,
         )
         meta = read_meta(folder)
-        meta["status"] = "passed" if result.passed else "unmet"
+        meta["status"] = result.status
         meta["passed"] = result.passed
+        meta["notes"] = list(result.notes)[:10]
         meta["summary"] = (result.summary or "")[:500]
         meta["finished"] = _now()
         write_meta(folder, meta)

@@ -144,7 +144,7 @@ def start_run(body: RunRequest, request: Request):
                 max_loops=body.max_loops,
                 budget_eur=body.budget,
             )
-            record["status"] = "passed" if result.passed else "unmet"
+            record["status"] = result.status
             record["passed"] = result.passed
             record["cost"] = result.cost
             record["eur"] = result.eur

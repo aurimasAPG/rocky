@@ -113,7 +113,7 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 6. **Workers** — each subtask is its own chat, shared folder.
 7. **Verifier** — judges the **whole** result. It can open files itself (`read_file`, `list_dir`, `grep`, `office_read` for decks and sheets; up to 6 read-only calls). Almost-right is a fail; the planner resplits and workers continue.
    If two verifications in a row fail, Rocky assumes the worker model is the problem: it keeps the plan and **swaps the worker** for a stronger one — the most capable model under ~$12/M from a family not tried yet (`stall` event) — instead of replanning again.
-8. Stop when it passes, loops run out, or the euro cap is hit.
+8. Stop when it passes, loops run out, or the euro cap is hit. Three endings: **passed**; **passed_with_notes** — the loops or the cap ran out, but the last verdict scored ≥ 0.7 and the deliverable is on disk, so you get the file plus the verifier's open points as notes (`--json` returns them under `notes`, exit code 0); **unmet** — nothing usable. Inside the loop "almost right" is still a fail: that is what drives the replan.
 
 Each worker chat is capped at 20 turns and kept small: old tool results become one-line stubs, and past ~60 % of the model's window — or **100k tokens**, whichever comes first — the middle of the thread is summarised by the cheap assess model (`compact` event). The 100k ceiling matters for 1M-context workers: without it a long research step re-sends hundreds of thousands of tokens on every turn.
 
@@ -315,7 +315,7 @@ Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint w
 | Copy does not work in TUI | Select text, then Cmd+C. Quit with **q**, not Ctrl+C. |
 | Run died after closing the window | It should not. `rocky ps` — if status is `crashed`, read `.rocky/runs/<id>/worker.log`, then `rocky resume` |
 | Run ended `error` / `crashed` mid-way | `rocky resume [id]` — continues from the saved plan and the files already written |
-| Verifier almost-passes | That is a fail. Rocky replans until loops or budget run out. |
+| Verifier almost-passes | Inside the loop that is a fail and Rocky replans. After the last loop a score ≥ 0.7 with the file on disk ends as `passed_with_notes`. |
 
 ---
 

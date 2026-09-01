@@ -152,8 +152,17 @@ def render_event(event: Event) -> None:
         )
         return
     if kind == "done":
-        mark = "done · passed" if payload.get("passed") else "done · unmet"
+        status = str(payload.get("status") or ("passed" if payload.get("passed") else "unmet"))
+        mark = "done · " + status.replace("_", " ")
         console.rule(f"{mark}  ·  {payload.get('loops')} loops")
+        if payload.get("notes"):
+            console.print(
+                Panel(
+                    "\n".join(f"- {n}" for n in payload["notes"]),
+                    title="passed with notes — what is still open",
+                    border_style=f"#{APRICOT}",
+                )
+            )
         receipt = payload.get("receipt") or f"${payload.get('usd')}"
         if payload.get("role_receipt"):
             receipt = f"{receipt}\n{payload['role_receipt']}"

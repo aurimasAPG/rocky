@@ -52,6 +52,9 @@ STALL_AFTER = 2
 VERIFY_GRACE = 1.10
 # Times a worker is told to produce its missing output files before the step is marked incomplete.
 MAX_NUDGES = 2
+# After the last loop, a failed verdict at or above this score with the deliverable on disk
+# ends as "passed_with_notes": the user has a good file, the report lists what is left.
+NOTES_SCORE = 0.7
 
 ASSESS_SCHEMA = {
     "name": "assessment",
@@ -176,6 +179,9 @@ class RunResult:
     loops: int = 0
     summary: str = ""
     events: list[Event] = field(default_factory=list)
+    # passed | passed_with_notes | unmet. ``passed`` is True for the first two.
+    status: str = "unmet"
+    notes: list[str] = field(default_factory=list)
 
 
 def orchestrate(
@@ -518,10 +524,16 @@ def orchestrate(
         )
 
     summary = (verify.get("summary") if verify else worker_summary) or ""
+    status, notes = _final_status(passed, verify, plan, assessment, tools)
+    if notes:
+        summary = (summary + "\n" if summary else "") + "Notes: " + "; ".join(notes)
+    passed = status != "unmet"
     bill = ledger.payload(rate)
     fire(
         "done",
         passed=passed,
+        status=status,
+        notes=notes,
         loops=loops,
         summary=summary,
         receipt=format_receipt(tally, rate),
@@ -547,7 +559,35 @@ def orchestrate(
         loops=loops,
         summary=summary,
         events=events,
+        status=status,
+        notes=notes,
     )
+
+
+def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tools: WorkspaceTools) -> tuple[str, list[str]]:
+    """passed | passed_with_notes | unmet, plus the verifier's open points for the notes case.
+
+    Inside the loop "almost right" is a fail, and that is correct: it drives a
+    replan. Once the loops or the cap are gone, a deliverable the verifier
+    scored >= NOTES_SCORE is a result the user can use — say so, list the notes.
+    """
+    if passed:
+        return "passed", []
+    if not verify:
+        return "unmet", []
+    try:
+        score = float(verify.get("score") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    if score < NOTES_SCORE:
+        return "unmet", []
+    deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
+    if not deliverable or _missing_files(tools, [deliverable]):
+        return "unmet", []
+    notes = [str(n) for n in (verify.get("issues") or []) + (verify.get("remaining") or []) if str(n).strip()]
+    if not notes:
+        notes = [str(verify.get("summary") or "verifier scored it below the bar without naming an issue")]
+    return "passed_with_notes", notes
 
 
 def _chat(client: LLM, **kwargs) -> Completion:

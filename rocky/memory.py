@@ -80,7 +80,7 @@ def recent_runs_block(workspace: str | Path, limit: int = RECENT_LIMIT) -> str:
             goal = goal[:117] + "..."
         if len(summary) > 160:
             summary = summary[:157] + "..."
-        mark = "passed" if row.get("passed") else status
+        mark = status if status == "passed_with_notes" else ("passed" if row.get("passed") else status)
         line = f"- {row.get('id')}: {mark} · {goal}"
         if summary:
             line += f" — {summary}"

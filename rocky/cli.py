@@ -215,6 +215,7 @@ def _ps(workspace: Path) -> int:
             "running": "green",
             "waiting": "yellow",
             "passed": "cyan",
+            "passed_with_notes": "yellow",
             "unmet": "red",
             "error": "red",
             "crashed": "red",
@@ -291,11 +292,12 @@ def collect_result(workspace: Path, run_id: str, events) -> dict:
             verify = event.payload
         elif event.type == "cast":
             cast = event.payload.get("models") or {}
-    status = meta.get("status") or ("passed" if done.get("passed") else "unmet")
+    status = meta.get("status") or done.get("status") or ("passed" if done.get("passed") else "unmet")
     return {
         "run_id": run_id,
         "status": status,
         "passed": bool(meta.get("passed", done.get("passed", False))),
+        "notes": list(done.get("notes") or meta.get("notes") or []),
         "goal": meta.get("goal"),
         "workspace": str(workspace),
         "deliverable_path": plan.get("deliverable_path"),
@@ -393,7 +395,7 @@ def _attach(workspace: Path, run_id: str) -> int:
                     if pulse is not None:
                         pulse.stop()
                     console.print(f"[dim]{status}  ·  {folder}[/]")
-                    return 0 if status == "passed" else 1
+                    return 0 if status in {"passed", "passed_with_notes"} else 1
             line = _stdin_line(0.15)
             if line is not None:
                 if pulse is not None:
