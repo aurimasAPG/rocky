@@ -9,7 +9,7 @@
 name = "marketing"
 description = "Research → VOC → copy → pptx + xlsx. Ads, campaigns, landing copy, SEO / CRO briefs."
 deliverable_path = "deliverables/campaign.pptx"
-notes = "Also write research.md, voc.md, copy.md, and deliverables/variants.xlsx."
+notes = "Working files go to runs/notes/ (research.md, voc.md, copy.md); finals to deliverables/ (campaign.pptx, variants.xlsx)."
 cost_multiplier = 1.8
 
 [match]
@@ -26,10 +26,10 @@ id = 1
 title = "Research"
 depends_on = []
 requires = ["research", "tyrim", "deep-research"]
-writes = ["research.md"]
+writes = ["runs/notes/research.md"]
 detail = """skill_view deep-research (and research-prompt if listed). \
 Investigate the market, competitors, and claims for: {goal}. \
-web_search + web_fetch primary sources. Write research.md with URL, claim, why it matters. \
+web_search + web_fetch primary sources. Write runs/notes/research.md with URL, claim, why it matters. \
 Separate fact / inference / unknown. Do not invent statistics."""
 
 [[steps]]
@@ -37,10 +37,10 @@ id = 2
 title = "VOC"
 depends_on = [1]
 requires = ["voc", "voice of customer"]
-writes = ["voc.md"]
+writes = ["runs/notes/voc.md"]
 detail = """skill_view voc-to-copy. If product-marketing-context is listed, skill_view it too. \
-Mine customer language from research.md plus public reviews, Reddit, G2, forums via web_search. \
-Write voc.md: pains, desires, objections, outcomes, phrase bank with sources. \
+Mine customer language from runs/notes/research.md plus public reviews, Reddit, G2, forums via web_search. \
+Write runs/notes/voc.md: pains, desires, objections, outcomes, phrase bank with sources. \
 Do not invent quotes."""
 
 [[steps]]
@@ -48,9 +48,9 @@ id = 3
 title = "Copy"
 depends_on = [2]
 requires = ["copy", "copywrit", "headline", "ad text", "tekst"]
-writes = ["copy.md"]
+writes = ["runs/notes/copy.md"]
 detail = """skill_view copywriting. If the goal is ads, also skill_view meta-ads-copy or google-ads-copy. \
-Write copy.md from VOC phrases (headlines, body, CTAs). No invented proof."""
+Write runs/notes/copy.md from runs/notes/voc.md phrases (headlines, body, CTAs). No invented proof."""
 
 [[steps]]
 id = 4

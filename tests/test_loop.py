@@ -458,7 +458,7 @@ class TrivialClient(ScriptedClient):
                 return Completion(
                     content="",
                     tool_calls=[
-                        ToolCall(id="c1", name="write_file", arguments={"path": "answer.md", "content": "10\n"})
+                        ToolCall(id="c1", name="write_file", arguments={"path": "deliverables/answer.md", "content": "10\n"})
                     ],
                 )
             return Completion(content="Wrote answer.md")
@@ -480,14 +480,14 @@ def test_trivial_goal_skips_critic_and_planner(tmp_path, monkeypatch):
         eur_rate=0.92,
     )
     assert result.passed is True
-    assert (tmp_path / "answer.md").read_text() == "10\n"
+    assert (tmp_path / "deliverables" / "answer.md").read_text() == "10\n"
     assert not any("You critique briefs" in p for p in client.prompts)
     assert not any("You write the plan" in p for p in client.prompts)
     critique = next(e.payload for e in events if e.type == "critique")
     plan = next(e.payload for e in events if e.type == "plan")
     assert critique["skipped"] == "trivial"
     assert plan["skipped"] == "trivial"
-    assert plan["deliverable_path"] == "answer.md"
+    assert plan["deliverable_path"] == "deliverables/answer.md"
     assert plan["steps"][0]["depends_on"] == []
     # only assess + worker + verifier paid anything
     assert result.cost == 0.011
@@ -1037,7 +1037,7 @@ class AlmostClient(StubbornClient):
             if not any(m.get("role") == "tool" for m in messages):
                 return Completion(
                     content="",
-                    tool_calls=[ToolCall(id="w", name="write_file", arguments={"path": "article.md", "content": "# Ads\n\nok\n"})],
+                    tool_calls=[ToolCall(id="w", name="write_file", arguments={"path": "deliverables/article.md", "content": "# Ads\n\nok\n"})],
                 )
             return Completion(content="done")
         if "You verify completed work" in system:
@@ -1104,3 +1104,31 @@ def test_high_score_without_the_deliverable_stays_unmet(tmp_path, monkeypatch):
     result = orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
                          max_loops=1, budget_eur=1.0, eur_rate=0.92)
     assert result.status == "unmet" and result.passed is False
+
+
+def test_layout_rule_reaches_planner_and_worker_and_bare_deliverables_land_in_deliverables(tmp_path, monkeypatch):
+    from rocky.engine import place_deliverable
+
+    assert place_deliverable("summary.md") == "deliverables/summary.md"
+    assert place_deliverable("deliverables/x.pptx") == "deliverables/x.pptx"
+    assert place_deliverable("runs/notes/research.md") == "runs/notes/research.md"
+    assert place_deliverable("") == "deliverables/output.md"
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    seen: list[str] = []
+
+    class Recording(ScriptedClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            seen.append(messages[0]["content"])
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=Recording(), models=MODELS,
+                emit=events.append, max_loops=1, budget_eur=1.0, eur_rate=0.92)
+    planner = next(s for s in seen if "You write the plan" in s)
+    worker = next(s for s in seen if "You execute this subtask" in s)
+    assert "runs/notes/" in planner and "deliverables/" in planner
+    assert "runs/notes/" in worker and "deliverables/" in worker
+    plan = next(e.payload for e in events if e.type == "plan")
+    # the scripted planner said "article.md" — a bare name is placed under deliverables/
+    assert plan["deliverable_path"] == "deliverables/article.md"

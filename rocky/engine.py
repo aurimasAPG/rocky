@@ -52,6 +52,15 @@ STALL_AFTER = 2
 VERIFY_GRACE = 1.10
 # Times a worker is told to produce its missing output files before the step is marked incomplete.
 MAX_NUDGES = 2
+# Where files go. Working files (research, notes, drafts, scripts) under NOTES_DIR,
+# what the user asked for under DELIVERABLES_DIR, nothing in the workspace root.
+NOTES_DIR = "runs/notes"
+DELIVERABLES_DIR = "deliverables"
+LAYOUT_RULE = (
+    f"Workspace layout: working files (research, notes, drafts, scripts, scratch data) go under {NOTES_DIR}/; "
+    f"final deliverables — what the user asked for — go under {DELIVERABLES_DIR}/; "
+    "nothing is written to the workspace root unless the user names a root path. "
+)
 # After the last loop, a failed verdict at or above this score with the deliverable on disk
 # ends as "passed_with_notes": the user has a good file, the report lists what is left.
 NOTES_SCORE = 0.7
@@ -287,7 +296,9 @@ def orchestrate(
                 "Return JSON only. Judge complexity honestly. "
                 "trivial = one short step; moderate = a few steps; hard = research, code, or multi-file work. "
                 "domain: code | research | writing | marketing | ops | mixed. "
-                "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO."
+                "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO. "
+                f"deliverable = the final file's path under {DELIVERABLES_DIR}/ (e.g. {DELIVERABLES_DIR}/summary.md) "
+                "unless the user named a path."
             ),
             user=_assess_user(goal, workspace_path),
             json_schema=ASSESS_SCHEMA,
@@ -301,10 +312,11 @@ def orchestrate(
                 "domain": "mixed",
                 "success_criteria": ["The user's request is fully completed."],
                 "needs_web": True,
-                "deliverable": "output.md",
+                "deliverable": f"{DELIVERABLES_DIR}/output.md",
             },
         )
         assessment["goal"] = assessment.get("goal") or goal
+        assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
         estimate_eur = estimate_run_eur(assessment, goal)
         assessment["estimated_eur"] = estimate_eur
         fire("assessed", **{k: assessment[k] for k in assessment})
@@ -342,7 +354,7 @@ def orchestrate(
         fire("critique", resumed=True, **critique)
         plan = _normalize_steps(dict(resume.get("plan") or {}), goal)
         if not plan.get("deliverable_path"):
-            plan["deliverable_path"] = assessment.get("deliverable") or "output.md"
+            plan["deliverable_path"] = assessment.get("deliverable") or f"{DELIVERABLES_DIR}/output.md"
         if resume.get("replan"):
             plan = _make_plan(
                 client,
@@ -623,8 +635,18 @@ def _trivial_critique(goal: str, assessment: dict) -> dict:
     }
 
 
+def place_deliverable(path: str) -> str:
+    """A bare filename lands in deliverables/; an explicit folder is respected."""
+    clean = (path or "").strip().lstrip("./")
+    if not clean:
+        return f"{DELIVERABLES_DIR}/output.md"
+    if "/" in clean:
+        return clean
+    return f"{DELIVERABLES_DIR}/{clean}"
+
+
 def _trivial_plan(goal: str, assessment: dict) -> dict:
-    deliverable = str(assessment.get("deliverable") or "output.md")
+    deliverable = place_deliverable(str(assessment.get("deliverable") or ""))
     return {
         "summary": str(assessment.get("goal") or goal),
         "steps": [
@@ -891,6 +913,8 @@ def _make_plan(
                     "Use depends_on so independent research can run in parallel, "
                     "and writing/assembly waits on research. Each step must be concrete. "
                     "Each step lists in writes the files it must leave on disk; later steps may only read those. "
+                    + LAYOUT_RULE +
+                    "deliverable_path and every writes entry must follow that layout. "
                     "If the deliverable is xlsx/docx/pptx/pdf, that worker step must skill_view the matching skill. "
                     "If a recipe is given, its steps are mandatory and ordered — a recipe is a proven "
                     "sequence for this kind of deliverable; Rocky will enforce it. "
@@ -911,12 +935,13 @@ def _make_plan(
         {
             "summary": goal,
             "steps": [{"id": 1, "title": "Complete the goal", "detail": goal, "depends_on": []}],
-            "deliverable_path": assessment.get("deliverable") or "output.md",
+            "deliverable_path": assessment.get("deliverable") or f"{DELIVERABLES_DIR}/output.md",
             "notes": "",
         },
     )
     plan = _normalize_steps(plan, goal)
     plan = ensure_pipeline(plan, goal, assessment, recipe=recipe)
+    plan["deliverable_path"] = place_deliverable(str(plan.get("deliverable_path") or ""))
     if recipe:
         plan["recipe"] = recipe.name
     fire("plan", **plan)
@@ -1034,6 +1059,7 @@ def _run_subtask(
             "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
+                + LAYOUT_RULE +
                 "Prefer patch for small file edits, write_file for new files. "
                 "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
                 "Use todo to track steps. Use vision_analyze for images. "

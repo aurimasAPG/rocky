@@ -155,7 +155,7 @@ def test_recipe_steps_carry_writes_and_merge_onto_covering_plan():
 
     m = load_recipes()["marketing"]
     rendered = m.render_steps("ads")
-    assert rendered[0]["writes"] == ["research.md"]
+    assert rendered[0]["writes"] == ["runs/notes/research.md"]
     assert rendered[3]["writes"] == ["deliverables/campaign.pptx", "deliverables/variants.xlsx"]
     plan = {
         "steps": [
@@ -168,8 +168,8 @@ def test_recipe_steps_carry_writes_and_merge_onto_covering_plan():
         "deliverable_path": "deliverables/campaign.pptx",
     }
     out = m.apply(plan, "ads")
-    assert out["steps"][0]["writes"] == ["research.md"]
-    assert out["steps"][1]["writes"] == ["voc.md"]
+    assert out["steps"][0]["writes"] == ["runs/notes/research.md"]
+    assert out["steps"][1]["writes"] == ["runs/notes/voc.md"]
     assert out["steps"][3]["writes"] == ["extra.md", "deliverables/campaign.pptx", "deliverables/variants.xlsx"]
     assert "writes" not in out["steps"][4]
-    assert "writes = [\"research.md\"]" in to_toml(m)
+    assert "writes = [\"runs/notes/research.md\"]" in to_toml(m)

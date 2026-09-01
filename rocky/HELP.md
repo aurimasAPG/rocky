@@ -238,7 +238,21 @@ Never commit `OPENROUTER_API_KEY`. Put it in `~/.env` or a project `.env` that s
 
 ---
 
-## 12. Tools the worker can call
+## 12. Workspace layout
+
+Every plan follows one convention, recipe or not:
+
+| What | Where |
+| --- | --- |
+| Working files — research, notes, drafts, scripts, scratch data | `runs/notes/` |
+| Final deliverables — what you asked for | `deliverables/` |
+| Workspace root | nothing, unless you name a root path in the goal |
+
+The planner and every worker get this rule in their prompt; a bare deliverable name from the assessment or the planner (`summary.md`) is placed under `deliverables/` automatically. The bundled marketing recipe writes `runs/notes/research.md`, `runs/notes/voc.md`, `runs/notes/copy.md`, then `deliverables/campaign.pptx` and `deliverables/variants.xlsx`.
+
+---
+
+## 13. Tools the worker can call
 
 `bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plus any **MCP** tools you configure (below).
 
@@ -266,7 +280,7 @@ Office/PDF (`.xlsx` `.docx` `.pptx` `.pdf`): the worker must `skill_view` the ma
 
 ---
 
-## 13. Skills
+## 14. Skills
 
 Bundled: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`.
 
@@ -286,13 +300,13 @@ A recipe is a plan skeleton Rocky enforces when a goal matches: ordered steps, `
 - shared: folders in `ROCKY_RECIPES=/path/a,/path/b`
 - this workspace: `<workspace>/.rocky/recipes/*.toml` (wins on the same name)
 
-Each step can declare `writes = ["research.md"]` — files it must leave on disk. When a worker stops without them, Rocky nudges it (twice at most, `nudge` event); if they still do not exist the step is reported to the verifier as **INCOMPLETE** so later steps and the verdict cannot pretend the work happened. The planner's own steps get a `writes` list too.
+Each step can declare `writes = ["runs/notes/research.md"]` — files it must leave on disk. When a worker stops without them, Rocky nudges it (twice at most, `nudge` event); if they still do not exist the step is reported to the verifier as **INCOMPLETE** so later steps and the verdict cannot pretend the work happened. The planner's own steps get a `writes` list too.
 
 Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint words. If the planner already covers every required stage the plan is kept; otherwise the recipe steps replace it. Workers can `recipe list / view / save` — a saved recipe is used from the **next** run, so review it. See `rocky/recipes/marketing.toml` for the format.
 
 ---
 
-## 14. Budget hints
+## 15. Budget hints
 
 | Looks like | Typical guess vs €1 |
 | --- | --- |
@@ -304,7 +318,7 @@ Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint w
 
 ---
 
-## 15. Troubleshooting
+## 16. Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
@@ -319,7 +333,7 @@ Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint w
 
 ---
 
-## 16. Memory
+## 17. Memory
 
 Each new goal used to start blank. Rocky now keeps Hermes-style memory in the same workspace.
 
@@ -339,6 +353,6 @@ Override the home folder in tests or odd setups: `ROCKY_HOME=/path`.
 
 ---
 
-## 17. What Rocky is not
+## 18. What Rocky is not
 
 It is not a coding harness like Claude Code or Codex. Those keep one strong model in a long loop. Rocky is a **cast + budget + verify** shop: cheap hands, independent checker, euro cap. Use it for research, copy, decks, and bounded autonomous work in a folder. For a nasty repo refactor, a dedicated coding agent is usually better.
