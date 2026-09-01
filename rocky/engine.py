@@ -15,9 +15,11 @@ from rocky.events import Emit, Event
 from rocky.jsonutil import JsonParseError, parse_json_object
 from rocky.extras import BrowserSession
 from rocky.llm import Completion, LLM, WebTools
+from rocky.runs import run_history
 from rocky.usage import (
     DEFAULT_BUDGET_EUR,
     RoleTally,
+    calibration,
     estimate_run_eur,
     eur_from_usd,
     fetch_usd_eur_rate,
@@ -61,6 +63,8 @@ LAYOUT_RULE = (
     f"final deliverables — what the user asked for — go under {DELIVERABLES_DIR}/; "
     "nothing is written to the workspace root unless the user names a root path. "
 )
+# Warn once when this share of the cap is gone and the deliverable is still not on disk.
+HALF_SPEND = 0.5
 # After the last loop, a failed verdict at or above this score with the deliverable on disk
 # ends as "passed_with_notes": the user has a good file, the report lists what is left.
 NOTES_SCORE = 0.7
@@ -191,6 +195,7 @@ class RunResult:
     # passed | passed_with_notes | unmet. ``passed`` is True for the first two.
     status: str = "unmet"
     notes: list[str] = field(default_factory=list)
+    assessment: dict = field(default_factory=dict)
 
 
 def orchestrate(
@@ -269,6 +274,29 @@ def orchestrate(
     def spender(role: str):
         return lambda completion: spend(completion, role)
 
+    warned = {"half": False}
+
+    def check_half_spend() -> None:
+        """Once: half the cap is gone and the deliverable is still missing."""
+        if warned["half"] or tally.usd < usd_cap * HALF_SPEND:
+            return
+        deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
+        if deliverable and not _missing_files(tools, [deliverable]):
+            return
+        warned["half"] = True
+        fire(
+            "budget_warn",
+            stage="half",
+            spent_eur=round(eur_from_usd(tally.usd, rate), 3),
+            budget_eur=round(eur_from_usd(usd_cap, rate), 3),
+            deliverable=deliverable,
+            note=f"{int(HALF_SPEND * 100)} % of the cap spent and no deliverable on disk yet",
+        )
+
+    def worker_spend(completion: Completion) -> None:
+        spend(completion, "worker")
+        check_half_spend()
+
     if resume:
         assessment = dict(resume.get("assessment") or {})
         assessment["goal"] = assessment.get("goal") or goal
@@ -317,8 +345,12 @@ def orchestrate(
         )
         assessment["goal"] = assessment.get("goal") or goal
         assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
-        estimate_eur = estimate_run_eur(assessment, goal)
+        base_eur = estimate_run_eur(assessment, goal)
+        factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
+        estimate_eur = round(base_eur * factor, 2)
         assessment["estimated_eur"] = estimate_eur
+        assessment["estimate_base_eur"] = base_eur
+        assessment["calibration"] = {"factor": factor, "samples": samples}
         fire("assessed", **{k: assessment[k] for k in assessment})
 
     budget_eur = float(budget_eur if budget is None else eur_from_usd(usd_cap, rate))
@@ -439,7 +471,7 @@ def orchestrate(
             tools=tools,
             searcher=searcher,
             include_server_tools=include_server_tools,
-            spend=spender("worker"),
+            spend=worker_spend,
             fire=fire,
             budget=usd_cap,
             cost_so_far=lambda: tally.usd,
@@ -573,6 +605,7 @@ def orchestrate(
         events=events,
         status=status,
         notes=notes,
+        assessment=dict(assessment),
     )
 
 

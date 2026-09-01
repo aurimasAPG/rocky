@@ -58,6 +58,9 @@ def render_event(event: Event) -> None:
         extra = ""
         if payload.get("estimated_eur") is not None:
             extra = f"  ·  ~€{payload.get('estimated_eur')}"
+            cal = payload.get("calibration") or {}
+            if cal.get("samples") and cal.get("factor") not in (None, 1.0):
+                extra += f" (×{cal['factor']} from {cal['samples']} past runs)"
         console.print(
             Text(
                 f"assess  {payload.get('complexity')} · {payload.get('domain')}{extra} · {payload.get('goal')}",
@@ -87,6 +90,15 @@ def render_event(event: Event) -> None:
         )
         return
     if kind == "budget_warn":
+        if payload.get("stage") == "half":
+            console.print(
+                Text(
+                    f"budget  €{payload.get('spent_eur')} of €{payload.get('budget_eur')} spent, "
+                    f"{payload.get('deliverable') or 'deliverable'} not on disk yet",
+                    style="bold red",
+                )
+            )
+            return
         console.print(
             Text(
                 f"budget  estimate €{payload.get('estimated_eur')} > cap €{payload.get('budget_eur')}  (no human — keeping cap)",

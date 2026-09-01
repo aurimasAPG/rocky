@@ -1132,3 +1132,58 @@ def test_layout_rule_reaches_planner_and_worker_and_bare_deliverables_land_in_de
     plan = next(e.payload for e in events if e.type == "plan")
     # the scripted planner said "article.md" — a bare name is placed under deliverables/
     assert plan["deliverable_path"] == "deliverables/article.md"
+
+
+def test_estimate_is_calibrated_from_workspace_history(tmp_path, monkeypatch):
+    from rocky.runs import create_run, run_dir, write_meta
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    for actual in (1.8, 2.0):
+        meta = create_run(workspace=tmp_path, goal="old", budget_eur=3.0, max_loops=2, include_server_tools=True)
+        write_meta(run_dir(tmp_path, meta["id"]), dict(meta, status="passed", passed=True, pid=None,
+                                                       eur=actual, estimated_eur=0.9, complexity="moderate"))
+    events = []
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=ScriptedClient(), models=MODELS,
+                emit=events.append, max_loops=1, budget_eur=5.0, eur_rate=0.92)
+    assessed = next(e.payload for e in events if e.type == "assessed")
+    assert assessed["estimate_base_eur"] == 0.9
+    assert assessed["calibration"] == {"factor": 2.11, "samples": 2}
+    assert assessed["estimated_eur"] == 1.9
+
+
+def test_half_cap_without_deliverable_warns_once(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class Slow(ScriptedClient):
+        """Three costly research turns before the file appears."""
+
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You execute this subtask" in system:
+                self.worker_round += 1
+                if self.worker_round <= 3:
+                    return Completion(
+                        content="",
+                        tool_calls=[ToolCall(id=f"r{self.worker_round}", name="list_dir", arguments={"path": str(self.worker_round)})],
+                        cost=0.2,
+                    )
+                if self.worker_round == 4:
+                    return Completion(
+                        content="",
+                        tool_calls=[ToolCall(id="w", name="write_file", arguments={"path": "deliverables/article.md", "content": "# Ads\n\nok\n"})],
+                        cost=0.2,
+                    )
+                return Completion(content="done", cost=0.2)
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    events = []
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=Slow(), models=MODELS,
+                emit=events.append, max_loops=1, budget=1.0, eur_rate=1.0)
+    warns = [e.payload for e in events if e.type == "budget_warn"]
+    assert len(warns) == 1
+    assert warns[0]["stage"] == "half" and warns[0]["deliverable"] == "deliverables/article.md"
+    assert warns[0]["spent_eur"] >= 0.5
+    # fired while the file was still missing: before the write_file tool call
+    order = [e.type for e in events]
+    first_write = next(i for i, e in enumerate(events) if e.type == "tool_call" and e.payload["name"] == "write_file")
+    assert order.index("budget_warn") < first_write

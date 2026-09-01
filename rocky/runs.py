@@ -140,6 +140,52 @@ def resolve_run_id(workspace: str | Path, ident: str | None) -> str:
     raise FileNotFoundError(f"no run matching {ident!r}")
 
 
+def run_history(workspace: str | Path, limit: int = 40) -> list[dict[str, Any]]:
+    """Finished runs with what was guessed and what was paid, for estimate calibration.
+
+    Newer runs store eur / estimated_eur / complexity in meta.json; older ones are
+    read back from their events (assessed.estimated_eur, done.eur).
+    """
+    rows: list[dict[str, Any]] = []
+    for row in list_runs(workspace, limit=limit):
+        if str(row.get("status") or "") not in TERMINAL:
+            continue
+        est, actual, complexity = row.get("estimated_eur"), row.get("eur"), row.get("complexity")
+        if est is None or actual is None:
+            found = _estimate_and_cost_from_events(run_dir(workspace, str(row["id"])) / "events.jsonl")
+            est = est if est is not None else found.get("estimated_eur")
+            actual = actual if actual is not None else found.get("eur")
+            complexity = complexity or found.get("complexity")
+        if est is None or actual is None:
+            continue
+        rows.append({"id": row.get("id"), "estimated_eur": est, "eur": actual, "complexity": complexity, "status": row.get("status")})
+    return rows
+
+
+def _estimate_and_cost_from_events(path: Path) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    if not path.exists():
+        return out
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                if '"assessed"' not in line and '"done"' not in line:
+                    continue
+                try:
+                    raw = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                payload = raw.get("payload") or {}
+                if raw.get("type") == "assessed":
+                    out["estimated_eur"] = payload.get("estimated_eur")
+                    out["complexity"] = payload.get("complexity")
+                elif raw.get("type") == "done" and payload.get("eur") is not None:
+                    out["eur"] = payload.get("eur")
+    except OSError:
+        return out
+    return out
+
+
 def resolve_resumable(workspace: str | Path, ident: str | None) -> str:
     """A run id `rocky resume` may continue: the given one, or the latest that did not pass."""
     if ident:

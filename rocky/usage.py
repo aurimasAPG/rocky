@@ -175,6 +175,39 @@ def estimate_run_eur(assessment: dict | None, goal: str = "") -> float:
     return round(base, 2)
 
 
+# Calibration from this workspace's history: median(actual / estimate), clamped.
+CALIBRATION_MIN_SAMPLES = 2
+CALIBRATION_CLAMP = (0.5, 4.0)
+
+
+def calibration(rows: list[dict], complexity: str = "") -> tuple[float, int]:
+    """(factor, samples) that turns the table guess into what this folder actually pays.
+
+    ``rows`` are finished runs with ``estimated_eur`` and ``eur``. Same-complexity
+    runs are preferred when there are enough of them; otherwise every run counts.
+    Fewer than CALIBRATION_MIN_SAMPLES usable runs → factor 1.0.
+    """
+    ratios: list[tuple[str, float]] = []
+    for row in rows or []:
+        try:
+            est = float(row.get("estimated_eur") or 0)
+            actual = float(row.get("eur") or 0)
+        except (TypeError, ValueError):
+            continue
+        if est <= 0 or actual <= 0:
+            continue
+        ratios.append((str(row.get("complexity") or "").lower(), actual / est))
+    same = [r for c, r in ratios if complexity and c == complexity.lower()]
+    pool = same if len(same) >= CALIBRATION_MIN_SAMPLES else [r for _, r in ratios]
+    if len(pool) < CALIBRATION_MIN_SAMPLES:
+        return 1.0, len(pool)
+    pool = sorted(pool)
+    mid = len(pool) // 2
+    median = pool[mid] if len(pool) % 2 else (pool[mid - 1] + pool[mid]) / 2
+    lo, hi = CALIBRATION_CLAMP
+    return round(min(max(median, lo), hi), 2), len(pool)
+
+
 def suggest_cap_eur(estimate: float, current: float) -> float:
     target = max(float(estimate) * 1.3, float(current))
     for step in _CAP_STEPS:

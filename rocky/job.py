@@ -90,6 +90,11 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
         meta["passed"] = result.passed
         meta["notes"] = list(result.notes)[:10]
         meta["summary"] = (result.summary or "")[:500]
+        meta["eur"] = round(float(result.eur or 0), 3)
+        meta["usd"] = round(float(result.cost or 0), 3)
+        meta["estimated_eur"] = result.assessment.get("estimated_eur")
+        meta["complexity"] = result.assessment.get("complexity")
+        meta["domain"] = result.assessment.get("domain")
         meta["finished"] = _now()
         write_meta(folder, meta)
         return 0 if result.passed else 1

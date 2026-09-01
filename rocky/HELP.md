@@ -320,6 +320,10 @@ Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint w
 
 `--budget 10` on the command line skips the nag if the guess is below €10.
 
+The guess is **calibrated from this folder's history**: Rocky takes the median of *actual ÷ estimated* over finished runs (same complexity when there are at least two such runs, otherwise all runs; clamped to 0.5–4×) and scales the table value by it. The `assessed` line shows `~€9.10 (×1.6 from 4 past runs)` when a factor is applied; `--json` carries `estimate_base_eur` and `calibration` in the assessment. Each finished run stores `eur`, `estimated_eur`, and `complexity` in its `meta.json` so the next guess learns from it.
+
+While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of the cap is spent and the deliverable is still not on disk** — the moment to attach and decide whether to let it continue.
+
 ---
 
 ## 16. Troubleshooting

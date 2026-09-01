@@ -80,6 +80,8 @@ def status_line(event: Event) -> str | None:
         return f"thinking · assess · {payload.get('complexity')}/{payload.get('domain')}"
     if kind == "budget_offer":
         return "waiting for budget"
+    if kind == "budget_warn" and payload.get("stage") == "half":
+        return f"budget · half spent · no {payload.get('deliverable') or 'deliverable'} yet"
     if kind == "budget_set":
         return "thinking · plan"
     if kind == "cast":

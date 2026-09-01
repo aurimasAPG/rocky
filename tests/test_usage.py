@@ -99,3 +99,25 @@ def test_parse_usage_counts_byok_upstream_cost():
     assert u.usd == 0.000138
     # OpenRouter-billed calls keep OpenRouter's number
     assert parse_usage({"cost": 0.002, "cost_details": {"upstream_inference_cost": 0.0015}}).usd == 0.002
+
+
+def test_calibration_uses_median_ratio_and_prefers_same_complexity():
+    from rocky.usage import calibration
+
+    rows = [
+        {"estimated_eur": 5.63, "eur": 9.09, "complexity": "hard"},
+        {"estimated_eur": 4.0, "eur": 8.0, "complexity": "hard"},
+        {"estimated_eur": 0.9, "eur": 0.3, "complexity": "moderate"},
+        {"estimated_eur": 0.9, "eur": 0.45, "complexity": "moderate"},
+        {"estimated_eur": 0, "eur": 1.0, "complexity": "hard"},  # no estimate → ignored
+    ]
+    factor, n = calibration(rows, "hard")
+    assert n == 2 and factor == 1.81  # median of 1.615 and 2.0
+    factor, n = calibration(rows, "moderate")
+    assert n == 2 and factor == 0.5  # clamped at the floor (0.33 / 0.5 → 0.5)
+    factor, n = calibration(rows, "trivial")  # no trivial history → all four
+    assert n == 4
+    assert calibration([], "hard") == (1.0, 0)
+    assert calibration(rows[:1], "hard") == (1.0, 1)
+    huge = [{"estimated_eur": 1, "eur": 50}, {"estimated_eur": 1, "eur": 60}]
+    assert calibration(huge)[0] == 4.0

@@ -225,3 +225,16 @@ def test_cli_resume_with_nothing_to_resume(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
     assert main(["resume", "-d", str(tmp_path)]) == 1
     assert "resume" in capsys.readouterr().out
+
+
+def test_run_history_reads_meta_or_falls_back_to_events(tmp_path):
+    from rocky.runs import run_history
+
+    run_id, folder = _crashed_run(tmp_path, status="unmet")  # events carry assessed + cost, no done.eur
+    append_event(folder, Event("done", {"passed": False, "eur": 1.2}))
+    newer = create_run(workspace=tmp_path, goal="n", budget_eur=1.0, max_loops=1, include_server_tools=True)
+    nf = run_dir(tmp_path, newer["id"])
+    write_meta(nf, dict(newer, status="passed", passed=True, pid=None, eur=0.5, estimated_eur=0.9, complexity="moderate"))
+    rows = {r["id"]: r for r in run_history(tmp_path)}
+    assert rows[newer["id"]]["eur"] == 0.5 and rows[newer["id"]]["estimated_eur"] == 0.9
+    assert rows[run_id]["eur"] == 1.2 and rows[run_id]["estimated_eur"] == 0.9 and rows[run_id]["complexity"] == "moderate"
