@@ -150,3 +150,63 @@ def test_cache_control_lands_on_the_last_text_part_of_a_list_content():
     msgs = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "x"}}, {"type": "text", "text": "look"}]}]
     out = with_cache_control("anthropic/claude-opus-5", msgs)
     assert out[0]["content"][1]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_catalog_fetch_is_retried(monkeypatch):
+    monkeypatch.setattr("rocky.llm.time.sleep", lambda s: None)
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise httpx.ConnectError("dns", request=request)
+        if calls["n"] == 2:
+            return httpx.Response(503, text="busy")
+        return httpx.Response(200, json={"data": [{"id": "a"}]})
+
+    assert _client(handler).list_models() == {"data": [{"id": "a"}]}
+    assert calls["n"] == 3
+
+
+def test_rejected_key_says_what_to_do_and_does_not_retry(monkeypatch):
+    from rocky.llm import OpenRouterRefused
+
+    monkeypatch.setattr("rocky.llm.time.sleep", lambda s: None)
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(401, json={"error": {"message": "User not found."}})
+
+    with pytest.raises(OpenRouterRefused) as info:
+        _client(handler).list_models()
+    assert "rocky doctor" in str(info.value) and "401" in str(info.value)
+    assert "User not found" not in str(info.value)
+    assert calls["n"] == 1
+    with pytest.raises(httpx.HTTPStatusError) as info2:
+        _client(handler).complete(model="m", messages=[{"role": "user", "content": "hi"}])
+    assert "rocky doctor" in str(info2.value)
+
+
+def test_no_credits_is_explained(monkeypatch):
+    from rocky.llm import OpenRouterRefused
+
+    def handler(request):
+        return httpx.Response(402, text="Insufficient credits")
+
+    with pytest.raises(OpenRouterRefused) as info:
+        _client(handler).list_models()
+    assert "credits" in str(info.value) and "openrouter.ai/credits" in str(info.value)
+
+
+def test_offline_catalog_names_the_network_and_doctor(monkeypatch):
+    from rocky.llm import OpenRouterUnreachable
+
+    monkeypatch.setattr("rocky.llm.time.sleep", lambda s: None)
+
+    def handler(request):
+        raise httpx.ConnectError("no route", request=request)
+
+    with pytest.raises(OpenRouterUnreachable) as info:
+        _client(handler).list_models()
+    assert "network" in str(info.value) and "rocky doctor" in str(info.value)

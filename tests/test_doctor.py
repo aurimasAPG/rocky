@@ -111,3 +111,31 @@ def test_cli_no_key_non_tty_still_errors(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
     assert main(["write x.md", "-d", str(tmp_path)]) == 2
     assert "rocky doctor" in capsys.readouterr().out
+
+
+def test_doctor_checks_the_pinned_worker_against_the_catalog(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ROCKY_SANDBOX", raising=False)
+    save_api_key("sk-or-abcdefghijklmnop", home / ".env")
+    catalog = {
+        "data": [
+            {"id": "google/gemini-3.7-flash", "pricing": {"prompt": "0.0000001", "completion": "0.0000004"},
+             "context_length": 1000000, "supported_parameters": ["tools"], "architecture": {"output_modalities": ["text"]}},
+            {"id": "openai/gpt", "pricing": {"prompt": "0.00001", "completion": "0.00003"},
+             "context_length": 200000, "supported_parameters": ["tools"], "architecture": {"output_modalities": ["text"]}},
+        ]
+    }
+    fetch = lambda u, h: (200, catalog)
+    monkeypatch.delenv("ROCKY_WORKER", raising=False)
+    ok = _by_name(run_checks(tmp_path, fetch=fetch))["models"]
+    assert ok.status == OK and "google/gemini-3.7-flash" in ok.detail and "default" in ok.detail
+    monkeypatch.setenv("ROCKY_WORKER", "acme/nonexistent")
+    warn = _by_name(run_checks(tmp_path, fetch=fetch))["models"]
+    assert warn.status == WARN and "acme/nonexistent" in warn.detail and "fall back" in warn.detail
+    monkeypatch.setenv("ROCKY_WORKER", "openai/gpt")
+    assert _by_name(run_checks(tmp_path, fetch=fetch))["models"].status == OK
+    unchecked = _by_name(run_checks(tmp_path, fetch=lambda u, h: (401, {})))["models"]
+    assert unchecked.status == OK and "not checked" in unchecked.detail

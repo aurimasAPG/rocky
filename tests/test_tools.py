@@ -42,3 +42,14 @@ def test_tracks_files_written_and_drops_deleted_ones(tmp_path):
     (tmp_path / "runs/notes/a.md").unlink()
     (tmp_path / "deliverables/empty.md").write_text("")
     assert tools.files_on_disk() == ["deliverables/out.md"]
+
+
+def test_patch_keeps_the_whole_file_past_the_read_clip(tmp_path):
+    tools = WorkspaceTools(tmp_path)
+    body = "line\n" * 20_000  # 100 KB, twice the read_file clip
+    tools.write_file("deliverables/long.md", "# Title\n" + body + "END\n")
+    tools.patch("deliverables/long.md", "# Title", "# Better title")
+    text = (tmp_path / "deliverables/long.md").read_text()
+    assert text.startswith("# Better title\n") and text.endswith("END\n")
+    assert len(text) == len("# Better title\n") + len(body) + len("END\n")
+    assert "truncated" not in text

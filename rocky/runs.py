@@ -88,14 +88,44 @@ def create_run(
     return meta
 
 
-def pid_alive(pid: int | None) -> bool:
+def pid_alive(pid: int | None, mark: str | None = None) -> bool:
+    """True when ``pid`` is a live process and (when ``mark`` is set) its command line contains it.
+
+    Pids are recycled; after a reboot the old number can belong to anything.
+    Treating that as "still running" hides a crashed run behind a `running`
+    status forever, and `rocky stop` would kill a stranger. A job is spawned
+    as `python -m rocky.job <run id>`, so the run id is the mark.
+    """
     if not pid:
         return False
     try:
         os.kill(int(pid), 0)
     except (OSError, ValueError):
         return False
-    return True
+    if not mark:
+        return True
+    command = _pid_command(int(pid))
+    if command is None:
+        return True  # cannot tell (no ps) — keep the old behaviour
+    return mark in command
+
+
+def _pid_command(pid: int) -> str | None:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["ps", "-o", "command=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return ""
+    return out.stdout.strip()
 
 
 def stop_run(workspace: str | Path, run_id: str, grace: float = STOP_GRACE) -> dict[str, Any]:
@@ -113,15 +143,15 @@ def stop_run(workspace: str | Path, run_id: str, grace: float = STOP_GRACE) -> d
     if status in TERMINAL:
         return meta
     pid = meta.get("pid")
-    if pid_alive(pid):
+    if pid_alive(pid, mark=run_id):
         try:
             os.kill(int(pid), signal.SIGTERM)
         except OSError:
             pass
         deadline = time.monotonic() + max(float(grace), 0.0)
-        while pid_alive(pid) and time.monotonic() < deadline:
+        while pid_alive(pid, mark=run_id) and time.monotonic() < deadline:
             time.sleep(0.05)
-        if pid_alive(pid):
+        if pid_alive(pid, mark=run_id):
             try:
                 os.kill(int(pid), signal.SIGKILL)
             except OSError:
@@ -144,7 +174,7 @@ def stop_run(workspace: str | Path, run_id: str, grace: float = STOP_GRACE) -> d
 def refresh_meta(folder: Path) -> dict[str, Any]:
     meta = read_meta(folder)
     status = meta.get("status") or ""
-    if status not in TERMINAL and not pid_alive(meta.get("pid")):
+    if status not in TERMINAL and not pid_alive(meta.get("pid"), mark=str(meta.get("id") or "")):
         if status in {"running", "waiting", "starting"}:
             meta["status"] = "crashed"
             meta["finished"] = datetime.now(timezone.utc).isoformat(timespec="seconds")

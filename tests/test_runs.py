@@ -112,7 +112,8 @@ def _fake_job(tmp_path, goal="stop me"):
     import sys
 
     meta = create_run(workspace=tmp_path, goal=goal, budget_eur=1.0, max_loops=2, include_server_tools=True)
-    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    # The command line carries the run id, as a real `python -m rocky.job <id>` does.
+    proc = subprocess.Popen([sys.executable, "-c", f"import time; time.sleep(60)  # {meta['id']}"])
     folder = run_dir(tmp_path, meta["id"])
     meta["status"] = "running"
     meta["pid"] = proc.pid
@@ -166,6 +167,7 @@ def test_ctrl_c_while_attached_detaches_and_names_stop(tmp_path, monkeypatch, ca
     meta["status"] = "running"
     meta["pid"] = __import__("os").getpid()
     write_meta(folder, meta)
+    monkeypatch.setattr("rocky.runs._pid_command", lambda pid: None)
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
 
     def interrupt(timeout):
@@ -176,3 +178,27 @@ def test_ctrl_c_while_attached_detaches_and_names_stop(tmp_path, monkeypatch, ca
     out = capsys.readouterr().out
     assert "detached" in out and "rocky stop" in out
     assert refresh_meta(folder)["status"] == "running", "Ctrl+C must not kill the job"
+
+
+def test_pid_alive_rejects_a_recycled_pid(monkeypatch):
+    import os
+
+    me = os.getpid()
+    assert pid_alive(me) is True
+    monkeypatch.setattr("rocky.runs._pid_command", lambda pid: "/usr/bin/python -m rocky.job 20260905-aaaa")
+    assert pid_alive(me, mark="20260905-aaaa") is True
+    assert pid_alive(me, mark="20260905-bbbb") is False, "same pid, another job: not ours"
+    monkeypatch.setattr("rocky.runs._pid_command", lambda pid: None)
+    assert pid_alive(me, mark="20260905-bbbb") is True, "no ps: fall back to os.kill"
+
+
+def test_refresh_marks_a_recycled_pid_crashed(tmp_path, monkeypatch):
+    import os
+
+    meta = create_run(workspace=tmp_path, goal="reboot", budget_eur=1.0, max_loops=2, include_server_tools=True)
+    folder = run_dir(tmp_path, meta["id"])
+    meta["status"] = "running"
+    meta["pid"] = os.getpid()
+    write_meta(folder, meta)
+    monkeypatch.setattr("rocky.runs._pid_command", lambda pid: "Safari")
+    assert refresh_meta(folder)["status"] == "crashed"

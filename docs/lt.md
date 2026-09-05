@@ -34,7 +34,7 @@ Veikia ir projekto `.env`, ir aplinkos kintamasis. Rakto dar nėra? Tiesiog pale
 rocky doctor
 ```
 
-patikrina mašiną: Python versiją, ar raktas yra ir ar „OpenRouter“ jį priima, `~/.env` teises, ar darbo katalogas rašomas, smėlio dėžės režimą, Playwright + Chromium, rastus įgūdžius, prisegtus modelius. `✓` — gerai, `!` — veikia, bet galėtų būti saugiau, `✗` — būtina sutvarkyti. Jei yra bent vienas `✗`, išeities kodas 1.
+patikrina mašiną: Python versiją, ar raktas yra ir ar „OpenRouter“ jį priima, `~/.env` teises, ar darbo katalogas rašomas, smėlio dėžės režimą, Playwright + Chromium, rastus įgūdžius ir darbuotojo modelį, patikrintą gyvame kataloge (neegzistuojantis `ROCKY_WORKER` — `!`, nes paleidimai tyliai grįžtų prie pigiausio tinkamo modelio). `✓` — gerai, `!` — veikia, bet galėtų būti saugiau, `✗` — būtina sutvarkyti. Jei yra bent vienas `✗`, išeities kodas 1.
 
 **Python 3.13:** **nenaudok** `pip install -e .`. Paslėpti `.pth` failai praleidžiami ir `rocky` neimportuos. Diek įprastai arba per `uv tool install`, kaip aukščiau.
 
@@ -348,6 +348,9 @@ Kol darbuotojai dirba, Rocky vieną kartą įspėja (`budget_warn`, etapas `half
 | Požymis | Sprendimas |
 | --- | --- |
 | `OPENROUTER_API_KEY is missing` | Paleisk `rocky` terminale ir įklijuok raktą arba įrašyk jį į `~/.env`; tada `rocky doctor` |
+| `OpenRouter rejected the API key (401)` | Raktas neteisingas arba atšauktas. `rocky doctor`, tada naujas raktas iš openrouter.ai/keys į `~/.env` |
+| `OpenRouter account has no credits (402)` | Papildyk sąskaitą openrouter.ai/credits |
+| `Cannot reach OpenRouter after 4 attempts` | Tinklas, DNS ar tarpinis serveris. Katalogo užklausa ir kiekvienas užbaigimas pirmiausia kartojami su pauzėmis; patikrink ryšį, tada `rocky doctor` |
 | `ModuleNotFoundError: rocky` | Įdiek iš naujo be `--editable` (Python 3.13) |
 | `rocky: command not found` | `uv tool install --force --reinstall .` iš klono; `~/.local/bin` turi būti `PATH` |
 | TUI „nieko nevyksta“ | Palauk, kol atsisiųs katalogas; „working…“ turėtum matyti iškart. Patikrink raktą. |

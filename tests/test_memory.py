@@ -42,7 +42,7 @@ def test_freeze_includes_user_memory_and_recent_runs(tmp_path, monkeypatch):
     assert str(MEMORY_CAP) in snap
 
 
-def test_recent_runs_skips_in_progress(tmp_path):
+def test_recent_runs_skips_in_progress(tmp_path, monkeypatch):
     import os
 
     live = create_run(
@@ -55,6 +55,7 @@ def test_recent_runs_skips_in_progress(tmp_path):
     folder = run_dir(tmp_path, live["id"])
     live["status"] = "running"
     live["pid"] = os.getpid()
+    monkeypatch.setattr("rocky.runs._pid_command", lambda pid: None)
     write_meta(folder, live)
     assert recent_runs_block(tmp_path) == ""
 

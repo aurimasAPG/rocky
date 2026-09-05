@@ -108,6 +108,37 @@ def with_cache_control(model: str, messages: list[dict]) -> list[dict]:
     return out
 
 
+class OpenRouterRefused(httpx.HTTPStatusError):
+    """OpenRouter said no to the account itself: bad key, no credits, forbidden.
+
+    Retrying cannot help and the raw JSON helps nobody, so the message says
+    what to do. Still an HTTPStatusError for callers that catch that.
+    """
+
+    def __init__(self, status: int, detail: str, request=None, response=None):
+        self.status = status
+        self.detail = detail
+        super().__init__(refused_message(status, detail), request=request, response=response)  # type: ignore[arg-type]
+
+
+class OpenRouterUnreachable(RuntimeError):
+    """Every attempt failed on the network: offline, DNS, proxy, or OpenRouter down."""
+
+
+def refused_message(status: int, detail: str = "") -> str:
+    short = (detail or "").strip().replace("\n", " ")[:160]
+    if status == 401:
+        return "OpenRouter rejected the API key (401). Run `rocky doctor`; a fresh key from openrouter.ai/keys goes in ~/.env"
+    if status == 402:
+        return "OpenRouter account has no credits (402). Top up at openrouter.ai/credits, then run `rocky doctor`"
+    if status == 403:
+        return f"OpenRouter refused this request (403): {short or 'forbidden'}. Check the key's limits at openrouter.ai/keys"
+    return f"OpenRouter {status}: {short}"
+
+
+REFUSED_STATUS = frozenset({401, 402, 403})
+
+
 class OpenRouterClient:
     def __init__(self, api_key: str, base_url: str = "https://openrouter.ai/api/v1"):
         if not api_key:
@@ -128,13 +159,44 @@ class OpenRouterClient:
         }
 
     def list_models(self) -> dict:
-        response = self._http.get(
-            f"{self.base_url}/models",
-            headers=self._headers(),
-            params={"supported_parameters": "tools", "output_modalities": "text"},
-        )
-        response.raise_for_status()
-        return response.json()
+        """The live catalog. Retried like a completion: a blip here used to kill the whole run."""
+        last_exc: Exception | None = None
+        for attempt in range(self.RETRIES + 1):
+            if attempt:
+                time.sleep(min(2.0 * (2 ** (attempt - 1)), 15.0) + random.uniform(0, 0.5))
+            try:
+                response = self._http.get(
+                    f"{self.base_url}/models",
+                    headers=self._headers(),
+                    params={"supported_parameters": "tools", "output_modalities": "text"},
+                )
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                last_exc = exc
+                continue
+            if response.status_code in REFUSED_STATUS:
+                raise OpenRouterRefused(response.status_code, response.text, request=response.request, response=response)
+            if response.status_code in self.RETRY_STATUS and attempt < self.RETRIES:
+                last_exc = httpx.HTTPStatusError(
+                    f"OpenRouter {response.status_code}: {response.text[:300]}",
+                    request=response.request,
+                    response=response,
+                )
+                continue
+            if response.status_code >= 400:
+                raise httpx.HTTPStatusError(
+                    f"OpenRouter {response.status_code} while fetching the model catalog: {response.text[:300]}",
+                    request=response.request,
+                    response=response,
+                )
+            try:
+                return response.json()
+            except ValueError as exc:
+                last_exc = exc
+                continue
+        raise OpenRouterUnreachable(
+            f"Cannot reach OpenRouter after {self.RETRIES + 1} attempts ({last_exc}). "
+            "Check the network, then run `rocky doctor`"
+        ) from last_exc
 
     def complete(
         self,
@@ -307,6 +369,8 @@ class OpenRouterClient:
                     response=response,
                 )
                 continue
+            if response.status_code in REFUSED_STATUS:
+                raise OpenRouterRefused(response.status_code, response.text, request=response.request, response=response)
             if response.status_code >= 400:
                 detail = response.text[:800]
                 raise httpx.HTTPStatusError(
@@ -328,8 +392,9 @@ class OpenRouterClient:
             if problem:
                 raise RuntimeError(f"OpenRouter returned no usable answer: {problem}")
             return data
-        raise RuntimeError(
-            f"OpenRouter unreachable after {self.RETRIES + 1} attempts: {last_exc}"
+        raise OpenRouterUnreachable(
+            f"Cannot reach OpenRouter after {self.RETRIES + 1} attempts ({last_exc}). "
+            "Check the network, then run `rocky doctor`"
         ) from last_exc
 
 

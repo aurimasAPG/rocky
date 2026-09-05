@@ -111,6 +111,7 @@ def test_json_mode_prints_one_object_and_answers_questions(tmp_path, monkeypatch
         write_ask(folder, "Raise budget?", ["yes", "keep"])
         meta["status"] = "waiting"
         meta["pid"] = __import__("os").getpid()  # alive, so refresh_meta does not mark it crashed
+        monkeypatch.setattr("rocky.runs._pid_command", lambda pid: None)  # "cannot tell" → trust os.kill
         write_meta(folder, meta)
         return meta["pid"]
 

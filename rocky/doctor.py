@@ -64,9 +64,14 @@ def _env_permissions() -> Check:
 
 
 def _openrouter(fetch=None) -> Check:
+    check, _ = _openrouter_with_catalog(fetch)
+    return check
+
+
+def _openrouter_with_catalog(fetch=None) -> tuple[Check, dict]:
     key = api_key()
     if not key:
-        return Check("openrouter", FAIL, "skipped — no key")
+        return Check("openrouter", FAIL, "skipped — no key"), {}
     if fetch is None:
         import httpx
 
@@ -80,13 +85,16 @@ def _openrouter(fetch=None) -> Check:
     try:
         code, data = fetch(f"{base_url()}/models", {"Authorization": f"Bearer {key}"})
     except Exception as exc:  # noqa: BLE001
-        return Check("openrouter", FAIL, f"unreachable: {str(exc)[:80]}", "check your network / proxy")
+        return Check("openrouter", FAIL, f"unreachable: {str(exc)[:80]}", "check your network / proxy"), {}
     if code == 401:
-        return Check("openrouter", FAIL, "401 — key rejected", "create a key at openrouter.ai/keys")
+        return Check("openrouter", FAIL, "401 — key rejected", "create a key at openrouter.ai/keys"), {}
+    if code == 402:
+        return Check("openrouter", FAIL, "402 — no credits", "top up at openrouter.ai/credits"), {}
     if code >= 400:
-        return Check("openrouter", FAIL, f"HTTP {code}")
-    count = len(data.get("data") or []) if isinstance(data, dict) else 0
-    return Check("openrouter", OK, f"reachable · {count} models")
+        return Check("openrouter", FAIL, f"HTTP {code}"), {}
+    data = data if isinstance(data, dict) else {}
+    count = len(data.get("data") or [])
+    return Check("openrouter", OK, f"reachable · {count} models"), data
 
 
 def _workspace(workspace: Path) -> Check:
@@ -143,23 +151,42 @@ def _skills() -> Check:
     return Check("skills", OK if rows else WARN, f"{len(rows)} · {names}{'…' if len(rows) > 6 else ''}")
 
 
-def _models() -> Check:
-    worker = os.environ.get("ROCKY_WORKER") or "google/gemini-3.7-flash (default)"
+def _models(catalog: dict | None = None) -> Check:
+    """The worker Rocky will actually use, resolved against the live catalog when we have it."""
+    from rocky.catalog import DEFAULT_WORKER_MODEL, _pinned_worker, parse_models
+    from rocky.config import preferred_worker
+
+    pin = preferred_worker() or DEFAULT_WORKER_MODEL
+    pinned = "ROCKY_WORKER" if preferred_worker() else "default"
     image = os.environ.get("ROCKY_IMAGE_MODEL") or "google/gemini-3.1-flash-image (default)"
-    return Check("models", OK, f"worker {worker} · image {image}")
+    rows = (catalog or {}).get("data") or []
+    if not rows:
+        return Check("models", OK, f"worker {pin} ({pinned}, not checked — no catalog) · image {image}")
+    models = parse_models(catalog or {})
+    hit = _pinned_worker([m for m in models if m.has_tools], pin)
+    if hit is None:
+        return Check(
+            "models",
+            WARN,
+            f"worker {pin} ({pinned}) is not in the catalog — runs fall back to the cheapest eligible model",
+            "unset ROCKY_WORKER or pick an id from openrouter.ai/models that supports tools",
+        )
+    resolved = hit.id if hit.id != pin else pin
+    return Check("models", OK, f"worker {resolved} ({pinned}, {hit.blended_per_million:.2f} $/M) · image {image}")
 
 
 def run_checks(workspace: Path, fetch=None) -> list[Check]:
+    openrouter, catalog = _openrouter_with_catalog(fetch)
     return [
         _python(),
         _key(),
         _env_permissions(),
-        _openrouter(fetch),
+        openrouter,
         _workspace(Path(workspace).expanduser().resolve()),
         _sandbox(),
         _playwright(),
         _skills(),
-        _models(),
+        _models(catalog),
     ]
 
 

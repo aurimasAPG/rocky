@@ -32,7 +32,7 @@ Project `.env` and the process environment also work. No key yet? Just run `rock
 rocky doctor
 ```
 
-checks the machine: Python version, key present and accepted by OpenRouter, `~/.env` permissions, workspace writable, sandbox mode, Playwright + Chromium, skills found, pinned models. `✓` fine, `!` works but could be safer, `✗` must be fixed. Exit code 1 when anything is `✗`.
+checks the machine: Python version, key present and accepted by OpenRouter, `~/.env` permissions, workspace writable, sandbox mode, Playwright + Chromium, skills found, and the worker model resolved against the live catalog (a `ROCKY_WORKER` that does not exist is a `!`, because runs would silently fall back to the cheapest eligible model). `✓` fine, `!` works but could be safer, `✗` must be fixed. Exit code 1 when anything is `✗`.
 
 Python 3.13: do **not** use `pip install -e .`. Hidden `.pth` files are skipped and `rocky` will fail to import. Use a normal install or `uv tool install` as above.
 
@@ -344,6 +344,9 @@ While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of
 | Symptom | Fix |
 | --- | --- |
 | `OPENROUTER_API_KEY is missing` | Run `rocky` on a terminal and paste the key, or put it in `~/.env`; then `rocky doctor` |
+| `OpenRouter rejected the API key (401)` | The key is wrong or revoked. `rocky doctor`, then a fresh key from openrouter.ai/keys into `~/.env` |
+| `OpenRouter account has no credits (402)` | Top up at openrouter.ai/credits |
+| `Cannot reach OpenRouter after 4 attempts` | Network, DNS, or proxy. The catalog fetch and every completion are retried with backoff first; check the connection, then `rocky doctor` |
 | `ModuleNotFoundError: rocky` | Reinstall without `--editable` (Python 3.13) |
 | `rocky: command not found` | `uv tool install --force --reinstall .` from the clone; ensure `~/.local/bin` is on `PATH` |
 | TUI “nothing happens” | Wait for catalog fetch; you should see “working…” immediately. Check the key. |

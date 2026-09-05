@@ -104,7 +104,12 @@ class WorkspaceTools:
     def patch(self, path: str, old_string: str, new_string: str) -> str:
         if not old_string:
             raise ToolError("old_string is empty")
-        current = self.read_file(path)
+        target = self.resolve(path)
+        if not target.is_file():
+            raise ToolError(f"not found: {path}")
+        # The raw text, never the clipped view read_file returns: patching through
+        # the 50 KB clip silently threw away the rest of a long file.
+        current = target.read_text(encoding="utf-8", errors="replace")
         count = current.count(old_string)
         if count == 0:
             raise ToolError("old_string not found in file")
