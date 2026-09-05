@@ -66,7 +66,7 @@ class ScriptedClient:
                             id="call_1",
                             name="write_file",
                             arguments={
-                                "path": "article.md",
+                                "path": "deliverables/article.md",
                                 "content": "# Ads\n\nHello world.\n",
                             },
                         )
@@ -137,7 +137,13 @@ def test_loop_writes_deliverable_and_passes(tmp_path, monkeypatch):
         eur_rate=0.92,
     )
     assert result.passed is True
-    assert (tmp_path / "article.md").read_text().startswith("# Ads")
+    assert (tmp_path / "deliverables/article.md").read_text().startswith("# Ads")
+    done = next(e.payload for e in events if e.type == "done")
+    assert done["deliverable_path"] == "deliverables/article.md"
+    assert done["deliverable_exists"] is True
+    assert done["files"] == ["deliverables/article.md"]
+    assert result.deliverable_path == "deliverables/article.md"
+    assert result.deliverable_exists and result.files == ["deliverables/article.md"]
     types = [e.type for e in events]
     assert types[0] == "run_started"
     assert events[0].payload["budget_eur"] == 1.0

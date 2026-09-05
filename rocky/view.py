@@ -167,6 +167,8 @@ def render_event(event: Event) -> None:
         status = str(payload.get("status") or ("passed" if payload.get("passed") else "unmet"))
         mark = "done · " + status.replace("_", " ")
         console.rule(f"{mark}  ·  {payload.get('loops')} loops")
+        for line in handover_lines(payload):
+            console.print(line)
         if payload.get("notes"):
             console.print(
                 Panel(
@@ -206,4 +208,91 @@ def render_event(event: Event) -> None:
             )
         )
         return
+    if kind == "error":
+        console.print(Text(f"error  {payload.get('message') or payload}", style=f"bold #{FAIL}"))
+        return
+    if kind == "nudge":
+        missing = ", ".join(str(m) for m in payload.get("missing") or [])
+        console.print(
+            Text(
+                f"nudge  {payload.get('subtask')} stopped without writing {missing or 'its files'} · asked again ({payload.get('n')})",
+                style=f"#{APRICOT}",
+            )
+        )
+        return
+    if kind == "subtask_incomplete":
+        missing = ", ".join(str(m) for m in payload.get("missing") or [])
+        console.print(
+            Text(f"incomplete  {payload.get('title')} · never wrote {missing or 'its files'}", style=f"bold #{APRICOT}")
+        )
+        return
+    if kind == "compact":
+        console.print(
+            Text(
+                f"compact  {payload.get('subtask')} · {payload.get('mode') or 'prune'} · "
+                f"{payload.get('before_tokens')} → {payload.get('after_tokens')} tokens",
+                style="dim",
+            )
+        )
+        return
+    if kind == "loop_guard":
+        verb = "aborted" if payload.get("action") == "abort" else "blocked"
+        console.print(
+            Text(f"loop guard  {verb} repeated {payload.get('name')} in {payload.get('subtask')}", style=f"#{APRICOT}")
+        )
+        return
+    if kind == "budget":
+        stage = f" ({payload.get('stage')})" if payload.get("stage") else ""
+        console.print(Text(f"budget  cap ${payload.get('cap')} reached{stage} · stopping", style=style))
+        return
+    if kind == "mcp":
+        started = ", ".join(str(n) for n in payload.get("started") or []) or "none"
+        failures = payload.get("failures") or {}
+        text = f"mcp  servers {started} · {payload.get('tools') or 0} tools"
+        if failures:
+            text += " · failed: " + ", ".join(f"{k} ({v})" for k, v in failures.items())
+        console.print(Text(text, style="dim"))
+        return
+    if kind == "memory":
+        console.print(
+            Text(
+                f"memory  {payload.get('recent_runs') or 0} recent runs · "
+                f"USER.md {payload.get('user_chars') or 0} chars · MEMORY.md {payload.get('memory_chars') or 0} chars",
+                style="dim",
+            )
+        )
+        return
+    if kind == "catalog":
+        if payload.get("status") == "ok":
+            console.print(Text(f"catalog  {payload.get('count')} models", style="dim"))
+        return
     console.print(f"[dim]{kind}[/] {payload}")
+
+
+def handover_lines(payload: dict) -> list[str]:
+    """The lines a person needs at the end: where the result is, or what is there instead.
+
+    Rich markup strings. Shared by the CLI renderer and the attach tail.
+    """
+    deliverable = str(payload.get("deliverable_path") or "")
+    exists = bool(payload.get("deliverable_exists"))
+    files = [str(f) for f in payload.get("files") or []]
+    status = str(payload.get("status") or ("passed" if payload.get("passed") else "unmet"))
+    out: list[str] = []
+    if exists:
+        out.append(f"[bold #{OK}]result[/]  {deliverable}")
+        others = [f for f in files if f != deliverable]
+        if others:
+            out.append(f"[dim]also written  {', '.join(others[:8])}{' …' if len(others) > 8 else ''}[/]")
+        return out
+    if deliverable:
+        out.append(f"[bold #{FAIL}]no result[/]  {deliverable} was never written")
+    elif files:
+        out.append(f"[bold #{FAIL}]no result[/]  the plan named no deliverable")
+    else:
+        out.append(f"[bold #{FAIL}]no result[/]  nothing was written")
+    if files:
+        out.append(f"[#{APRICOT}]partial work[/]  {', '.join(files[:8])}{' …' if len(files) > 8 else ''}")
+    if status not in {"passed", "passed_with_notes"}:
+        out.append(f"[dim]continue with  rocky resume{('  ' + str(payload['run_id'])) if payload.get('run_id') else ''}[/]")
+    return out

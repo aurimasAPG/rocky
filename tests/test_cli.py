@@ -127,7 +127,8 @@ def test_json_mode_prints_one_object_and_answers_questions(tmp_path, monkeypatch
             append_event(folder, Event(type="verify", payload={"passed": True, "score": 0.9, "issues": []}))
             append_event(
                 folder,
-                Event(type="done", payload={"passed": True, "summary": "ok", "loops": 1, "usd": 0.01, "eur": 0.009, "receipt": "r"}),
+                Event(type="done", payload={"passed": True, "summary": "ok", "loops": 1, "usd": 0.01, "eur": 0.009, "receipt": "r",
+                                            "deliverable_path": "out.md", "deliverable_exists": True, "files": ["out.md"]}),
             )
             meta = read_meta(folder)
             meta["status"] = "passed"
@@ -145,6 +146,8 @@ def test_json_mode_prints_one_object_and_answers_questions(tmp_path, monkeypatch
     assert data["passed"] is True
     assert data["status"] == "passed"
     assert data["deliverable_path"] == "out.md"
+    assert data["deliverable_exists"] is True
+    assert data["files"] == ["out.md"]
     assert data["models"] == {"worker": "google/flash"}
     assert data["eur"] == 0.009
     assert data["events"].endswith("events.jsonl")

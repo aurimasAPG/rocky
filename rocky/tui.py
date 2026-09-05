@@ -319,8 +319,19 @@ class OrcheTui(App):
             self.sub_title = receipt
         if kind == "done":
             mark = str(payload.get("status") or ("passed" if payload.get("passed") else "unmet")).replace("_", " ")
+            log = self.query_one("#verify_log", Log)
+            deliverable = str(payload.get("deliverable_path") or "")
+            if payload.get("deliverable_exists"):
+                log.write_line(f"rezultatas  {deliverable}")
+                mark = f"{mark}  ·  {deliverable}"
+            else:
+                log.write_line(f"rezultato nėra  {deliverable or '(planas nenurodė failo)'}")
+                files = [str(f) for f in payload.get("files") or []]
+                if files:
+                    log.write_line("dalinis darbas  " + ", ".join(files[:8]))
+                log.write_line("tęsti: rocky resume")
             for note in payload.get("notes") or []:
-                self.query_one("#verify_log", Log).write_line(f"note  {note}")
+                log.write_line(f"note  {note}")
             if payload.get("role_receipt"):
                 self.query_one("#bill", Static).update(f"{self._receipt}\n{payload['role_receipt']}")
             self.sub_title = f"{mark}  ·  {self._receipt}  ·  kita užduotis arba q"

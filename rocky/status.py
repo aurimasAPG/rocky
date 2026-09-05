@@ -126,7 +126,10 @@ def status_line(event: Event) -> str | None:
         return f"error · {msg[:72]}"
     if kind == "done":
         status = payload.get("status") or ("passed" if payload.get("passed") else "unmet")
-        return "done · " + str(status).replace("_", " ")
+        line = "done · " + str(status).replace("_", " ")
+        if payload.get("deliverable_exists") and payload.get("deliverable_path"):
+            line += f" · {payload['deliverable_path']}"
+        return line
     if kind == "cost":
         return None
     return None

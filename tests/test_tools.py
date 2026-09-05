@@ -30,3 +30,15 @@ def test_grep_finds_matches(tmp_path):
     tools.write_file("src/app.py", "def optimize_ads():\n    return 1\n")
     hits = tools.grep("optimize_ads")
     assert "src/app.py" in hits
+
+
+def test_tracks_files_written_and_drops_deleted_ones(tmp_path):
+    tools = WorkspaceTools(tmp_path)
+    tools.write_file("runs/notes/a.md", "alpha")
+    tools.write_file("deliverables/out.md", "out")
+    tools.write_file("runs/notes/a.md", "alpha again")
+    tools.patch("deliverables/out.md", "out", "final")
+    assert tools.written == ["runs/notes/a.md", "deliverables/out.md"]
+    (tmp_path / "runs/notes/a.md").unlink()
+    (tmp_path / "deliverables/empty.md").write_text("")
+    assert tools.files_on_disk() == ["deliverables/out.md"]

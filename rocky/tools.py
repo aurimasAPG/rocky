@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 from rocky.config import extra_bash_deny, sandbox_image, sandbox_mode
@@ -20,6 +21,8 @@ class WorkspaceTools:
     def __init__(self, workspace: str | Path):
         self.root = Path(workspace).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        self.written: list[str] = []
+        self._written_lock = threading.Lock()
 
     def resolve(self, path: str) -> Path:
         raw = Path(path).expanduser()
@@ -34,7 +37,24 @@ class WorkspaceTools:
         target = self.resolve(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+        self._note_written(target)
         return f"wrote {target.relative_to(self.root)} ({len(content)} chars)"
+
+    def _note_written(self, target: Path) -> None:
+        rel = str(target.relative_to(self.root))
+        with self._written_lock:
+            if rel not in self.written:
+                self.written.append(rel)
+
+    def files_on_disk(self) -> list[str]:
+        """Files this run wrote that still exist and are not empty, in write order."""
+        out = []
+        with self._written_lock:
+            for rel in self.written:
+                path = self.root / rel
+                if path.is_file() and path.stat().st_size > 0:
+                    out.append(rel)
+        return out
 
     def read_file(self, path: str) -> str:
         target = self.resolve(path)

@@ -196,6 +196,11 @@ class RunResult:
     status: str = "unmet"
     notes: list[str] = field(default_factory=list)
     assessment: dict = field(default_factory=dict)
+    # Where the result is (workspace-relative) and whether it is really on disk.
+    deliverable_path: str = ""
+    deliverable_exists: bool = False
+    # Every file the workers wrote that is still on disk, in write order.
+    files: list[str] = field(default_factory=list)
 
 
 def orchestrate(
@@ -573,6 +578,7 @@ def orchestrate(
         summary = (summary + "\n" if summary else "") + "Notes: " + "; ".join(notes)
     passed = status != "unmet"
     bill = ledger.payload(rate)
+    handover = _handover(plan, assessment, tools)
     fire(
         "done",
         passed=passed,
@@ -581,6 +587,7 @@ def orchestrate(
         loops=loops,
         summary=summary,
         receipt=format_receipt(tally, rate),
+        **handover,
         **bill,
     )
     try:
@@ -606,7 +613,25 @@ def orchestrate(
         status=status,
         notes=notes,
         assessment=dict(assessment),
+        deliverable_path=handover["deliverable_path"],
+        deliverable_exists=handover["deliverable_exists"],
+        files=list(handover["files"]),
     )
+
+
+def _handover(plan: dict, assessment: dict, tools: WorkspaceTools) -> dict[str, Any]:
+    """What the user gets: the deliverable path, whether it exists, and every file written.
+
+    This is the one thing a person needs at the end of a run, and it must be
+    true to the disk — a path from the plan that was never written is reported
+    as missing, not as the result.
+    """
+    deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
+    exists = bool(deliverable) and not _missing_files(tools, [deliverable])
+    files = tools.files_on_disk()
+    if exists and deliverable not in files:
+        files.insert(0, deliverable)
+    return {"deliverable_path": deliverable, "deliverable_exists": exists, "files": files}
 
 
 def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tools: WorkspaceTools) -> tuple[str, list[str]]:

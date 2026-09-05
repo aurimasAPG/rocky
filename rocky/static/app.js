@@ -103,7 +103,17 @@ function handle(event) {
     $("verify-log").prepend(card);
   }
   if (event.type === "done") {
-    $("status-meter").textContent = p.passed ? "passed" : "unmet";
+    const status = (p.status || (p.passed ? "passed" : "unmet")).replace("_", " ");
+    $("status-meter").textContent = p.deliverable_exists && p.deliverable_path
+      ? `${status} · ${p.deliverable_path}`
+      : `${status} · no deliverable${p.files && p.files.length ? ` · partial: ${p.files.slice(0, 5).join(", ")}` : ""}`;
+    if (p.notes && p.notes.length) {
+      const card = document.createElement("div");
+      card.className = "verify-card fail";
+      card.innerHTML = "<strong>notes</strong><p></p>";
+      card.querySelector("p").textContent = p.notes.join(" · ");
+      $("verify-log").prepend(card);
+    }
     $("go").disabled = false;
     setActive(p.passed ? "verifier" : "planner");
   }

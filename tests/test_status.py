@@ -32,3 +32,11 @@ def test_transcript_keeps_the_big_beats():
     assert "done" in TRANSCRIPT_TYPES
     assert "tool_call" not in TRANSCRIPT_TYPES
     assert "cost" not in TRANSCRIPT_TYPES
+
+
+def test_done_status_line_names_the_deliverable():
+    assert (
+        status_line(Event(type="done", payload={"status": "passed_with_notes", "deliverable_path": "deliverables/ads.md", "deliverable_exists": True}))
+        == "done · passed with notes · deliverables/ads.md"
+    )
+    assert status_line(Event(type="done", payload={"status": "unmet", "deliverable_path": "x.md", "deliverable_exists": False})) == "done · unmet"

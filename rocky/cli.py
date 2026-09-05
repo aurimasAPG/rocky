@@ -335,7 +335,9 @@ def collect_result(workspace: Path, run_id: str, events) -> dict:
         "notes": list(done.get("notes") or meta.get("notes") or []),
         "goal": meta.get("goal"),
         "workspace": str(workspace),
-        "deliverable_path": plan.get("deliverable_path"),
+        "deliverable_path": done.get("deliverable_path") or meta.get("deliverable_path") or plan.get("deliverable_path"),
+        "deliverable_exists": bool(done.get("deliverable_exists", meta.get("deliverable_exists", False))),
+        "files": list(done.get("files") or meta.get("files") or []),
         "summary": done.get("summary") or meta.get("summary") or "",
         "score": verify.get("score"),
         "issues": verify.get("issues") or [],
@@ -400,6 +402,8 @@ def _attach(workspace: Path, run_id: str) -> int:
     try:
         while True:
             for event in cursor.poll():
+                if event.type == "done":
+                    event.payload.setdefault("run_id", run_id)
                 _show_event(event, pulse)
             try:
                 meta = refresh_meta(folder)
@@ -424,6 +428,8 @@ def _attach(workspace: Path, run_id: str) -> int:
             if status in TERMINAL:
                 leftover = cursor.poll()
                 for event in leftover:
+                    if event.type == "done":
+                        event.payload.setdefault("run_id", run_id)
                     _show_event(event, pulse)
                 idle_after_done += 1
                 if idle_after_done >= 2:

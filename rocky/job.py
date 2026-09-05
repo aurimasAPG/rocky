@@ -95,6 +95,9 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
         meta["estimated_eur"] = result.assessment.get("estimated_eur")
         meta["complexity"] = result.assessment.get("complexity")
         meta["domain"] = result.assessment.get("domain")
+        meta["deliverable_path"] = result.deliverable_path
+        meta["deliverable_exists"] = bool(result.deliverable_exists)
+        meta["files"] = list(result.files)[:20]
         meta["finished"] = _now()
         write_meta(folder, meta)
         return 0 if result.passed else 1
