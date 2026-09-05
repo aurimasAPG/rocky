@@ -274,7 +274,7 @@ Rocky **visiškai autonomiškas kataloge `--dir`**. Rašant failus klausimo „a
 
 `bash` turi dvi apsaugas:
 
-1. **Draudžiamųjų sąrašas** — komandos, griaunančios nepriklausomai nuo katalogo, atmetamos dar nepaleistos: `/` ar `~` trynimas, `mkfs`, `dd` į įrenginį, „fork bomb“, `curl … | sh`, `sudo`, išjungimas, `git push --force`, `git reset --hard`, `git clean -fdx`, `chmod 777 /`. Savų taisyklių pridėk per `ROCKY_BASH_DENY="npm\s+publish;terraform\s+apply"`.
+1. **Draudžiamųjų sąrašas** — komandos, griaunančios nepriklausomai nuo katalogo, atmetamos dar nepaleistos: `/` ar `~` trynimas, `mkfs`, `dd` į įrenginį, „fork bomb“, `curl … | sh`, `sudo`, išjungimas, `git push --force`, `git reset --hard`, `git clean -fdx`, `chmod 777 /`, taip pat virtualios aplinkos kūrimas ar keitimas (`uv venv`, `uv run --python`, `python -m venv` — darbuotojas kartą perrašė projekto `.venv` tuščiu interpretatoriumi; Rocky `python3` jau turi „Office“ bibliotekas ir darbuotojo `PATH` eina pirmas). Savų taisyklių pridėk per `ROCKY_BASH_DENY="npm\s+publish;terraform\s+apply"`.
 2. **Smėlio dėžė** (įjungiama atskirai) — `ROCKY_SANDBOX=sandbox-exec` (macOS) leidžia komandai skaityti viską, o rašyti tik `--dir` ir laikinuose kataloguose. `ROCKY_SANDBOX=docker` vykdo konteineryje, darbo katalogas prijungtas kaip `/work` (`ROCKY_SANDBOX_IMAGE`, numatytai `python:3.12-slim`; jei darbuotojai kuria „Office“ failus, į savo atvaizdą įdiek `python-pptx`, `openpyxl` ir pan.). Numatytoji reikšmė `none`: procesas startuoja `--dir`, bet komanda vis tiek gali `cd`, `curl` ar liesti failus kitur.
 
 Mac'e nustatyk `ROCKY_SANDBOX=sandbox-exec`. Tai nieko nekainuoja ir yra skirtumas tarp „agentas redagavo mano projektą“ ir „agentas redagavo mano namų katalogą“.

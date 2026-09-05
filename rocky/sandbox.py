@@ -32,6 +32,9 @@ DENY_RULES: list[tuple[str, str]] = [
     ("rewrite remote history", r"\bgit\s+push\b.*(--force\b|-f\b|--force-with-lease\b)"),
     ("delete git history", r"\bgit\s+(reset\s+--hard\s+\S+|clean\s+-[a-z]*f[a-z]*x|branch\s+-D\s+(main|master)\b)"),
     ("kill everything", r"\b(killall|pkill)\s+-9\s+-1\b|\bkill\s+-9\s+-1\b"),
+    # A worker's `uv run --python 3.12` inside a project rebuilt the user's .venv with an
+    # empty interpreter. Rocky's own python3 already has the Office libraries.
+    ("replace the project's virtual environment", r"\buv\s+(venv\b|run\b.*--python\b|python\s+pin\b)|\bpython[0-9.]*\s+-m\s+venv\b|\bvirtualenv\b"),
 ]
 
 WRITABLE_TEMP = ("/tmp", "/private/tmp", "/private/var/folders", "/var/folders", "/dev/null")

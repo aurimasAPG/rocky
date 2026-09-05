@@ -32,6 +32,10 @@ from rocky.tools import ToolError, WorkspaceTools
         "git clean -fdx",
         "chmod -R 777 /",
         "kill -9 -1",
+        "uv run --python 3.12 python -c 'import pptx'",
+        "uv venv .venv",
+        "python3 -m venv .venv",
+        "virtualenv env",
     ],
 )
 def test_destructive_commands_are_refused(command):
@@ -49,6 +53,9 @@ def test_destructive_commands_are_refused(command):
         "git push origin feature",
         "curl -s https://example.com -o page.html",
         "pip install openpyxl",
+        "uv run pytest -q",
+        "uv sync",
+        "python3 runs/notes/make_xlsx.py",
         "grep -r sudoku .",  # 'sudo' inside a word is fine
         "echo shutdown_notes.md",
         "cat superuser.md",
