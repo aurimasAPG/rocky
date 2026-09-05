@@ -1291,3 +1291,71 @@ def test_replan_keeps_the_deliverable_path(tmp_path, monkeypatch):
     assert plans == ["deliverables/version1.md", "deliverables/version1.md"]
     assert json.loads(client.plan_prompts[0])["deliverable_path_fixed"] is None
     assert json.loads(client.plan_prompts[1])["deliverable_path_fixed"] == "deliverables/version1.md"
+
+
+class FlatScoreClient(StubbornClient):
+    """Worker writes the file, verifier keeps a blocking defect and a flat score."""
+
+    scores = [0.05, 0.02, 0.01, 0.0]
+
+    def __init__(self):
+        super().__init__()
+        self.verify_calls = 0
+        self.plan_prompts = []
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You write the plan" in system:
+            self.plan_prompts.append(json.loads(messages[-1]["content"]))
+        if "You execute this subtask" in system:
+            self.worker_models.append(model)
+            if not any(m.get("role") == "tool" for m in messages):
+                return Completion(
+                    content="",
+                    tool_calls=[ToolCall(id="w", name="write_file", arguments={"path": "deliverables/article.md", "content": "# x\n"})],
+                )
+            return Completion(content="done")
+        if "You verify completed work" in system:
+            score = self.scores[min(self.verify_calls, len(self.scores) - 1)]
+            self.verify_calls += 1
+            return Completion(
+                content=json.dumps(
+                    {"passed": False, "score": score, "summary": "thin", "blocking": ["No real research"], "issues": [], "remaining": []}
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_two_loops_without_progress_stop_the_run_early(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = FlatScoreClient()
+    events = []
+    result = orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                         emit=events.append, max_loops=4, budget_eur=1.0, eur_rate=0.92)
+    assert result.status == "unmet"
+    assert result.loops == 3, "loop 4 would have been the third identical failure"
+    stop = next(e.payload for e in events if e.type == "no_progress")
+    assert stop["scores"] == [0.05, 0.02, 0.01]
+    assert "Stopped early" in result.summary and "no progress" in result.summary
+
+
+def test_replanner_sees_previous_plans_and_the_score_trend(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = FlatScoreClient()
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                max_loops=2, budget_eur=1.0, eur_rate=0.92)
+    first, second = client.plan_prompts
+    assert first["previous_loops"] is None and first["score_trend"] is None
+    assert second["score_trend"] == [0.05]
+    assert second["previous_loops"][0]["blocking"] == ["No real research"]
+    assert second["previous_loops"][0]["steps"]
+
+
+def test_no_progress_needs_two_failures_after_a_best(tmp_path):
+    from rocky.engine import _no_progress
+
+    h = lambda score, passed=False: {"score": score, "passed": passed}
+    assert not _no_progress([h(0.1), h(0.1)])
+    assert _no_progress([h(0.1), h(0.1), h(0.05)])
+    assert not _no_progress([h(0.1), h(0.3), h(0.2)]), "loop 2 improved, so loop 3 is only the first flat one"
+    assert _no_progress([h(0.1), h(0.3), h(0.2), h(0.3)])

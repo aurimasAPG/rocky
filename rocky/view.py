@@ -240,6 +240,9 @@ def render_event(event: Event) -> None:
             Text(f"loop guard  {verb} repeated {payload.get('name')} in {payload.get('subtask')}", style=f"#{APRICOT}")
         )
         return
+    if kind == "no_progress":
+        console.print(Text(f"stopping  {payload.get('reason')} · €{payload.get('spent_eur')} spent", style=f"bold #{APRICOT}"))
+        return
     if kind == "budget":
         stage = f" ({payload.get('stage')})" if payload.get("stage") else ""
         console.print(Text(f"budget  cap ${payload.get('cap')} reached{stage} · stopping", style=style))

@@ -16,6 +16,7 @@ TRANSCRIPT_TYPES = frozenset(
         "plan",
         "subtask_start",
         "stall",
+        "no_progress",
         "verify",
         "done",
         "error",
@@ -117,6 +118,8 @@ def status_line(event: Event) -> str | None:
         return f"nudging · missing {', '.join(payload.get('missing') or [])[:50]}"
     if kind == "subtask_incomplete":
         return f"incomplete · {payload.get('title')}"
+    if kind == "no_progress":
+        return "stopping · no progress"
     if kind == "loop_guard":
         return f"loop guard · {payload.get('action')} · {payload.get('name')}"
     if kind == "verify":

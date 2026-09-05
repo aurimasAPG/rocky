@@ -67,6 +67,8 @@ LAYOUT_RULE = (
 HALF_SPEND = 0.5
 # After the last loop, a failed verdict at or above this score with the deliverable on disk
 # ends as "passed_with_notes": the user has a good file, the report lists what is left.
+# Stop replanning after this many failed loops in a row that did not beat the best score.
+NO_PROGRESS_LOOPS = 2
 NOTES_SCORE = 0.7
 # A verdict with an empty blocking list passes with notes from this score up.
 NOTES_MIN_SCORE = 0.5
@@ -471,6 +473,8 @@ def orchestrate(
     fail_streak = 0
     tried_workers = {cast.worker}
     worker_model = cast.worker
+    history: list[dict] = []  # one entry per verified loop: plan summary, steps, score, blocking
+    stopped_early = ""
     if resume and resume.get("worker") and _context_length(models, str(resume["worker"])) and any(
         m.id == resume["worker"] for m in models or []
     ):
@@ -543,7 +547,21 @@ def orchestrate(
             }
             fire("verify", **verify)
         passed = bool(verify.get("passed"))
+        history.append(_history_entry(loops, plan, verify, worker_model))
         if passed:
+            break
+        if _no_progress(history):
+            stopped_early = (
+                f"no progress in {NO_PROGRESS_LOOPS} loops — scores "
+                + " → ".join(f"{h['score']:.2f}" for h in history)
+            )
+            fire(
+                "no_progress",
+                loops=loops,
+                scores=[h["score"] for h in history],
+                reason=stopped_early,
+                spent_eur=round(eur_from_usd(tally.usd, rate), 3),
+            )
             break
         if tally.usd >= usd_cap or loops >= max_loops:
             if tally.usd >= usd_cap:
@@ -590,12 +608,15 @@ def orchestrate(
             revision=verify,
             memory_snapshot=memory_snapshot,
             pinned_deliverable=str(plan.get("deliverable_path") or ""),
+            history=history,
         )
 
     summary = (verify.get("summary") if verify else worker_summary) or ""
     status, notes = _final_status(passed, verify, plan, assessment, tools)
     if notes:
         summary = (summary + "\n" if summary else "") + "Notes: " + "; ".join(notes)
+    if stopped_early and status == "unmet":
+        summary = (summary + "\n" if summary else "") + f"Stopped early: {stopped_early}."
     passed = status != "unmet"
     bill = ledger.payload(rate)
     handover = _handover(plan, assessment, tools)
@@ -681,6 +702,37 @@ def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tool
     if not notes:
         notes = [str(verify.get("summary") or "verifier scored it below the bar without naming an issue")]
     return "passed_with_notes", notes
+
+
+def _history_entry(loop: int, plan: dict, verify: dict, worker: str) -> dict:
+    try:
+        score = float(verify.get("score") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    return {
+        "loop": loop,
+        "worker": worker,
+        "plan_summary": str(plan.get("summary") or "")[:300],
+        "steps": [str(step.get("title") or "") for step in plan.get("steps") or []][:12],
+        "score": round(score, 2),
+        "passed": bool(verify.get("passed")),
+        "blocking": [str(b) for b in verify.get("blocking") or []][:6],
+        "issues": [str(i) for i in verify.get("issues") or []][:6],
+    }
+
+
+def _no_progress(history: list[dict]) -> bool:
+    """True when the last NO_PROGRESS_LOOPS failed loops never beat the best score before them.
+
+    Four near-identical plans scoring 0.05 → 0.02 → 0.01 → 0.00 is money burnt
+    on a goal this cast cannot do; stopping leaves the cap for a resume with a
+    changed brief.
+    """
+    if len(history) < NO_PROGRESS_LOOPS + 1:
+        return False
+    recent = history[-NO_PROGRESS_LOOPS:]
+    best_before = max(h["score"] for h in history[: -NO_PROGRESS_LOOPS])
+    return all(not h["passed"] and h["score"] <= best_before for h in recent)
 
 
 def _chat(client: LLM, **kwargs) -> Completion:
@@ -965,6 +1017,7 @@ def _make_plan(
     revision=None,
     memory_snapshot: str = "",
     pinned_deliverable: str = "",
+    history: list[dict] | None = None,
 ) -> dict:
     """The plan. On a revision ``pinned_deliverable`` is the path from the previous
     plan and it is kept: a replan may change the steps, never the file the
@@ -983,6 +1036,8 @@ def _make_plan(
         "workspace_files": listing,
         "revision_from_verifier": revision,
         "deliverable_path_fixed": pinned_deliverable or None,
+        "previous_loops": list(history or []) or None,
+        "score_trend": [h["score"] for h in history or []] or None,
         "available_skills": catalog_for_prompt(),
         "available_recipes": recipe_catalog(recipes),
         "recipe": (
@@ -1022,6 +1077,10 @@ def _make_plan(
                     "the previous loop's work is there and the user expects that file. "
                     "When revision_from_verifier is given, change what the verifier faulted and keep what passed; "
                     "its blocking list is what must change, its issues are notes. "
+                    "previous_loops lists every plan already tried with its score: do not resubmit those steps — "
+                    "if the score did not rise, the approach was wrong, so change the approach (different split, "
+                    "different sources, a worker step that reads the verifier's blocking list first), and say in "
+                    "summary what is different this time. "
                     "Workers are fully autonomous in the workspace. "
                     "Continue MEMORY and RECENT RUNS: 'that' / 'the article' / 'now make X from it' "
                     "means the last deliverable unless the goal clearly replaces it.",
