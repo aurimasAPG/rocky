@@ -1432,3 +1432,16 @@ def test_turn_cap_gives_one_write_only_pass_before_incomplete(tmp_path, monkeypa
     nudge = [e.payload for e in events if e.type == "nudge"]
     assert nudge and nudge[-1]["reason"] == "turns"
     assert "web_search" not in client.final_tools and "write_file" in client.final_tools
+
+
+def test_verdict_issue_objects_become_one_line_each():
+    from rocky.engine import _normalize_verdict
+
+    v = _normalize_verdict({
+        "passed": False, "score": 0.2, "summary": "x",
+        "blocking": [{"path": "deliverables/plan.md", "description": "missing"}, "plain string", {"detail": "no path"}],
+        "issues": [{"file": "a.md", "issue": "typo"}],
+        "remaining": [],
+    })
+    assert v["blocking"] == ["deliverables/plan.md: missing", "plain string", "no path"]
+    assert v["issues"] == ["a.md: typo"]

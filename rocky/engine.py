@@ -1623,8 +1623,19 @@ def _normalize_verdict(verify: dict) -> dict:
         elif not isinstance(value, list):
             verify[key] = []
         else:
-            verify[key] = [str(v) for v in value if str(v).strip()]
+            verify[key] = [_issue_text(v) for v in value if _issue_text(v)]
     return verify
+
+
+def _issue_text(item: object) -> str:
+    """A verifier issue as one line. Models sometimes return {path, description} objects."""
+    if isinstance(item, dict):
+        where = str(item.get("path") or item.get("file") or item.get("where") or "").strip()
+        what = str(item.get("description") or item.get("issue") or item.get("detail") or item.get("text") or "").strip()
+        if not what:
+            what = "; ".join(f"{k}: {v}" for k, v in item.items() if k not in {"path", "file", "where"})
+        return f"{where}: {what}" if where and what else (what or where)
+    return str(item).strip()
 
 
 def _short_args(args: dict) -> dict:
