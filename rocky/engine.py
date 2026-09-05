@@ -47,6 +47,9 @@ from rocky.waves import schedule_waves
 
 # Turns one worker chat may take. Compaction keeps long steps affordable.
 MAX_SUBTASK_TURNS = 20
+# Extra turns a worker gets after the cap, writing tools only, to save what it found.
+FINAL_WRITE_TURNS = 2
+WRITE_ONLY_TOOLS = frozenset({"write_file", "patch", "bash", "read_file", "list_dir", "todo"})
 # Read-only tool turns the verifier may spend inspecting the workspace.
 MAX_VERIFY_TURNS = 6
 # Consecutive failed verifications before the worker model is swapped.
@@ -1279,34 +1282,9 @@ def _run_subtask(
     nudges = 0
     expected = [str(w) for w in step.get("writes") or []]
     started_at = time.time()
-    for _ in range(MAX_SUBTASK_TURNS):
-        if cost_so_far() >= budget or aborted:
-            break
-        squeezed = compact(messages, context_length=worker_context, summarize=summarize)
-        if squeezed:
-            fire("compact", subtask=step.get("title"), **squeezed)
-        completion = _chat(client, model=model, messages=messages, tools=specs)
-        spend(completion)
-        last_text = completion.content or last_text
-        if not completion.tool_calls:
-            missing = _missing_files(tools, expected, since=started_at)
-            if missing and nudges < MAX_NUDGES:
-                nudges += 1
-                fire("nudge", subtask=step.get("title"), missing=missing, n=nudges)
-                messages.append({"role": "assistant", "content": completion.content or "(no text)"})
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": (
-                            "You stopped, but this step must write these files and they were not written "
-                            "(missing, empty, or untouched since the step began): "
-                            + ", ".join(missing)
-                            + ". Write them now with write_file (or bash for Office files), then summarise."
-                        ),
-                    }
-                )
-                continue
-            break
+    def run_calls(completion: Completion) -> None:
+        """Append the assistant turn, run every tool call (guarded), append the results."""
+        nonlocal aborted, last_text
         messages.append(
             {
                 "role": "assistant",
@@ -1370,6 +1348,68 @@ def _run_subtask(
                     "content": result[:20000],
                 }
             )
+
+    turns = 0
+    for turns in range(1, MAX_SUBTASK_TURNS + 1):
+        if cost_so_far() >= budget or aborted:
+            break
+        squeezed = compact(messages, context_length=worker_context, summarize=summarize)
+        if squeezed:
+            fire("compact", subtask=step.get("title"), **squeezed)
+        completion = _chat(client, model=model, messages=messages, tools=specs)
+        spend(completion)
+        last_text = completion.content or last_text
+        if not completion.tool_calls:
+            missing = _missing_files(tools, expected, since=started_at)
+            if missing and nudges < MAX_NUDGES:
+                nudges += 1
+                fire("nudge", subtask=step.get("title"), missing=missing, n=nudges)
+                messages.append({"role": "assistant", "content": completion.content or "(no text)"})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "You stopped, but this step must write these files and they were not written "
+                            "(missing, empty, or untouched since the step began): "
+                            + ", ".join(missing)
+                            + ". Write them now with write_file (or bash for Office files), then summarise."
+                        ),
+                    }
+                )
+                continue
+            break
+        run_calls(completion)
+
+    missing = _missing_files(tools, expected, since=started_at)
+    if missing and turns >= MAX_SUBTASK_TURNS and not aborted and cost_so_far() < budget:
+        # The turn cap ended the step mid-work — a research step spends its turns on fetches
+        # and never reaches the write. What it found is still in the thread: one last pass,
+        # writing tools only, before the step is declared incomplete.
+        fire("nudge", subtask=step.get("title"), missing=missing, n=nudges + 1, reason="turns")
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    f"You are out of turns for this step ({MAX_SUBTASK_TURNS} used). Do not search, fetch, or "
+                    "browse anything more. Write these files NOW from what you already found, even if "
+                    "incomplete — note the gaps inside the file: " + ", ".join(missing)
+                    + ". Use write_file (or bash for Office files) in this turn, then summarise in one paragraph."
+                ),
+            }
+        )
+        write_specs = [t for t in specs if t.get("function", {}).get("name") in WRITE_ONLY_TOOLS]
+        for _ in range(FINAL_WRITE_TURNS):
+            if aborted or cost_so_far() >= budget:
+                break
+            squeezed = compact(messages, context_length=worker_context, summarize=summarize)
+            if squeezed:
+                fire("compact", subtask=step.get("title"), **squeezed)
+            completion = _chat(client, model=model, messages=messages, tools=write_specs)
+            spend(completion)
+            last_text = completion.content or last_text
+            if not completion.tool_calls:
+                break
+            run_calls(completion)
     missing = _missing_files(tools, expected, since=started_at)
     if missing:
         last_text = (

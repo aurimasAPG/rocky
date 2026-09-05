@@ -1387,3 +1387,48 @@ def test_lithuanian_goal_tells_every_role_to_write_lithuanian(tmp_path, monkeypa
         assert "The user writes in Lithuanian" in system
     assert "lietuviu-kalbos-rasyba" in client.systems["You execute this subtask"]
     assert "wrong language is a blocking defect" in client.systems["You verify completed work"]
+
+
+class ResearchForeverClient(ScriptedClient):
+    """Worker that web_searches on every turn and only writes when told it is out of turns."""
+
+    def __init__(self):
+        super().__init__()
+        self.searches = 0
+        self.final_tools = None
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You write the plan" in system:
+            return Completion(content=json.dumps({
+                "summary": "research then write",
+                "steps": [{"id": 1, "title": "Research", "detail": "find facts", "depends_on": [], "writes": ["runs/notes/research.md"]}],
+                "deliverable_path": "runs/notes/research.md", "notes": ""}))
+        if "You execute this subtask" in system:
+            if messages[-1]["role"] == "user" and "out of turns" in messages[-1]["content"]:
+                self.final_tools = sorted(t["function"]["name"] for t in tools or [])
+                return Completion(content="", tool_calls=[ToolCall(id="w", name="write_file",
+                                  arguments={"path": "runs/notes/research.md", "content": "# found\n- a\n"})])
+            if messages[-1]["role"] == "tool" and "wrote" in str(messages[-1]["content"]):
+                return Completion(content="Written.")
+            self.searches += 1
+            return Completion(content="", tool_calls=[ToolCall(id=f"s{self.searches}", name="web_search",
+                              arguments={"query": f"invohub competitors {self.searches}"})])
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_turn_cap_gives_one_write_only_pass_before_incomplete(tmp_path, monkeypatch):
+    from rocky.engine import MAX_SUBTASK_TURNS
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr("rocky.engine.WebTools.search", lambda self, query, **k: f"result for {query}", raising=False)
+    client = ResearchForeverClient()
+    events = []
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                emit=events.append, max_loops=1, budget_eur=5.0, eur_rate=0.92, include_server_tools=False)
+    assert client.searches == MAX_SUBTASK_TURNS, "the cap still holds for research turns"
+    assert (tmp_path / "runs/notes/research.md").read_text().startswith("# found")
+    assert not any(e.type == "subtask_incomplete" for e in events)
+    nudge = [e.payload for e in events if e.type == "nudge"]
+    assert nudge and nudge[-1]["reason"] == "turns"
+    assert "web_search" not in client.final_tools and "write_file" in client.final_tools
