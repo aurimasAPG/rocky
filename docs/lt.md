@@ -95,6 +95,7 @@ rocky help
 | `rocky serve` | Komandos tinklo sąsaja (numatytai http://127.0.0.1:8787). |
 | `rocky route "tikslas"` | Tik įvertina ir parenka modelius. Be įrankių, be failų. |
 | `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
+| `rocky config` | Parodo Rocky skaitomus konfigūracijos failus, galiojantį biudžetą / ciklus / darbuotoją / kalbą ir pavyzdinį failą, jei jo nėra. |
 | `rocky doctor` | Patikrina raktą, „OpenRouter“ pasiekiamumą, katalogą, smėlio dėžę, naršyklę, įgūdžius. Išeities kodas 1, jei kas nors sugedę. |
 | `rocky help` | Angliškas vadovas. |
 
@@ -107,12 +108,30 @@ rocky help
 | `-d`, `--dir` | dabartinis katalogas | Darbo katalogas. Failų įrankiai gali liesti tik failus jame. |
 | `--budget` | `1.00` | Šio paleidimo lubos **eurais**. `resume` be šio parametro palieka senojo paleidimo lubas. |
 | `--max-loops` | `4` | Ciklų planas → darbas → tikrinimas skaičius. |
+| `--model` | katalogo numatytasis | Šio paleidimo darbuotojo modelis („OpenRouter“ ID, pvz. `deepseek/deepseek-v4`). Tas pats kaip `ROCKY_WORKER`. |
+| `--lang` | užduoties kalba | Galutinį failą rašyti šia kalba (`lt`, `en`, …), kad ir kokia kalba parašyta užduotis. Tas pats kaip `ROCKY_LANGUAGE`. |
 | `--no-server-tools` | išjungta | Nenaudoti „OpenRouter“ serverio interneto įrankių. |
 | `--host` / `--port` | `127.0.0.1` `8787` | Tik `serve`. |
 | `--attach` | tuščia | TUI: prisijungti prie esamo paleidimo ID. |
 | `--json` | išjungta | Be gyvo vaizdo; galutinį rezultatą spausdinti JSON formatu (skriptams, CI, kitiems agentams). |
 
-**Kitas** paleidimas vėl turi 1 EUR lubas, nebent vėl nurodai `--budget`.
+**Kitas** paleidimas vėl turi 1 EUR lubas, nebent vėl nurodai `--budget` — arba numatytąją reikšmę įrašai į konfigūracijos failą.
+
+### Konfigūracijos failas
+
+`~/.rocky/config.toml` laiko numatytąsias reikšmes visiems paleidimams; `<darbo katalogas>/.rocky/config.toml` jas perrašo projektui. Komandinės eilutės parametras nugali abu, o aplinkos kintamasis nugali failą.
+
+```toml
+budget = 3.0                          # EUR lubos vienam paleidimui
+max_loops = 4
+worker = "google/gemini-3.7-flash"    # „OpenRouter“ ID
+language = "lt"                       # priverstinė galutinio failo kalba; praleisk, kad sektų užduotį
+sandbox = "sandbox-exec"              # macOS; "docker" arba "none"
+# token = "team-secret"               # rocky serve
+# workspaces = ["/Users/me/projects"] # rocky serve
+```
+
+Kiti raktai: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `base_url` — kiekvienas atitinka tos pačios reikšmės `ROCKY_*` kintamąjį. `rocky config` parodo, kurie failai skaitomi ir ką paleidimas naudotų; `rocky doctor` praneša apie sugadintą failą.
 
 ---
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
-from rocky.config import preferred_worker
+from rocky.config import forced_language, preferred_worker
 from rocky.context import DEFAULT_CONTEXT, RepeatGuard, compact
 from rocky.events import Emit, Event
 from rocky.lang import budget_question, detect_language, language_rule, normalize_language
@@ -326,7 +326,7 @@ def orchestrate(
         assessment["goal"] = assessment.get("goal") or goal
         assessment.setdefault("complexity", "moderate")
         assessment.setdefault("domain", "mixed")
-        assessment["language"] = normalize_language(assessment.get("language"), detect_language(goal))
+        assessment["language"] = _language_for(goal, assessment)
         estimate_eur = float(assessment.get("estimated_eur") or estimate_run_eur(assessment, goal))
         assessment["estimated_eur"] = estimate_eur
         fire(
@@ -372,7 +372,7 @@ def orchestrate(
         )
         assessment["goal"] = assessment.get("goal") or goal
         assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
-        assessment["language"] = normalize_language(assessment.get("language"), detect_language(goal))
+        assessment["language"] = _language_for(goal, assessment)
         base_eur = estimate_run_eur(assessment, goal)
         factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
         estimate_eur = round(base_eur * factor, 2)
@@ -713,6 +713,14 @@ def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tool
     if not notes:
         notes = [str(verify.get("summary") or "verifier scored it below the bar without naming an issue")]
     return "passed_with_notes", notes
+
+
+def _language_for(goal: str, assessment: dict) -> str:
+    """ROCKY_LANGUAGE / config `language` wins; then the assessor's answer; then the heuristic."""
+    forced = normalize_language(forced_language(), "")
+    if forced:
+        return forced
+    return normalize_language(assessment.get("language"), detect_language(goal))
 
 
 def _history_entry(loop: int, plan: dict, verify: dict, worker: str) -> dict:

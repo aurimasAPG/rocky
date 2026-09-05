@@ -93,6 +93,7 @@ rocky help
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
+| `rocky config` | Show the config files Rocky reads, the effective budget / loops / worker / language, and an example file if there is none. |
 | `rocky doctor` | Check key, OpenRouter access, folder, sandbox, browser, skills. Exit 1 if anything is broken. |
 | `rocky help` | Print this guide. |
 
@@ -105,12 +106,30 @@ rocky help
 | `-d`, `--dir` | current directory | Workspace folder. File tools may only touch files inside it. |
 | `--budget` | `1.00` | Max **EUR** for this run. |
 | `--max-loops` | `4` | Plan → work → verify cycles. |
+| `--model` | catalog default | Worker model for this run (an OpenRouter id such as `deepseek/deepseek-v4`). Same as `ROCKY_WORKER`. |
+| `--lang` | the goal's language | Write the deliverable in this language (`lt`, `en`, …) whatever the goal is written in. Same as `ROCKY_LANGUAGE`. |
 | `--no-server-tools` | off | Do not use OpenRouter server-side web tools. |
 | `--host` / `--port` | `127.0.0.1` `8787` | For `serve` only. |
 | `--attach` | empty | TUI: attach to an existing run id. |
 | `--json` | off | No live view; print the final result as JSON (for scripts, CI, other agents). |
 
-The **next** run still defaults to €1 unless you pass `--budget` again.
+The **next** run still defaults to €1 unless you pass `--budget` again — or you set a default in the config file.
+
+### Config file
+
+`~/.rocky/config.toml` holds defaults for every run; `<workspace>/.rocky/config.toml` overrides them per project. A flag on the command line wins over both, and an environment variable wins over the file.
+
+```toml
+budget = 3.0                          # EUR cap per run
+max_loops = 4
+worker = "google/gemini-3.7-flash"    # OpenRouter id
+language = "lt"                       # force the deliverable language; omit to follow the goal
+sandbox = "sandbox-exec"              # macOS; "docker" or "none"
+# token = "team-secret"               # rocky serve
+# workspaces = ["/Users/me/projects"] # rocky serve
+```
+
+Other keys: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `base_url` — each maps to the `ROCKY_*` variable of the same meaning. `rocky config` prints which files are read and what a run would use; `rocky doctor` reports a broken file.
 
 ---
 

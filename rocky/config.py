@@ -13,6 +13,73 @@ def load_env() -> None:
     cwd = Path.cwd() / ".env"
     if cwd.exists():
         load_dotenv(cwd, override=True)
+    apply_config()
+
+
+# config.toml keys → the environment variable the rest of Rocky already reads.
+# The environment (and .env) wins over the file; the file wins over built-in defaults.
+CONFIG_ENV = {
+    "worker": "ROCKY_WORKER",
+    "image_model": "ROCKY_IMAGE_MODEL",
+    "language": "ROCKY_LANGUAGE",
+    "sandbox": "ROCKY_SANDBOX",
+    "sandbox_image": "ROCKY_SANDBOX_IMAGE",
+    "token": "ROCKY_TOKEN",
+    "workspaces": "ROCKY_WORKSPACES",
+    "skills": "ROCKY_SKILLS",
+    "recipes": "ROCKY_RECIPES",
+    "bash_deny": "ROCKY_BASH_DENY",
+    "base_url": "OPENROUTER_BASE_URL",
+}
+# Keys the CLI reads as defaults for its flags rather than through the environment.
+CONFIG_FLAGS = ("budget", "max_loops")
+
+
+def config_paths(workspace: str | Path | None = None) -> list[Path]:
+    """Home config first, project config second (the project one wins per key)."""
+    raw = (os.environ.get("ROCKY_HOME") or "").strip()
+    home = Path(raw).expanduser().resolve() if raw else Path.home() / ".rocky"
+    project = Path(workspace).expanduser().resolve() if workspace else Path.cwd()
+    return [home / "config.toml", project / ".rocky" / "config.toml"]
+
+
+def load_config(workspace: str | Path | None = None) -> dict:
+    """Merged config.toml values. Unknown keys are kept so `rocky config` can show them."""
+    import tomllib
+
+    merged: dict = {}
+    for path in config_paths(workspace):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        try:
+            data = tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            raise ValueError(f"{path}: {exc}") from exc
+        for key, value in data.items():
+            if isinstance(value, list):
+                value = ",".join(str(v) for v in value)
+            merged[key] = value
+    return merged
+
+
+def apply_config(workspace: str | Path | None = None) -> dict:
+    """Put config.toml values into the environment where nothing else set them. Returns the merged config."""
+    try:
+        cfg = load_config(workspace)
+    except ValueError:
+        return {}
+    for key, env in CONFIG_ENV.items():
+        if key in cfg and not (os.environ.get(env) or "").strip():
+            os.environ[env] = str(cfg[key])
+    return cfg
+
+
+def forced_language() -> str:
+    """ROCKY_LANGUAGE (or `language` in config.toml): write every deliverable in this language."""
+    load_env()
+    return (os.environ.get("ROCKY_LANGUAGE") or "").strip().lower()
 
 
 def api_key() -> str:

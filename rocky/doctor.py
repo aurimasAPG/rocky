@@ -175,10 +175,26 @@ def _models(catalog: dict | None = None) -> Check:
     return Check("models", OK, f"worker {resolved} ({pinned}, {hit.blended_per_million:.2f} $/M) · image {image}")
 
 
+def _config(workspace: Path) -> Check:
+    from rocky.config import config_paths, load_config
+
+    paths = config_paths(workspace)
+    try:
+        cfg = load_config(workspace)
+    except ValueError as exc:
+        return Check("config", FAIL, str(exc)[:120], "fix the TOML or remove the file")
+    found = [str(p) for p in paths if p.is_file()]
+    if not found:
+        return Check("config", OK, "none (built-in defaults) — `rocky config` prints an example")
+    keys = ", ".join(sorted(cfg)) or "empty"
+    return Check("config", OK, f"{' + '.join(found)} · {keys}")
+
+
 def run_checks(workspace: Path, fetch=None) -> list[Check]:
     openrouter, catalog = _openrouter_with_catalog(fetch)
     return [
         _python(),
+        _config(Path(workspace).expanduser().resolve()),
         _key(),
         _env_permissions(),
         openrouter,

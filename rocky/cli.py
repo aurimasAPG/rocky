@@ -9,7 +9,18 @@ import time
 from pathlib import Path
 
 from rocky.catalog import parse_models, pick_cast
-from rocky.config import api_key, base_url, home_env_path, preferred_worker, save_api_key
+from rocky.config import (
+    CONFIG_ENV,
+    CONFIG_FLAGS,
+    api_key,
+    apply_config,
+    base_url,
+    config_paths,
+    forced_language,
+    home_env_path,
+    preferred_worker,
+    save_api_key,
+)
 from rocky.job import spawn_worker
 from rocky.jsonutil import parse_json_object
 from rocky.llm import OpenRouterClient
@@ -69,7 +80,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "doctor", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "config", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -93,7 +104,9 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Max EUR for the run (default 1.00; resume keeps the old run's cap)",
     )
-    parser.add_argument("--max-loops", type=int, default=4, dest="max_loops")
+    parser.add_argument("--max-loops", type=int, default=None, dest="max_loops")
+    parser.add_argument("--model", default="", help="Worker model for this run (OpenRouter id), e.g. deepseek/deepseek-v4")
+    parser.add_argument("--lang", default="", help="Write the deliverable in this language (lt, en, …) instead of the goal's")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--no-server-tools", action="store_true")
@@ -104,11 +117,22 @@ def main(argv: list[str] | None = None) -> int:
         help="Headless: run to completion, print one JSON object, no live view",
     )
     args = parser.parse_args(rest)
+    workspace = Path(args.dir).expanduser().resolve()
+    try:
+        cfg = apply_config(workspace)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 2
     budget_given = args.budget is not None
     if args.budget is None:
-        args.budget = DEFAULT_BUDGET_EUR
+        args.budget = _config_number(cfg, "budget", DEFAULT_BUDGET_EUR)
+    if args.max_loops is None:
+        args.max_loops = int(_config_number(cfg, "max_loops", 4))
+    if args.model.strip():
+        os.environ["ROCKY_WORKER"] = args.model.strip()
+    if args.lang.strip():
+        os.environ["ROCKY_LANGUAGE"] = args.lang.strip().lower()
     goal = " ".join(args.goal).strip()
-    workspace = Path(args.dir).expanduser().resolve()
 
     if command == "serve":
         from rocky.webapp import ServeRefused, serve
@@ -125,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
         return _ps(workspace)
     if command == "cost":
         return _cost(workspace)
+    if command == "config":
+        return _config(workspace, cfg, args)
     if command == "_job":
         from rocky.job import main as job_main
 
@@ -257,6 +283,42 @@ def _ps(workspace: Path) -> int:
         if second:
             console.print(f"[dim]{'':<24} {second}[/]")
     console.print("[dim]rocky attach [id]  ·  rocky resume [id]  ·  rocky open [id]  ·  rocky stop [id]  ·  rocky cost[/]")
+    return 0
+
+
+def _config_number(cfg: dict, key: str, default: float) -> float:
+    try:
+        return float(cfg.get(key, default))
+    except (TypeError, ValueError):
+        return float(default)
+
+
+CONFIG_EXAMPLE = """# ~/.rocky/config.toml — defaults for every run; <workspace>/.rocky/config.toml overrides per project
+budget = 3.0                     # EUR cap per run (--budget wins)
+max_loops = 4
+worker = "google/gemini-3.7-flash"   # OpenRouter id (--model wins)
+language = "lt"                  # force the deliverable language (--lang wins); omit to follow the goal
+sandbox = "sandbox-exec"         # macOS; "docker" or "none"
+# token = "team-secret"          # rocky serve
+# workspaces = ["/Users/me/projects"]
+"""
+
+
+def _config(workspace: Path, cfg: dict, args) -> int:
+    """`rocky config`: which files are read, what they set, and what a run would use."""
+    for path in config_paths(workspace):
+        mark = "[green]✓[/]" if path.is_file() else "[dim]–[/]"
+        console.print(f"{mark} {path}")
+    console.print(
+        f"[bold]effective[/]  budget €{float(args.budget):.2f}  ·  max_loops {int(args.max_loops)}  ·  "
+        f"worker {preferred_worker() or 'catalog default'}  ·  language {forced_language() or 'from the goal'}"
+    )
+    extra = {k: v for k, v in cfg.items() if k not in CONFIG_FLAGS and k not in CONFIG_ENV}
+    if extra:
+        console.print(f"[yellow]unknown keys ignored:[/] {', '.join(sorted(extra))}")
+    if not any(p.is_file() for p in config_paths(workspace)):
+        console.print("[dim]no config file yet — example:[/]")
+        console.print(CONFIG_EXAMPLE.rstrip())
     return 0
 
 
