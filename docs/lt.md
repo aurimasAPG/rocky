@@ -84,7 +84,8 @@ rocky help
 | `rocky "tikslas"` | Paleidžia tą tikslą kaip **foninį darbą** ir prisijungia. |
 | `rocky tui` | Tas pats variklis, trys langai (planas / darbas / tikrinimas). |
 | `rocky tui --attach ID` | Atveria TUI ant esamo paleidimo. |
-| `rocky ps` | Šio katalogo paleidimų sąrašas. |
+| `rocky ps` | Šio katalogo paleidimų sąrašas: būsena, **išleisti €**, kada baigėsi, tikslas ir galutinio failo kelias (arba baigiamoji santrauka). |
+| `rocky cost` | Kiek šis katalogas išleido: iš viso, šiandien, per 7 dienas, vienam naudojamam rezultatui, kiek nuėjo nieko nedavusiems paleidimams, trys brangiausi paleidimai. |
 | `rocky attach` | Vėl prisijungti prie naujausio paleidimo. |
 | `rocky attach ID` | Prisijungti prie to paleidimo (užtenka pradžios). |
 | `rocky resume [ID]` | Pratęsti `unmet` / `error` / `crashed` / `stopped` paleidimą iš išsaugoto plano ir failų. Be ID — naujausią tokį. |
@@ -351,7 +352,9 @@ Atitikimo tvarka: `recipe:<pavadinimas>` bet kur tiksle → įvertinta sritis �
 
 Spėjimas **kalibruojamas pagal šio katalogo istoriją**: Rocky ima medianą *faktinė ÷ spėta* iš baigtų paleidimų (to paties sudėtingumo, jei tokių bent du; kitaip visų; ribojama 0,5–4×) ir tuo daugikliu pakoreguoja lentelės reikšmę. `assessed` eilutė rodo `~€9.10 (×1.6 from 4 past runs)`, kai daugiklis pritaikytas; `--json` įvertinime pateikia `estimate_base_eur` ir `calibration`. Kiekvienas baigtas paleidimas į savo `meta.json` įrašo `eur`, `estimated_eur` ir `complexity`, kad kitas spėjimas iš jo pasimokytų.
 
-Kol darbuotojai dirba, Rocky vieną kartą įspėja (`budget_warn`, etapas `half`), kai **išleista 50 % lubų, o galutinio failo diske dar nėra** — tinkamas momentas prisijungti ir nuspręsti, ar leisti tęsti.
+Kol darbuotojai dirba, Rocky vieną kartą įspėja (`budget_warn`, etapas `half`), kai **išleista 50 % lubų, o galutinio failo diske dar nėra** — tinkamas momentas prisijungti ir nuspręsti, ar leisti tęsti. arba `rocky stop` jį nutraukti.
+
+`rocky cost` sumuoja katalogo `meta.json` failus: bendras ir laikotarpių išlaidas, išlaidas vienam naudojamam rezultatui ir kiek nuėjo paleidimams, pasibaigusiems `unmet` / `error` / `crashed` / `stopped`.
 
 ---
 

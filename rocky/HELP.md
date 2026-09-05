@@ -82,7 +82,8 @@ rocky help
 | `rocky "goal"` | Start that goal as a **background run** and attach. |
 | `rocky tui` | Same engine, three panes (plan / work / verify). |
 | `rocky tui --attach ID` | Open the TUI on an existing run. |
-| `rocky ps` | List runs in this folder. |
+| `rocky ps` | List runs in this folder: status, **€ spent**, when it finished, goal, and the deliverable path (or the final summary). |
+| `rocky cost` | What this folder has spent: total, today, last 7 days, per usable result, money spent on runs that gave nothing, the three costliest runs. |
 | `rocky attach` | Reattach to the latest run. |
 | `rocky attach ID` | Reattach to that run (prefix is enough). |
 | `rocky resume [ID]` | Continue an `unmet` / `error` / `crashed` / `stopped` run from its saved plan and files. No id = the latest one. |
@@ -347,7 +348,9 @@ Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint w
 
 The guess is **calibrated from this folder's history**: Rocky takes the median of *actual ÷ estimated* over finished runs (same complexity when there are at least two such runs, otherwise all runs; clamped to 0.5–4×) and scales the table value by it. The `assessed` line shows `~€9.10 (×1.6 from 4 past runs)` when a factor is applied; `--json` carries `estimate_base_eur` and `calibration` in the assessment. Each finished run stores `eur`, `estimated_eur`, and `complexity` in its `meta.json` so the next guess learns from it.
 
-While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of the cap is spent and the deliverable is still not on disk** — the moment to attach and decide whether to let it continue.
+While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of the cap is spent and the deliverable is still not on disk** — the moment to attach and decide whether to let it continue, or `rocky stop` it.
+
+`rocky cost` sums the folder's `meta.json` files: total and per-period spend, spend per usable result, and how much went to runs that ended `unmet` / `error` / `crashed` / `stopped`.
 
 ---
 

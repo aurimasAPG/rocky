@@ -25,6 +25,8 @@ from rocky.runs import (
     resolve_run_id,
     run_dir,
     stop_run,
+    summarize_costs,
+    when_label,
     write_answer,
 )
 from rocky.status import TRANSCRIPT_TYPES, status_line
@@ -67,7 +69,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "stop", "open", "doctor", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -121,6 +123,8 @@ def main(argv: list[str] | None = None) -> int:
         return _help()
     if command == "ps":
         return _ps(workspace)
+    if command == "cost":
+        return _cost(workspace)
     if command == "_job":
         from rocky.job import main as job_main
 
@@ -215,31 +219,65 @@ def _dispatch(command, client, goal, workspace, args) -> int:
     )
 
 
+STATUS_COLOR = {
+    "running": "green",
+    "waiting": "yellow",
+    "starting": "green",
+    "passed": "cyan",
+    "passed_with_notes": "yellow",
+    "unmet": "red",
+    "error": "red",
+    "crashed": "red",
+    "stopped": "yellow",
+}
+
+
 def _ps(workspace: Path) -> int:
     rows = list_runs(workspace)
     if not rows:
         console.print("[dim]no runs in this folder[/]")
         return 0
-    console.print("[bold]id[/]                       [bold]status[/]     [bold]goal[/]")
+    console.print(f"[bold]{'id':<24} {'status':<10} {'eur':>6}  {'when':<5}  goal[/]")
     for row in rows:
         goal = (row.get("goal") or "").replace("\n", " ")
-        if len(goal) > 56:
-            goal = goal[:53] + "..."
+        if len(goal) > 50:
+            goal = goal[:47] + "..."
         ident = str(row.get("id") or "")
         status = str(row.get("status") or "?")
-        color = {
-            "running": "green",
-            "waiting": "yellow",
-            "passed": "cyan",
-            "passed_with_notes": "yellow",
-            "unmet": "red",
-            "error": "red",
-            "crashed": "red",
-            "stopped": "yellow",
-        }.get(status, "white")
+        color = STATUS_COLOR.get(status, "white")
+        eur = row.get("eur")
+        price = f"€{float(eur):.2f}" if eur not in (None, "") else ""
         origin = f" [dim]↻ {str(row.get('resume_from'))[:15]}[/]" if row.get("resume_from") else ""
-        console.print(f"{ident:26} [{color}]{status:<10}[/] {goal}{origin}")
-    console.print("[dim]rocky attach [id]   ·   rocky resume [id]   ·   rocky stop [id]   ·   Enter while attached detaches[/]")
+        console.print(f"{ident:<24} [{color}]{status:<10}[/] {price:>6}  {when_label(row):<5}  {goal}{origin}")
+        second = ""
+        if row.get("deliverable_exists") and row.get("deliverable_path"):
+            second = f"→ {row['deliverable_path']}"
+        elif status in TERMINAL and row.get("summary"):
+            second = str(row["summary"]).replace("\n", " ")[:90]
+        if second:
+            console.print(f"[dim]{'':<24} {second}[/]")
+    console.print("[dim]rocky attach [id]  ·  rocky resume [id]  ·  rocky open [id]  ·  rocky stop [id]  ·  rocky cost[/]")
+    return 0
+
+
+def _cost(workspace: Path) -> int:
+    """`rocky cost`: what this folder has spent, and where it went."""
+    rows = list_runs(workspace, limit=1000)
+    if not rows:
+        console.print("[dim]no runs in this folder[/]")
+        return 0
+    c = summarize_costs(rows)
+    console.print(f"[bold]spent[/]  €{c['total_eur']:.2f} over {c['runs']} runs  ·  today €{c['today_eur']:.2f}  ·  last 7 days €{c['week_eur']:.2f}")
+    counts = "  ".join(f"[{STATUS_COLOR.get(k, 'white')}]{k}[/] {v}" for k, v in sorted(c["by_status"].items()))
+    console.print(counts)
+    if c["per_usable_eur"] is not None:
+        console.print(f"[bold]per usable result[/]  €{c['per_usable_eur']:.2f}  ({c['usable']} passed or passed with notes)")
+    if c["wasted_eur"]:
+        console.print(f"[bold]spent on runs that gave nothing[/]  €{c['wasted_eur']:.2f}")
+    if c["top"]:
+        console.print("[bold]costliest[/]")
+        for t in c["top"]:
+            console.print(f"  €{t['eur']:.2f}  [{STATUS_COLOR.get(str(t['status']), 'white')}]{t['status']:<17}[/] {t['id']}  {t['goal']}")
     return 0
 
 

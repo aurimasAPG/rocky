@@ -441,3 +441,71 @@ def take_answer(folder: Path) -> str | None:
     if ask.exists():
         ask.unlink()
     return str(data.get("text") or "")
+
+
+def _parse_ts(raw: object) -> datetime | None:
+    try:
+        ts = datetime.fromisoformat(str(raw))
+    except (TypeError, ValueError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def when_label(row: dict[str, Any], now: datetime | None = None) -> str:
+    """`14:02` for today, `09-04` for an earlier day, `—` when unknown. Local time."""
+    ts = _parse_ts(row.get("finished") or row.get("created"))
+    if ts is None:
+        return "—"
+    now = now or datetime.now(timezone.utc)
+    local = ts.astimezone()
+    if local.date() == now.astimezone().date():
+        return local.strftime("%H:%M")
+    return local.strftime("%m-%d")
+
+
+def summarize_costs(rows: list[dict[str, Any]], now: datetime | None = None) -> dict[str, Any]:
+    """What this folder has spent: totals, today, last 7 days, per status, costliest runs."""
+    now = now or datetime.now(timezone.utc)
+    total = today = week = 0.0
+    by_status: dict[str, int] = {}
+    passed_eur: list[float] = []
+    priced: list[tuple[float, dict[str, Any]]] = []
+    for row in rows:
+        status = str(row.get("status") or "?")
+        by_status[status] = by_status.get(status, 0) + 1
+        try:
+            eur = float(row.get("eur") or 0.0)
+        except (TypeError, ValueError):
+            eur = 0.0
+        total += eur
+        ts = _parse_ts(row.get("finished") or row.get("created"))
+        if ts is not None:
+            age = now - ts
+            if age.total_seconds() < 7 * 86400:
+                week += eur
+            if ts.astimezone().date() == now.astimezone().date():
+                today += eur
+        if status in {"passed", "passed_with_notes"}:
+            passed_eur.append(eur)
+        if eur > 0:
+            priced.append((eur, row))
+    priced.sort(key=lambda t: t[0], reverse=True)
+    finished = sum(v for k, v in by_status.items() if k in TERMINAL)
+    usable = len(passed_eur)
+    return {
+        "runs": len(rows),
+        "finished": finished,
+        "usable": usable,
+        "by_status": by_status,
+        "total_eur": round(total, 2),
+        "today_eur": round(today, 2),
+        "week_eur": round(week, 2),
+        "per_usable_eur": round(total / usable, 2) if usable else None,
+        "wasted_eur": round(sum(e for e, r in priced if str(r.get("status")) not in {"passed", "passed_with_notes"}), 2),
+        "top": [
+            {"id": r.get("id"), "eur": round(e, 2), "status": r.get("status"), "goal": str(r.get("goal") or "")[:60]}
+            for e, r in priced[:3]
+        ],
+    }

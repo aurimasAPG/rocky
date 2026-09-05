@@ -202,3 +202,63 @@ def test_refresh_marks_a_recycled_pid_crashed(tmp_path, monkeypatch):
     write_meta(folder, meta)
     monkeypatch.setattr("rocky.runs._pid_command", lambda pid: "Safari")
     assert refresh_meta(folder)["status"] == "crashed"
+
+
+def _finished(tmp_path, goal, status, eur, finished, **extra):
+    meta = create_run(workspace=tmp_path, goal=goal, budget_eur=1.0, max_loops=2, include_server_tools=True)
+    folder = run_dir(tmp_path, meta["id"])
+    meta.update(status=status, passed=status.startswith("passed"), eur=eur, finished=finished, pid=None, **extra)
+    write_meta(folder, meta)
+    return meta
+
+
+def test_summarize_costs_totals_today_week_and_waste(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from rocky.runs import summarize_costs
+
+    now = datetime(2026, 9, 5, 12, 0, tzinfo=timezone.utc)
+    rows = [
+        {"id": "a", "status": "passed", "eur": 0.5, "finished": (now - timedelta(hours=1)).isoformat(), "goal": "one"},
+        {"id": "b", "status": "unmet", "eur": 8.36, "finished": (now - timedelta(days=3)).isoformat(), "goal": "two"},
+        {"id": "c", "status": "passed_with_notes", "eur": 1.5, "finished": (now - timedelta(days=20)).isoformat(), "goal": "three"},
+        {"id": "d", "status": "running", "eur": None, "created": now.isoformat(), "goal": "four"},
+    ]
+    c = summarize_costs(rows, now=now)
+    assert c["runs"] == 4 and c["finished"] == 3 and c["usable"] == 2
+    assert c["total_eur"] == 10.36 and c["today_eur"] == 0.5 and c["week_eur"] == 8.86
+    assert c["per_usable_eur"] == 5.18 and c["wasted_eur"] == 8.36
+    assert [t["id"] for t in c["top"]] == ["b", "c", "a"]
+
+
+def test_ps_shows_price_time_and_deliverable(tmp_path, capsys):
+    from datetime import datetime, timezone
+
+    from rocky.cli import main
+
+    now = datetime.now(timezone.utc).isoformat()
+    _finished(tmp_path, "write ads", "passed", 0.42, now, deliverable_path="deliverables/ads.md", deliverable_exists=True)
+    _finished(tmp_path, "analyse market", "unmet", 8.36, "2026-09-01T10:00:00+00:00", summary="Stopped early: no progress")
+    assert main(["ps", "-d", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "€0.42" in out and "€8.36" in out
+    assert "→ deliverables/ads.md" in out
+    assert "Stopped early" in out
+    assert "09-01" in out
+    assert "rocky cost" in out
+
+
+def test_cost_command_prints_the_summary(tmp_path, capsys):
+    from datetime import datetime, timezone
+
+    from rocky.cli import main
+
+    now = datetime.now(timezone.utc).isoformat()
+    _finished(tmp_path, "write ads", "passed", 0.42, now)
+    _finished(tmp_path, "analyse market", "unmet", 8.36, now)
+    assert main(["cost", "-d", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "€8.78" in out and "2 runs" in out
+    assert "per usable result" in out and "€0.42" in out
+    assert "gave nothing" in out and "€8.36" in out
+    assert "costliest" in out
