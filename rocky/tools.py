@@ -41,6 +41,16 @@ class WorkspaceTools:
         self._note_written(target)
         return f"wrote {target.relative_to(self.root)} ({len(content)} chars)"
 
+    def append_file(self, path: str, content: str) -> str:
+        """Add text to the end of a file (created if absent). Long documents go in parts:
+        a single write_file with a very long content gets cut off by the model API."""
+        target = self.resolve(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("a", encoding="utf-8") as fh:
+            fh.write(content)
+        self._note_written(target)
+        return f"appended {len(content)} chars to {target.relative_to(self.root)} ({target.stat().st_size} bytes now)"
+
     def _note_written(self, target: Path) -> None:
         rel = str(target.relative_to(self.root))
         with self._written_lock:
@@ -184,6 +194,21 @@ class WorkspaceTools:
         return _clip(out.strip() or "(no output)")
 
 
+_RAW_PATH = re.compile(r'"path"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"')
+
+
+def cut_off_message(name: str, raw: str) -> str:
+    """What to tell a worker whose tool-call arguments did not parse: almost always a
+    write_file whose content was too long for one call and got truncated mid-JSON."""
+    match = _RAW_PATH.search(raw or "")
+    where = f" for {match.group(1)}" if match else ""
+    return (
+        f"{name} arguments were not valid JSON — the call was cut off{where} ({len(raw or '')} characters received). "
+        "Nothing was written. Write the file in parts: write_file with the first part (under ~8000 characters), "
+        "then append_file for each further part."
+    )
+
+
 def bash_env() -> dict[str, str]:
     """Environment for worker shell commands: Rocky's own Python first, no inherited PYTHONPATH.
 
@@ -229,7 +254,26 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "Create or overwrite a UTF-8 text file. Do NOT use for .xlsx .docx .pptx .pdf — use bash + the matching skill instead.",
+            "description": (
+                "Create or overwrite a UTF-8 text file. Keep one call under ~8000 characters: a longer content gets "
+                "cut off and the call fails — write the first part here, then append_file the rest. "
+                "Do NOT use for .xlsx .docx .pptx .pdf — use bash + the matching skill instead."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "append_file",
+            "description": "Add text to the end of a text file (created if missing). Use it to write long documents in parts after write_file.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -575,8 +619,12 @@ def dispatch(
                 raise ToolError(str(exc)) from exc
         if name == "bash":
             return tools.bash(args.get("command") or "")
+        if "_raw" in args and len(args) == 1:
+            raise ToolError(cut_off_message(name, str(args["_raw"])))
         if name == "write_file":
             return tools.write_file(args.get("path") or "", args.get("content") or "")
+        if name == "append_file":
+            return tools.append_file(args.get("path") or "", args.get("content") or "")
         if name == "read_file":
             return tools.read_file(args.get("path") or "")
         if name == "list_dir":

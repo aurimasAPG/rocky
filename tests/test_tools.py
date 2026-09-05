@@ -69,3 +69,27 @@ def test_bash_finds_rockys_python_and_drops_pythonpath(tmp_path, monkeypatch):
     out = tools.bash("python3 -c 'import sys, pptx, openpyxl; print(sys.executable)'")
     assert "exit" not in out.splitlines()[0]
     assert "Traceback" not in out
+
+
+def test_append_file_builds_a_long_document_in_parts(tmp_path):
+    tools = WorkspaceTools(tmp_path)
+    tools.write_file("deliverables/plan.md", "# Plan\n")
+    out = tools.append_file("deliverables/plan.md", "## Part 2\n")
+    tools.append_file("deliverables/new.md", "created by append\n")
+    assert "appended 10 chars" in out
+    assert (tmp_path / "deliverables/plan.md").read_text() == "# Plan\n## Part 2\n"
+    assert (tmp_path / "deliverables/new.md").read_text() == "created by append\n"
+    assert tools.files_on_disk() == ["deliverables/plan.md", "deliverables/new.md"]
+
+
+def test_cut_off_tool_arguments_tell_the_worker_to_write_in_parts(tmp_path):
+    from rocky.tools import dispatch
+
+    tools = WorkspaceTools(tmp_path)
+    raw = '{"path":"deliverables/facebook_reklama_planas.md","content":"# Planas\\n\\nlabai ilgas tekstas'
+    with pytest.raises(ToolError) as info:
+        dispatch(tools, "write_file", {"_raw": raw})
+    msg = str(info.value)
+    assert "cut off for deliverables/facebook_reklama_planas.md" in msg
+    assert "append_file" in msg and "Nothing was written" in msg
+    assert not (tmp_path / "deliverables").exists()

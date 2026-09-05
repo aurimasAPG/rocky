@@ -49,7 +49,7 @@ from rocky.waves import schedule_waves
 MAX_SUBTASK_TURNS = 20
 # Extra turns a worker gets after the cap, writing tools only, to save what it found.
 FINAL_WRITE_TURNS = 2
-WRITE_ONLY_TOOLS = frozenset({"write_file", "patch", "bash", "read_file", "list_dir", "todo"})
+WRITE_ONLY_TOOLS = frozenset({"write_file", "append_file", "patch", "bash", "read_file", "list_dir", "todo"})
 # Read-only tool turns the verifier may spend inspecting the workspace.
 MAX_VERIFY_TURNS = 6
 # Consecutive failed verifications before the worker model is swapped.
@@ -1242,7 +1242,8 @@ def _run_subtask(
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +
-                "Prefer patch for small file edits, write_file for new files. "
+                "Prefer patch for small file edits, write_file for new files; a long document goes in parts — "
+                "write_file the first part (under ~8000 characters), append_file the rest. "
                 "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
                 "Use todo to track steps. Use vision_analyze to look at images, image_generate to make them "
                 "(ad visuals, hero images — PNG into deliverables/; write a one-line brief per image first). "
