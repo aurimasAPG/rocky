@@ -63,7 +63,8 @@ def render_event(event: Event) -> None:
                 extra += f" (×{cal['factor']} from {cal['samples']} past runs)"
         console.print(
             Text(
-                f"assess  {payload.get('complexity')} · {payload.get('domain')}{extra} · {payload.get('goal')}",
+                f"assess  {payload.get('complexity')} · {payload.get('domain')}"
+                f"{' · ' + str(payload['language']) if payload.get('language') else ''}{extra} · {payload.get('goal')}",
                 style=style,
             )
         )

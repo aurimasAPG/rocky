@@ -54,6 +54,9 @@ CLAUDE_ALLOWLIST = frozenset(
         "referral-program",
         "churn-prevention",
         "revops",
+        # Lithuanian language: spelling / grammar and richer wording for LT copy.
+        "lietuviu-kalbos-rasyba",
+        "turtinga-lietuviu-kalba",
     }
 )
 

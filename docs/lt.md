@@ -114,7 +114,7 @@ rocky help
 
 ## 5. Kas vyksta paleidus
 
-1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas.
+1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas ir užduoties **kalba** (`lt`, `en`, …; jei modelis nenurodo, ją nustato euristika). Kiekvienam tolesniam vaidmeniui liepiama galutinį failą, santraukas, pastabas ir bet kokį klausimą tau rašyti ta kalba, nebent užduotis prašo kitos — lietuviška užduotis gauna lietuvišką failą, o ne tą kalbą tikrintojas laiko blokuojančiu trūkumu. Biudžeto klausimas lietuviškoms užduotims užduodamas lietuviškai (`taip` / `ne` / skaičius).
 2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).
 3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (stiprus), darbuotojas (numatytai **Gemini 3.7 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai).
 4. **Kritikas** — puola užduotį, nustato kokybės kartelę, **pritaikytą tikslui ir luboms**: vienos eilutės tikslas su 1 € lubomis gauna kartelę, kurią geras laisvai samdomas specialistas pasiekia per popietę, surašytą keliais patikrinamais teiginiais — niekada „nulis faktinių klaidų istoriko akimis“, papildomi metodologijos skyriai ar formatai, kurių neprašei. `trivial` tikslams praleidžiamas.
@@ -301,7 +301,7 @@ Jei darbo kataloge yra `ROCKY.md`, `AGENTS.md` arba `CLAUDE.md` (pirmas rastas, 
 
 Įmontuoti: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`.
 
-Rocky iš `~/.claude/skills` dar įkelia **tyrimų + rinkodaros** leidžiamųjų sąrašą (copywriting, voc-to-copy, meta-ads-copy, …). Asmeniniai įgūdžiai lieka už borto. Papildomi katalogai:
+Rocky iš `~/.claude/skills` dar įkelia **tyrimų + rinkodaros** leidžiamųjų sąrašą (copywriting, voc-to-copy, meta-ads-copy, …) ir lietuvių kalbos įgūdžius `lietuviu-kalbos-rasyba` bei `turtinga-lietuviu-kalba`, jei jie ten yra; lietuvišką tekstą rašančiam darbuotojui liepiama pirmiausia atsiversti rašybos įgūdį. Asmeniniai įgūdžiai lieka už borto. Papildomi katalogai:
 
 ```bash
 export ROCKY_SKILLS=/kelias/iki/kitu/igudziu

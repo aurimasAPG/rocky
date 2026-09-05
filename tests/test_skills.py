@@ -25,6 +25,7 @@ def test_home_allowlist_skips_unrelated(tmp_path, monkeypatch):
         ("voc-to-copy", "mine VOC"),
         ("apg-pitch-deck", "APG deck"),
         ("barbaras-rabarbaras", "kids story"),
+        ("lietuviu-kalbos-rasyba", "LT spelling"),
     ):
         folder = home / name
         folder.mkdir(parents=True)
@@ -38,6 +39,7 @@ def test_home_allowlist_skips_unrelated(tmp_path, monkeypatch):
     assert "voc-to-copy" in names
     assert "apg-pitch-deck" not in names
     assert "barbaras-rabarbaras" not in names
+    assert "lietuviu-kalbos-rasyba" in names
     assert "xlsx" in names
 
 

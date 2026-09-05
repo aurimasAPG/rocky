@@ -112,7 +112,7 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 
 ## 5. What happens on a run
 
-1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable.
+1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable, and the **language** of the goal (`lt`, `en`, …; a heuristic fills it in if the model does not). Every later role is told to write the deliverable, summaries, notes, and any question to you in that language unless the goal asks for another — a Lithuanian brief gets a Lithuanian file, and the verifier treats the wrong language as blocking. The budget question comes in Lithuanian for Lithuanian goals (`taip` / `ne` / a number).
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
 3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family; read-only tools).
 4. **Critic** — attacks the brief, sets a quality bar **sized to the goal and the cap**: a one-line goal with a €1 cap gets the bar a good freelancer meets in an afternoon, written as a few checkable statements — never "zero factual errors as judged by a historian", extra methodology sections, or formats you did not ask for. Skipped for `trivial` goals.
@@ -297,7 +297,7 @@ Office/PDF (`.xlsx` `.docx` `.pptx` `.pdf`): the worker must `skill_view` the ma
 
 Bundled: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`.
 
-Rocky also loads a **research + marketing allowlist** from `~/.claude/skills` (copywriting, voc-to-copy, meta-ads-copy, …). Personal skills stay out. Extra folders:
+Rocky also loads a **research + marketing allowlist** from `~/.claude/skills` (copywriting, voc-to-copy, meta-ads-copy, …) plus the Lithuanian language skills `lietuviu-kalbos-rasyba` and `turtinga-lietuviu-kalba` when they exist there; a worker writing Lithuanian copy is told to open the spelling skill first. Personal skills stay out. Extra folders:
 
 ```bash
 export ROCKY_SKILLS=/path/to/more/skills

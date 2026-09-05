@@ -1359,3 +1359,31 @@ def test_no_progress_needs_two_failures_after_a_best(tmp_path):
     assert _no_progress([h(0.1), h(0.1), h(0.05)])
     assert not _no_progress([h(0.1), h(0.3), h(0.2)]), "loop 2 improved, so loop 3 is only the first flat one"
     assert _no_progress([h(0.1), h(0.3), h(0.2), h(0.3)])
+
+
+def test_lithuanian_goal_tells_every_role_to_write_lithuanian(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class Recording(ScriptedClient):
+        def __init__(self):
+            super().__init__()
+            self.systems = {}
+
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            for key in ("You critique briefs", "You write the plan", "You execute this subtask", "You verify completed work"):
+                if key in system:
+                    self.systems[key] = system
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    client = Recording()
+    events = []
+    orchestrate(goal="Parašyk trumpą straipsnį apie reklamą", workspace=tmp_path, client=client, models=MODELS,
+                emit=events.append, max_loops=1, budget_eur=1.0, eur_rate=0.92)
+    assessed = next(e.payload for e in events if e.type == "assessed")
+    assert assessed["language"] == "lt", "the scripted assessor names no language, so the heuristic fills it"
+    assert len(client.systems) == 4
+    for system in client.systems.values():
+        assert "The user writes in Lithuanian" in system
+    assert "lietuviu-kalbos-rasyba" in client.systems["You execute this subtask"]
+    assert "wrong language is a blocking defect" in client.systems["You verify completed work"]

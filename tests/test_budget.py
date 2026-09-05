@@ -90,3 +90,23 @@ def test_maybe_lift_without_human_keeps_cap():
     assert usd == 1.09
     assert events[0][0] == "budget_offer"
     assert events[1][0] == "budget_warn"
+
+
+def test_maybe_lift_asks_in_lithuanian_for_lithuanian_goals():
+    asked = {}
+
+    def ask(question, options):
+        asked["q"], asked["o"] = question, options
+        return "taip"
+
+    usd, eur = _maybe_lift_budget(
+        assessment={"complexity": "hard", "domain": "marketing", "language": "lt"},
+        estimate_eur=7.25,
+        budget_eur=1.0,
+        usd_cap=1.09,
+        rate=0.92,
+        ask_user=ask,
+        fire=lambda t, **p: None,
+    )
+    assert eur == 10.0
+    assert "Pakelti" in asked["q"] and asked["o"][0].startswith("taip")

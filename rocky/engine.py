@@ -12,6 +12,7 @@ from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
 from rocky.config import preferred_worker
 from rocky.context import DEFAULT_CONTEXT, RepeatGuard, compact
 from rocky.events import Emit, Event
+from rocky.lang import budget_question, detect_language, language_rule, normalize_language
 from rocky.jsonutil import JsonParseError, parse_json_object
 from rocky.extras import BrowserSession
 from rocky.llm import Completion, LLM, WebTools
@@ -88,6 +89,10 @@ ASSESS_SCHEMA = {
             "success_criteria": {"type": "array", "items": {"type": "string"}},
             "needs_web": {"type": "boolean"},
             "deliverable": {"type": "string"},
+            "language": {
+                "type": "string",
+                "description": "ISO 639-1 code of the language the user wrote the goal in (lt, en, …).",
+            },
         },
         "required": [
             "goal",
@@ -96,6 +101,7 @@ ASSESS_SCHEMA = {
             "success_criteria",
             "needs_web",
             "deliverable",
+            "language",
         ],
     },
 }
@@ -320,6 +326,7 @@ def orchestrate(
         assessment["goal"] = assessment.get("goal") or goal
         assessment.setdefault("complexity", "moderate")
         assessment.setdefault("domain", "mixed")
+        assessment["language"] = normalize_language(assessment.get("language"), detect_language(goal))
         estimate_eur = float(assessment.get("estimated_eur") or estimate_run_eur(assessment, goal))
         assessment["estimated_eur"] = estimate_eur
         fire(
@@ -344,7 +351,8 @@ def orchestrate(
                 "domain: code | research | writing | marketing | ops | mixed. "
                 "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO. "
                 f"deliverable = the final file's path under {DELIVERABLES_DIR}/ (e.g. {DELIVERABLES_DIR}/summary.md) "
-                "unless the user named a path."
+                "unless the user named a path. "
+                "language = ISO 639-1 code of the language the instruction is written in."
             ),
             user=_assess_user(goal, workspace_path),
             json_schema=ASSESS_SCHEMA,
@@ -363,6 +371,7 @@ def orchestrate(
         )
         assessment["goal"] = assessment.get("goal") or goal
         assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
+        assessment["language"] = normalize_language(assessment.get("language"), detect_language(goal))
         base_eur = estimate_run_eur(assessment, goal)
         factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
         estimate_eur = round(base_eur * factor, 2)
@@ -372,6 +381,7 @@ def orchestrate(
         fire("assessed", **{k: assessment[k] for k in assessment})
 
     budget_eur = float(budget_eur if budget is None else eur_from_usd(usd_cap, rate))
+    language = str(assessment.get("language") or "en")
     usd_cap, budget_eur = _maybe_lift_budget(
         assessment=assessment,
         estimate_eur=estimate_eur,
@@ -892,17 +902,9 @@ def _maybe_lift_budget(
             note="no human on this run — keeping the current cap",
         )
         return usd_cap, budget_eur
-    question = (
-        f"This task looks {complexity} ({domain}). "
-        f"Rough spend ~€{estimate_eur:.2f}; current cap is €{budget_eur:.2f}. "
-        f"Raise THIS RUN only to €{suggested:.2f}? "
-        f"Reply yes / keep / or a number."
+    question, options = budget_question(
+        str(assessment.get("language") or "en"), str(complexity), str(domain), estimate_eur, budget_eur, suggested
     )
-    options = [
-        f"yes — €{suggested:.2f} this run only",
-        f"keep €{budget_eur:.2f}",
-        "or type a number, e.g. 3",
-    ]
     reply = ask_user(question, options)
     new_eur = parse_budget_reply(reply, suggested, budget_eur)
     usd_cap = usd_from_eur(new_eur, rate)
@@ -935,6 +937,7 @@ def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str
                 "role": "system",
                 "content": _with_memory(
                     "You critique briefs for Rocky. Be precise, not harsh. "
+                    + language_rule(str(assessment.get("language") or "en"), "critic") +
                     "Point out missing constraints, hidden risks, and the quality bar. "
                     "Reframe the goal so a worker cannot hide behind a vague prompt. "
                     "The quality bar describes the deliverable the user asked for — never add new "
@@ -1064,6 +1067,7 @@ def _make_plan(
                 "role": "system",
                 "content": _with_memory(
                     "You write the plan for Rocky. Return JSON only. "
+                    + language_rule(str(assessment.get("language") or "en"), "planner") +
                     "Split work into subtasks that can be given to separate workers. "
                     "Use depends_on so independent research can run in parallel, "
                     "and writing/assembly waits on research. Each step must be concrete. "
@@ -1223,6 +1227,7 @@ def _run_subtask(
             "role": "system",
             "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
+                + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +
                 "Prefer patch for small file edits, write_file for new files. "
@@ -1413,6 +1418,7 @@ def _verify(
             "content": _with_memory(
                 "You verify completed work against the original goal and the critic's quality bar. You are Rocky's verifier. "
                 "Judge the WHOLE result, not one subtask. Be exact and fair. "
+                + language_rule(str(assessment.get("language") or "en"), "verifier") +
                 "Sort what you find into two lists. blocking: defects that make the deliverable unusable for the goal "
                 "as written — the file is missing or empty, wrong language, wrong format, a required part absent, "
                 "core content wrong or invented. issues: everything else — polish, style, headings, missing citations "
