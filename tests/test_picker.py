@@ -102,7 +102,7 @@ def test_batch_only_models_are_ignored():
 def test_worker_defaults_to_gemini_37_flash_when_present():
     models = FIXTURE + [
         _m(
-            "google/gemini-3.7-flash",
+            "google/gemini-3.8-flash",
             0.000000375,
             0.000001875,
             context=1_000_000,
@@ -110,7 +110,7 @@ def test_worker_defaults_to_gemini_37_flash_when_present():
             desc="agentic flash",
         ),
         _m(
-            "google/gemini-3.7-flash-lite",
+            "google/gemini-3.8-flash-lite",
             0.0000001,
             0.0000004,
             context=1_000_000,
@@ -119,34 +119,34 @@ def test_worker_defaults_to_gemini_37_flash_when_present():
         ),
     ]
     cast = pick_cast(models, complexity="moderate", domain="writing")
-    assert cast.worker == "google/gemini-3.7-flash"
+    assert cast.worker == "google/gemini-3.8-flash"
     assert "default worker" in cast.reasons["worker"]
 
 
 def test_worker_skips_gemini_37_batch_and_lite():
     models = FIXTURE + [
         _m(
-            "google/gemini-3.7-flash:batch",
+            "google/gemini-3.8-flash:batch",
             0.0000001,
             0.0000005,
             params=["tools", "structured_outputs"],
         ),
         _m(
-            "google/gemini-3.7-flash-lite",
+            "google/gemini-3.8-flash-lite",
             0.0000001,
             0.0000004,
             params=["tools", "structured_outputs"],
         ),
     ]
     cast = pick_cast(models, complexity="moderate", domain="research")
-    assert cast.worker != "google/gemini-3.7-flash:batch"
-    assert cast.worker != "google/gemini-3.7-flash-lite"
+    assert cast.worker != "google/gemini-3.8-flash:batch"
+    assert cast.worker != "google/gemini-3.8-flash-lite"
 
 
 def test_worker_pin_overrides_default():
     models = FIXTURE + [
         _m(
-            "google/gemini-3.7-flash",
+            "google/gemini-3.8-flash",
             0.000000375,
             0.000001875,
             params=["tools", "structured_outputs"],

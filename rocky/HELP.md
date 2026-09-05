@@ -122,7 +122,7 @@ The **next** run still defaults to €1 unless you pass `--budget` again — or 
 ```toml
 budget = 3.0                          # EUR cap per run
 max_loops = 4
-worker = "google/gemini-3.7-flash"    # OpenRouter id
+worker = "google/gemini-3.8-flash"    # OpenRouter id
 language = "lt"                       # force the deliverable language; omit to follow the goal
 sandbox = "sandbox-exec"              # macOS; "docker" or "none"
 # token = "team-secret"               # rocky serve
@@ -137,7 +137,7 @@ Other keys: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `b
 
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable, and the **language** of the goal (`lt`, `en`, …; a heuristic fills it in if the model does not). Every later role is told to write the deliverable, summaries, notes, and any question to you in that language unless the goal asks for another — a Lithuanian brief gets a Lithuanian file, and the verifier treats the wrong language as blocking. The budget question comes in Lithuanian for Lithuanian goals (`taip` / `ne` / a number).
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
-3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family; read-only tools).
+3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.8 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family; read-only tools).
 4. **Critic** — attacks the brief, sets a quality bar **sized to the goal and the cap**: a one-line goal with a €1 cap gets the bar a good freelancer meets in an afternoon, written as a few checkable statements — never "zero factual errors as judged by a historian", extra methodology sections, or formats you did not ask for. Skipped for `trivial` goals.
 5. **Plan** — subtasks with `depends_on`. Skipped for `trivial` goals (one worker step straight to the verifier; the planner only steps in if verification fails). Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.

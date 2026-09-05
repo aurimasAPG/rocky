@@ -124,7 +124,7 @@ rocky help
 ```toml
 budget = 3.0                          # EUR lubos vienam paleidimui
 max_loops = 4
-worker = "google/gemini-3.7-flash"    # „OpenRouter“ ID
+worker = "google/gemini-3.8-flash"    # „OpenRouter“ ID
 language = "lt"                       # priverstinė galutinio failo kalba; praleisk, kad sektų užduotį
 sandbox = "sandbox-exec"              # macOS; "docker" arba "none"
 # token = "team-secret"               # rocky serve
@@ -139,7 +139,7 @@ Kiti raktai: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `
 
 1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas ir užduoties **kalba** (`lt`, `en`, …; jei modelis nenurodo, ją nustato euristika). Kiekvienam tolesniam vaidmeniui liepiama galutinį failą, santraukas, pastabas ir bet kokį klausimą tau rašyti ta kalba, nebent užduotis prašo kitos — lietuviška užduotis gauna lietuvišką failą, o ne tą kalbą tikrintojas laiko blokuojančiu trūkumu. Biudžeto klausimas lietuviškoms užduotims užduodamas lietuviškai (`taip` / `ne` / skaičius).
 2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).
-3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (stiprus), darbuotojas (numatytai **Gemini 3.7 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai).
+3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (stiprus), darbuotojas (numatytai **Gemini 3.8 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai).
 4. **Kritikas** — puola užduotį, nustato kokybės kartelę, **pritaikytą tikslui ir luboms**: vienos eilutės tikslas su 1 € lubomis gauna kartelę, kurią geras laisvai samdomas specialistas pasiekia per popietę, surašytą keliais patikrinamais teiginiais — niekada „nulis faktinių klaidų istoriko akimis“, papildomi metodologijos skyriai ar formatai, kurių neprašei. `trivial` tikslams praleidžiamas.
 5. **Planas** — dalys su `depends_on`. `trivial` tikslams praleidžiamas (vienas darbuotojo žingsnis tiesiai tikrintojui; planuotojas įsijungia tik jei tikrinimas nepavyksta). Nepriklausomos dalys gali vykti lygiagrečiai (iki 4).
 6. **Darbuotojai** — kiekviena dalis yra atskiras pokalbis, bendras katalogas.

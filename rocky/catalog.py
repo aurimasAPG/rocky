@@ -38,7 +38,7 @@ COMPLEXITY_FLOOR = {
 }
 
 # Cheap multilingual workhorse (Lithuanian + tools). Overridable via ROCKY_WORKER.
-DEFAULT_WORKER_MODEL = "google/gemini-3.7-flash"
+DEFAULT_WORKER_MODEL = "google/gemini-3.8-flash"
 
 
 @dataclass

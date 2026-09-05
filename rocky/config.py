@@ -98,7 +98,7 @@ def serve_token() -> str:
 
 
 def preferred_worker() -> str | None:
-    """None = catalog default (Gemini 3.7 Flash). Non-empty = pin that OpenRouter id."""
+    """None = catalog default (Gemini 3.8 Flash). Non-empty = pin that OpenRouter id."""
     load_env()
     raw = (os.environ.get("ROCKY_WORKER") or "").strip()
     return raw or None

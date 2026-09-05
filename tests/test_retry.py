@@ -134,7 +134,7 @@ def test_anthropic_models_get_cache_breakpoints_on_system_and_task(monkeypatch):
 def test_other_families_are_sent_untouched(monkeypatch):
     client, seen = _capture_body(monkeypatch)
     msgs = [{"role": "system", "content": "sys"}, {"role": "user", "content": "task"}]
-    client.complete(model="google/gemini-3.7-flash", messages=msgs)
+    client.complete(model="google/gemini-3.8-flash", messages=msgs)
     assert seen["body"]["messages"] == msgs
 
 

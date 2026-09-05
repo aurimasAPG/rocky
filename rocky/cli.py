@@ -323,7 +323,7 @@ def _config_number(cfg: dict, key: str, default: float) -> float:
 CONFIG_EXAMPLE = """# ~/.rocky/config.toml — defaults for every run; <workspace>/.rocky/config.toml overrides per project
 budget = 3.0                     # EUR cap per run (--budget wins)
 max_loops = 4
-worker = "google/gemini-3.7-flash"   # OpenRouter id (--model wins)
+worker = "google/gemini-3.8-flash"   # OpenRouter id (--model wins)
 language = "lt"                  # force the deliverable language (--lang wins); omit to follow the goal
 sandbox = "sandbox-exec"         # macOS; "docker" or "none"
 # token = "team-secret"          # rocky serve

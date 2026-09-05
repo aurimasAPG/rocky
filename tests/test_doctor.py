@@ -122,7 +122,7 @@ def test_doctor_checks_the_pinned_worker_against_the_catalog(tmp_path, monkeypat
     save_api_key("sk-or-abcdefghijklmnop", home / ".env")
     catalog = {
         "data": [
-            {"id": "google/gemini-3.7-flash", "pricing": {"prompt": "0.0000001", "completion": "0.0000004"},
+            {"id": "google/gemini-3.8-flash", "pricing": {"prompt": "0.0000001", "completion": "0.0000004"},
              "context_length": 1000000, "supported_parameters": ["tools"], "architecture": {"output_modalities": ["text"]}},
             {"id": "openai/gpt", "pricing": {"prompt": "0.00001", "completion": "0.00003"},
              "context_length": 200000, "supported_parameters": ["tools"], "architecture": {"output_modalities": ["text"]}},
@@ -131,7 +131,7 @@ def test_doctor_checks_the_pinned_worker_against_the_catalog(tmp_path, monkeypat
     fetch = lambda u, h: (200, catalog)
     monkeypatch.delenv("ROCKY_WORKER", raising=False)
     ok = _by_name(run_checks(tmp_path, fetch=fetch))["models"]
-    assert ok.status == OK and "google/gemini-3.7-flash" in ok.detail and "default" in ok.detail
+    assert ok.status == OK and "google/gemini-3.8-flash" in ok.detail and "default" in ok.detail
     monkeypatch.setenv("ROCKY_WORKER", "acme/nonexistent")
     warn = _by_name(run_checks(tmp_path, fetch=fetch))["models"]
     assert warn.status == WARN and "acme/nonexistent" in warn.detail and "fall back" in warn.detail
