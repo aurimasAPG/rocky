@@ -257,10 +257,10 @@ rocky serve --host 0.0.0.0 --port 8787
 
 Env:
 
-- `ROCKY_TOKEN` — shared password for the page. **Set this before binding a non-loopback host.**
-- `ROCKY_WORKSPACES` — comma-separated allowed folders
+- `ROCKY_TOKEN` — shared password for the page. **Set this before binding a non-loopback host.** The page keeps it in a cookie and the `Authorization` header, never in the URL.
+- `ROCKY_WORKSPACES` — comma-separated allowed folders. Unset, only the folder `rocky serve` was started in (and its subfolders) is allowed.
 
-The web UI has no human-in-the-loop for budget raises. If a task looks expensive, it keeps the cap and logs a warning.
+A run started from the page is the **same background job** as `rocky "goal"`: it appears in `rocky ps`, and `rocky attach`, `rocky stop`, `rocky resume`, and `rocky open` work on it. Every open tab follows the run's `events.jsonl` with its own cursor, so a second viewer or a page reload sees the whole run. The page renders budget offers, `clarify` questions (an answer box appears — the job waits about 10 minutes, then continues with a safe default), stalls, nudges, incomplete steps, the blocking-vs-notes verdict, and the final handover (result path, partial work, notes). **Stop the run** ends the job like `rocky stop`. The list at the bottom shows the folder's runs; click one to follow it.
 
 ---
 

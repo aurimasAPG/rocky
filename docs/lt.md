@@ -261,10 +261,10 @@ rocky serve --host 0.0.0.0 --port 8787
 
 Aplinkos kintamieji:
 
-- `ROCKY_TOKEN` — bendras puslapio slaptažodis. **Nustatyk prieš klausydamas ne vien vietinio adreso.**
-- `ROCKY_WORKSPACES` — kableliais atskirti leidžiami katalogai
+- `ROCKY_TOKEN` — bendras puslapio slaptažodis. **Nustatyk prieš klausydamas ne vien vietinio adreso.** Puslapis jį laiko slapuke ir `Authorization` antraštėje, niekada URL.
+- `ROCKY_WORKSPACES` — kableliais atskirti leidžiami katalogai. Nenustačius leidžiamas tik katalogas, kuriame paleistas `rocky serve` (ir jo pakatalogiai).
 
-Tinklo sąsajoje nėra žmogaus biudžetui pakelti. Jei užduotis atrodo brangi, lubos paliekamos ir įrašomas įspėjimas.
+Iš puslapio paleistas darbas — **tas pats foninis darbas** kaip `rocky "tikslas"`: jis matomas `rocky ps`, o `rocky attach`, `rocky stop`, `rocky resume` ir `rocky open` su juo veikia. Kiekvienas atidarytas skirtukas seka paleidimo `events.jsonl` savo žymekliu, tad antras žiūrovas ar puslapio perkrovimas mato visą paleidimą. Puslapis rodo biudžeto pasiūlymus, `clarify` klausimus (atsiranda atsakymo laukelis — darbas laukia apie 10 minučių, tada tęsia su saugiu numatytuoju atsakymu), strigtis, paraginimus, nebaigtus žingsnius, verdiktą „blokuojantys / pastabos“ ir galutinį perdavimą (rezultato kelias, dalinis darbas, pastabos). **Stop the run** nutraukia darbą kaip `rocky stop`. Sąrašas apačioje rodo katalogo paleidimus; spustelėk vieną, kad jį sektum.
 
 ---
 

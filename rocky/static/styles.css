@@ -189,3 +189,22 @@ button:disabled { opacity: 0.5; cursor: wait; }
 @media (prefers-reduced-motion: reduce) {
   .strip { transition: none; }
 }
+
+button.secondary { background: transparent; color: var(--paper); border: 1px solid #3a5360; }
+button.secondary:disabled { opacity: 0.35; cursor: default; }
+.run-id { align-self: center; font-family: var(--mono); font-size: 0.78rem; color: #7d8b90; }
+.dim { color: #7d8b90; }
+.ask { margin-top: 1rem; padding: 0.9rem 1rem; border: 1px solid var(--copper); }
+.ask-title { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--copper); margin: 0 0 0.4rem; }
+#work-log li.warn { color: var(--apricot); }
+#work-log li.dim { color: #7d8b90; }
+.verify-card p { white-space: pre-wrap; margin: 0.3rem 0 0; }
+.runs-list { margin-top: 1.4rem; }
+.runs-list h2 { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--copper); margin: 0 0 0.6rem; }
+.runs-list ul { list-style: none; padding: 0; margin: 0; }
+.runs-list li { font-family: var(--mono); font-size: 0.78rem; margin-bottom: 0.4rem; }
+.runs-list a { color: var(--paper); }
+.runs-list .status { padding: 0 0.35rem; border: 1px solid #3a5360; }
+.runs-list .status.passed, .runs-list .status.passed_with_notes { border-color: var(--teal); }
+.runs-list .status.unmet, .runs-list .status.error, .runs-list .status.crashed { border-color: var(--fail); }
+.runs-list .status.running, .runs-list .status.waiting { border-color: var(--copper); }

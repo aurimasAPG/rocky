@@ -49,8 +49,21 @@
           <span>Team token</span>
           <input id="token" type="password" autocomplete="off" />
         </label>
-        <button type="submit" id="go">Run the loop</button>
+        <div class="row">
+          <button type="submit" id="go">Run the loop</button>
+          <button type="button" id="stop" class="secondary" disabled>Stop the run</button>
+          <span class="run-id" id="run-id"></span>
+        </div>
         <p class="form-error" id="form-error" hidden></p>
+      </form>
+      <form id="ask-form" class="ask hidden">
+        <p class="ask-title">Rocky asks</p>
+        <p id="ask-question"></p>
+        <p id="ask-options" class="dim"></p>
+        <div class="row">
+          <input id="ask-input" type="text" class="grow" placeholder="yes / keep / a number / a short answer" />
+          <button type="submit">Answer</button>
+        </div>
       </form>
     </section>
 
@@ -113,6 +126,11 @@
         <h2>Verify</h2>
         <div id="verify-log"></div>
       </div>
+    </section>
+    <section class="runs-list" aria-label="Runs in this folder">
+      <h2>Runs in this folder</h2>
+      <ul id="runs"></ul>
+      <p class="dim">The same runs appear in <code>rocky ps</code>; <code>rocky attach</code>, <code>rocky resume</code>, and <code>rocky open</code> work on them.</p>
     </section>
   </main>
   <script src="/static/app.js"></script>

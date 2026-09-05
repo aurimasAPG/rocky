@@ -1,11 +1,19 @@
+"""`rocky serve`: the team web UI.
+
+Runs are ordinary background jobs (rocky.job), so a run started here shows in
+`rocky ps`, can be attached from a terminal, answered, stopped, and resumed.
+Every viewer follows events.jsonl with its own cursor — nothing is held in
+process memory that a second tab or a restart would lose.
+"""
+
 from __future__ import annotations
 
+import hmac
 import ipaddress
 import json
 import threading
-import uuid
+import time
 from pathlib import Path
-from queue import Empty, Queue
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
@@ -13,17 +21,28 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from rocky.config import allowed_workspaces, api_key, base_url, serve_token
-from rocky.engine import orchestrate
-from rocky.events import Event
-from rocky.llm import OpenRouterClient
+from rocky.config import allowed_workspaces, api_key, serve_token
+from rocky.job import spawn_worker
+from rocky.runs import (
+    TERMINAL,
+    EventCursor,
+    create_run,
+    list_runs,
+    read_ask,
+    refresh_meta,
+    run_dir,
+    stop_run,
+    write_answer,
+)
 
 STATIC = Path(__file__).parent / "static"
+POLL = 0.3
 
 app = FastAPI(title="rocky")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
-_runs: dict[str, dict[str, Any]] = {}
+# run id → workspace for runs started from this server (a client may also pass ?workspace=).
+_started: dict[str, Path] = {}
 _lock = threading.Lock()
 
 
@@ -34,25 +53,33 @@ class RunRequest(BaseModel):
     max_loops: int = Field(default=4, ge=1, le=12)
 
 
+class AnswerRequest(BaseModel):
+    text: str
+    workspace: str = ""
+
+
+class StopRequest(BaseModel):
+    workspace: str = ""
+
+
 def _auth(request: Request) -> None:
     token = serve_token()
     if not token:
         return
     header = request.headers.get("authorization") or ""
     query = request.query_params.get("token") or ""
-    cookie = request.cookies.get("rocky_token") or request.cookies.get("orche_token") or ""
+    cookie = request.cookies.get("rocky_token") or ""
     supplied = ""
     if header.lower().startswith("bearer "):
         supplied = header[7:].strip()
-    supplied = supplied or query or cookie
-    if supplied != token:
+    supplied = supplied or cookie or query
+    if not hmac.compare_digest(supplied.encode("utf-8"), token.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Set ROCKY_TOKEN in the page or Authorization header.")
 
 
 def _workspace_ok(path: Path) -> bool:
-    allowed = allowed_workspaces()
-    if not allowed:
-        return path.is_dir() or not path.exists()
+    """Allowed folders from ROCKY_WORKSPACES; without it, only the folder the server was started in."""
+    allowed = allowed_workspaces() or [Path.cwd().resolve()]
     resolved = path.resolve()
     for root in allowed:
         try:
@@ -61,6 +88,39 @@ def _workspace_ok(path: Path) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _workspace_for(run_id: str, raw: str) -> Path:
+    with _lock:
+        known = _started.get(run_id)
+    if known is not None:
+        return known
+    if not raw:
+        raise HTTPException(status_code=404, detail="Unknown run — pass ?workspace=")
+    workspace = Path(raw).expanduser().resolve()
+    if not _workspace_ok(workspace):
+        raise HTTPException(status_code=400, detail="Workspace is not allowed.")
+    if not (run_dir(workspace, run_id) / "meta.json").exists():
+        raise HTTPException(status_code=404, detail="Unknown run")
+    return workspace
+
+
+def _row(meta: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": meta.get("id"),
+        "goal": meta.get("goal"),
+        "status": meta.get("status"),
+        "passed": meta.get("passed"),
+        "eur": meta.get("eur"),
+        "created": meta.get("created"),
+        "finished": meta.get("finished"),
+        "deliverable_path": meta.get("deliverable_path"),
+        "deliverable_exists": bool(meta.get("deliverable_exists")),
+        "files": list(meta.get("files") or []),
+        "summary": meta.get("summary") or "",
+        "notes": list(meta.get("notes") or []),
+        "resume_from": meta.get("resume_from"),
+    }
 
 
 @app.get("/")
@@ -73,29 +133,18 @@ def meta(request: Request):
     _auth(request)
     return {
         "needs_token": bool(serve_token()),
-        "workspaces": [str(p) for p in allowed_workspaces()],
-        "default_workspace": str(Path.cwd()),
+        "workspaces": [str(p) for p in (allowed_workspaces() or [Path.cwd().resolve()])],
+        "default_workspace": str(Path.cwd().resolve()),
     }
 
 
 @app.get("/api/runs")
-def list_runs(request: Request):
+def runs(request: Request, workspace: str = ""):
     _auth(request)
-    with _lock:
-        rows = []
-        for run_id, row in _runs.items():
-            rows.append(
-                {
-                    "id": run_id,
-                    "goal": row["goal"],
-                    "status": row["status"],
-                    "passed": row.get("passed"),
-                    "cost": row.get("cost", 0),
-                    "eur": row.get("eur", 0),
-                    "total_tokens": row.get("total_tokens", 0),
-                }
-            )
-        return list(reversed(rows))
+    folder = Path(workspace or Path.cwd()).expanduser().resolve()
+    if not _workspace_ok(folder):
+        raise HTTPException(status_code=400, detail="Workspace is not allowed.")
+    return [_row(m) for m in list_runs(folder)]
 
 
 @app.post("/api/runs")
@@ -103,85 +152,91 @@ def start_run(body: RunRequest, request: Request):
     _auth(request)
     if not api_key():
         raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY is missing on the server.")
+    goal = (body.goal or "").strip()
+    if not goal:
+        raise HTTPException(status_code=400, detail="Goal is empty.")
     workspace = Path(body.workspace).expanduser().resolve()
     if not _workspace_ok(workspace):
         raise HTTPException(status_code=400, detail="Workspace is not allowed.")
     workspace.mkdir(parents=True, exist_ok=True)
-    run_id = uuid.uuid4().hex[:10]
-    queue: Queue = Queue()
-    record = {
-        "id": run_id,
-        "goal": body.goal,
-        "workspace": str(workspace),
-        "status": "running",
-        "passed": None,
-        "cost": 0.0,
-        "eur": 0.0,
-        "total_tokens": 0,
-        "queue": queue,
-        "events": [],
-    }
+    meta = create_run(
+        workspace=workspace,
+        goal=goal,
+        budget_eur=body.budget,
+        max_loops=body.max_loops,
+        include_server_tools=True,
+    )
+    spawn_worker(meta)
     with _lock:
-        _runs[run_id] = record
+        _started[meta["id"]] = workspace
+    return {"id": meta["id"], "workspace": str(workspace)}
 
-    def emit(event: Event) -> None:
-        data = event.as_dict()
-        record["events"].append(data)
-        if event.type in {"cost", "done"}:
-            record["cost"] = event.payload.get("usd") or record["cost"]
-            record["eur"] = event.payload.get("eur") or record["eur"]
-            record["total_tokens"] = event.payload.get("total_tokens") or record["total_tokens"]
-        queue.put(data)
 
-    def work() -> None:
-        client = OpenRouterClient(api_key(), base_url())
-        try:
-            result = orchestrate(
-                goal=body.goal,
-                workspace=workspace,
-                client=client,
-                emit=emit,
-                max_loops=body.max_loops,
-                budget_eur=body.budget,
-            )
-            record["status"] = result.status
-            record["passed"] = result.passed
-            record["cost"] = result.cost
-            record["eur"] = result.eur
-            record["total_tokens"] = result.total_tokens
-        except Exception as exc:  # noqa: BLE001
-            record["status"] = "error"
-            queue.put({"type": "error", "payload": {"message": str(exc)}, "ts": ""})
-        finally:
-            client.close()
-            queue.put(None)
+@app.get("/api/runs/{run_id}")
+def run_status(run_id: str, request: Request, workspace: str = ""):
+    _auth(request)
+    folder = run_dir(_workspace_for(run_id, workspace), run_id)
+    row = _row(refresh_meta(folder))
+    ask = read_ask(folder)
+    row["ask"] = ask
+    return row
 
-    threading.Thread(target=work, daemon=True).start()
-    return {"id": run_id}
+
+@app.post("/api/runs/{run_id}/answer")
+def answer(run_id: str, body: AnswerRequest, request: Request):
+    _auth(request)
+    folder = run_dir(_workspace_for(run_id, body.workspace), run_id)
+    if read_ask(folder) is None:
+        raise HTTPException(status_code=409, detail="The run is not asking anything right now.")
+    write_answer(folder, (body.text or "").strip())
+    return {"ok": True}
+
+
+@app.post("/api/runs/{run_id}/stop")
+def stop(run_id: str, body: StopRequest, request: Request):
+    _auth(request)
+    workspace = _workspace_for(run_id, body.workspace)
+    meta = stop_run(workspace, run_id)
+    return _row(meta)
 
 
 @app.get("/api/runs/{run_id}/events")
-def stream_events(run_id: str, request: Request):
+def stream_events(run_id: str, request: Request, workspace: str = ""):
     _auth(request)
-    with _lock:
-        record = _runs.get(run_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="Unknown run")
+    ws = _workspace_for(run_id, workspace)
+    folder = run_dir(ws, run_id)
 
     def gen():
-        for event in list(record["events"]):
-            yield f"data: {json.dumps(event)}\n\n"
-        queue: Queue = record["queue"]
+        cursor = EventCursor(folder / "events.jsonl")
+        asked_ts = None
+        idle = 0.0
         while True:
+            events = cursor.poll()
+            for event in events:
+                yield f"data: {json.dumps(event.as_dict(), ensure_ascii=False)}\n\n"
             try:
-                item = queue.get(timeout=15)
-            except Empty:
-                yield ": ping\n\n"
-                continue
-            if item is None:
+                meta = refresh_meta(folder)
+            except FileNotFoundError:
                 yield "event: end\ndata: {}\n\n"
-                break
-            yield f"data: {json.dumps(item)}\n\n"
+                return
+            ask = read_ask(folder)
+            if ask and ask.get("ts") != asked_ts:
+                asked_ts = ask.get("ts")
+                yield f"data: {json.dumps({'type': 'ask', 'payload': ask, 'ts': ask.get('ts')}, ensure_ascii=False)}\n\n"
+            if str(meta.get("status") or "") in TERMINAL:
+                for event in cursor.poll():
+                    yield f"data: {json.dumps(event.as_dict(), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'meta', 'payload': _row(meta), 'ts': ''}, ensure_ascii=False)}\n\n"
+                yield "event: end\ndata: {}\n\n"
+                return
+            if events:
+                idle = 0.0
+            else:
+                idle += POLL
+                if idle >= 15.0:
+                    idle = 0.0
+                    yield ": ping\n\n"
+            time.sleep(POLL)
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
