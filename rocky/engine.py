@@ -54,6 +54,11 @@ TURNS_WARN_LEFT = 5
 WRITE_ONLY_TOOLS = frozenset({"write_file", "append_file", "patch", "bash", "read_file", "list_dir", "todo"})
 # Read-only tool turns the verifier may spend inspecting the workspace.
 MAX_VERIFY_TURNS = 6
+# A worker's final text, as passed to the verifier and the next loop. The verifier must
+# read the files anyway; ten full worker monologues once made its first message 57k tokens.
+WORKER_SUMMARY_CHARS = 1500
+# One tool result in the verifier's thread (a deck is ~15k chars; a whole report need not be re-sent on every turn).
+VERIFY_TOOL_CHARS = 12000
 # Consecutive failed verifications before the worker model is swapped.
 STALL_AFTER = 2
 # The verifier may run this far over the cap so a finished deliverable still gets judged.
@@ -185,6 +190,10 @@ VERIFY_SCHEMA = {
             "passed": {"type": "boolean"},
             "score": {"type": "number"},
             "summary": {"type": "string"},
+            "usable": {
+                "type": "boolean",
+                "description": "True when the deliverable exists and a person could use it for the goal after fixing the blocking items themselves in under an hour; false when it must be redone.",
+            },
             "blocking": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -197,7 +206,7 @@ VERIFY_SCHEMA = {
             },
             "remaining": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["passed", "score", "summary", "blocking", "issues", "remaining"],
+        "required": ["passed", "score", "usable", "summary", "blocking", "issues", "remaining"],
     },
 }
 
@@ -702,19 +711,24 @@ def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tool
         return "passed", []
     if not verify:
         return "unmet", []
-    if verify.get("blocking"):
-        # A named blocking defect means the user cannot use the file, whatever the score says.
+    deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
+    if not deliverable or _missing_files(tools, [deliverable]):
         return "unmet", []
     try:
         score = float(verify.get("score") or 0.0)
     except (TypeError, ValueError):
         score = 0.0
-    if not verify.get("notes_only") and score < NOTES_SCORE:
+    blocking = [str(b) for b in verify.get("blocking") or [] if str(b).strip()]
+    usable = verify.get("usable")
+    if blocking:
+        # Inside the loop a blocking defect drove a replan; here the loops are over. The
+        # verifier says whether a person can still use the file after fixing those points.
+        if usable is not True:
+            return "unmet", []
+    elif not verify.get("notes_only") and usable is not True and score < NOTES_SCORE:
         return "unmet", []
-    deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
-    if not deliverable or _missing_files(tools, [deliverable]):
-        return "unmet", []
-    notes = [str(n) for n in (verify.get("issues") or []) + (verify.get("remaining") or []) if str(n).strip()]
+    notes = [f"must fix: {b}" for b in blocking]
+    notes += [str(n) for n in (verify.get("issues") or []) + (verify.get("remaining") or []) if str(n).strip()]
     if not notes:
         notes = [str(verify.get("summary") or "verifier scored it below the bar without naming an issue")]
     return "passed_with_notes", notes
@@ -1446,7 +1460,7 @@ def _run_subtask(
     fire("subtask_done", id=step.get("id"), title=step.get("title"), text=(last_text or "")[:2000])
     if last_text:
         fire("worker", text=last_text[:4000], subtask=step.get("title"))
-    return f"{step.get('title')}: {last_text}"
+    return f"{step.get('title')}: {last_text[:WORKER_SUMMARY_CHARS]}"
 
 
 def _missing_files(tools: WorkspaceTools, expected: list[str], since: float | None = None) -> list[str]:
@@ -1500,6 +1514,11 @@ def _verify(
                 "the user never asked for, extra rigor. passed=true when the deliverable exists and blocking is empty; "
                 "issues alone never fail a run, they are handed to the user as notes. "
                 "Judge against the goal the user wrote, not against a stricter reading of it. "
+                "usable=true when the deliverable exists and a person could use it for the goal after fixing the "
+                "blocking items themselves in under an hour; false when it has to be redone. "
+                "score is the share of the goal delivered: 1.0 every criterion met; 0.7–0.9 usable with notes; "
+                "0.4–0.6 a major part missing or wrong; below 0.3 only when nothing usable exists. A complete "
+                "package with one wrong claim is 0.6–0.8, never 0. "
                 "You have read-only tools: read_file, list_dir, grep, and office_read for .pptx/.xlsx/.docx/.pdf. "
                 "Open the deliverable yourself when the excerpt is not enough — never trust the worker summary alone. "
                 "When you have seen enough, stop calling tools and return JSON only. "
@@ -1558,7 +1577,7 @@ def _verify(
                 except ToolError as exc:
                     result = f"error: {exc}"
             fire("tool_result", name=call.name, result=result[:2500], subtask="verifier")
-            messages.append({"role": "tool", "tool_call_id": call.id, "content": result[:20000]})
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": result[:VERIFY_TOOL_CHARS]})
     else:
         # Out of tool turns: one last call, no tools, JSON only.
         messages.append({"role": "user", "content": "No more tool calls. Return the verification JSON now."})
@@ -1639,6 +1658,11 @@ def _normalize_verdict(verify: dict) -> dict:
     if score <= 0 and verify["passed"]:
         score = 1.0
     verify["score"] = round(min(max(score, 0.0), 1.0), 2)
+    if "usable" in verify:
+        raw_usable = verify.get("usable")
+        if isinstance(raw_usable, str):
+            raw_usable = raw_usable.strip().lower() in {"true", "yes", "1"}
+        verify["usable"] = bool(raw_usable)
     for key in ("blocking", "issues", "remaining"):
         if key == "blocking" and key not in verify:
             continue

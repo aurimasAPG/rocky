@@ -195,3 +195,26 @@ def test_stall_swap_goes_up_in_capability_not_down():
     # second stall: another family again, still not the cheapest
     swap2 = alternate_worker(models, "moderate", "marketing", exclude={"google/flash", swap.id})
     assert swap2 is not None and swap2.id not in {"google/flash", swap.id, "inclusionai/ling"}
+
+
+def test_verifier_respects_the_price_cap_for_its_complexity():
+    from rocky.catalog import VERIFY_MAX_PRICE
+
+    models = FIXTURE + [
+        _m("x-ai/grok-strong", 0.000003, 0.000006, params=["tools", "reasoning", "structured_outputs"], desc="frontier reasoning"),
+        _m("openai/gpt-codex", 0.000002, 0.000004, params=["tools", "reasoning", "structured_outputs"], desc="agent coding"),
+    ]
+    for complexity in ("trivial", "moderate", "hard"):
+        cast = pick_cast(models, complexity=complexity, domain="marketing")
+        verifier = next(m for m in models if m.id == cast.verifier)
+        assert verifier.blended_per_million <= VERIFY_MAX_PRICE[complexity], complexity
+        assert verifier.family != cast.planner.split("/")[0]
+    assert pick_cast(models, complexity="hard", domain="marketing").verifier == "x-ai/grok-strong", "codex is not a prose grader"
+    assert pick_cast(models, complexity="hard", domain="code").verifier == "openai/gpt-codex"
+    assert "under $12/M" in pick_cast(models, complexity="hard", domain="marketing").reasons["verifier"]
+
+
+def test_verifier_falls_back_to_the_cheapest_peer_when_nothing_is_under_the_cap():
+    cast = pick_cast(FIXTURE, complexity="hard", domain="marketing")
+    verifier = next(m for m in FIXTURE if m.id == cast.verifier)
+    assert verifier.family != cast.planner.split("/")[0]

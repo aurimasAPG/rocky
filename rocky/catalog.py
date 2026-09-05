@@ -222,6 +222,29 @@ def alternate_worker(
     return max(fresh, key=lambda m: (capability(m, families), -m.blended_per_million))
 
 
+# Blended $/M ceiling for the verifier by complexity. It reads the deliverable slide by
+# slide over several tool turns, so its input tokens dominate: the invohub run paid
+# €1.50 per verification at $18/M. A strong model under these caps grades just as well.
+VERIFY_MAX_PRICE = {"trivial": 5.0, "moderate": 8.0, "hard": 12.0}
+
+
+def pick_verifier(plan_pool: list[Model], planner: Model, worker: Model, complexity: str, domain: str) -> Model:
+    """Strongest model from another family than the planner, under the complexity's price cap."""
+    cap = VERIFY_MAX_PRICE.get(complexity, VERIFY_MAX_PRICE["moderate"])
+    pool = [m for m in plan_pool if m.family != planner.family and m.id != worker.id] or [
+        m for m in plan_pool if m.id != planner.id
+    ]
+    if domain not in {"code", "ops"}:
+        # Code-tuned variants grade prose no better and read oddly in the cast panel.
+        prose = [m for m in pool if "codex" not in m.id and "coder" not in m.id]
+        pool = prose or pool
+    affordable = [m for m in pool if m.blended_per_million <= cap]
+    if affordable:
+        return affordable[0]  # plan_pool is capability-sorted
+    cheapest = sorted(pool, key=lambda m: m.blended_per_million)
+    return (cheapest or [planner])[0]
+
+
 def pick_cast(
     models: list[Model],
     complexity: str,
@@ -254,13 +277,7 @@ def pick_cast(
             key=lambda m: (m.blended_per_million, -capability(m, work_families)),
         )
 
-    verify_pool = [
-        m
-        for m in plan_pool
-        if m.family != planner.family and m.id != worker.id
-    ] or [m for m in plan_pool if m.id != planner.id]
-    affordable = [m for m in verify_pool if m.blended_per_million <= 20]
-    verifier = (affordable or verify_pool or [planner])[0]
+    verifier = pick_verifier(plan_pool, planner, worker, complexity, domain)
 
     worker_reason = (
         f"default worker {worker.id} ({worker.blended_per_million:.3f}/M)"
@@ -278,6 +295,6 @@ def pick_cast(
             "critic": f"critiques the brief before work is split ({critic.family})",
             "planner": f"highest planning capability in {planner.family}",
             "worker": worker_reason,
-            "verifier": f"strong model in {verifier.family}, not {planner.family}",
+            "verifier": f"strong model in {verifier.family}, not {planner.family}, under ${VERIFY_MAX_PRICE.get(complexity, 8.0):.0f}/M ({verifier.blended_per_million:.2f}/M)",
         },
     )

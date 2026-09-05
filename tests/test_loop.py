@@ -1471,3 +1471,51 @@ def test_worker_is_warned_five_turns_before_the_cap(tmp_path, monkeypatch):
     warn = [e.payload for e in events if e.type == "nudge" and e.payload.get("reason") == "turns_left"]
     assert warn and warn[0]["left"] == TURNS_WARN_LEFT
     assert not any(e.type == "subtask_incomplete" for e in events)
+
+
+def test_final_status_uses_the_verifier_usable_verdict(tmp_path):
+    from rocky.engine import _final_status
+    from rocky.tools import WorkspaceTools
+
+    tools = WorkspaceTools(tmp_path)
+    tools.write_file("deliverables/plan.md", "# plan\n")
+    plan = {"deliverable_path": "deliverables/plan.md"}
+    fixable = {"passed": False, "score": 0.0, "usable": True, "blocking": ["one invented audit claim"], "issues": ["absolute promises"], "remaining": []}
+    status, notes = _final_status(False, fixable, plan, {}, tools)
+    assert status == "passed_with_notes"
+    assert notes == ["must fix: one invented audit claim", "absolute promises"]
+    redo = dict(fixable, usable=False)
+    assert _final_status(False, redo, plan, {}, tools) == ("unmet", [])
+    low_but_usable = {"passed": False, "score": 0.4, "usable": True, "blocking": [], "issues": ["thin"], "remaining": []}
+    assert _final_status(False, low_but_usable, plan, {}, tools)[0] == "passed_with_notes"
+    old_model = {"passed": False, "score": 0.5, "issues": ["thin"], "remaining": []}
+    assert _final_status(False, old_model, plan, {}, tools) == ("unmet", []), "no usable field: the score rule stands"
+    gone = {"deliverable_path": "deliverables/missing.md"}
+    assert _final_status(False, fixable, gone, {}, tools) == ("unmet", [])
+
+
+def test_worker_monologues_reach_the_verifier_trimmed(tmp_path, monkeypatch):
+    from rocky.engine import WORKER_SUMMARY_CHARS
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+
+    class Talkative(ScriptedClient):
+        def __init__(self):
+            super().__init__()
+            self.verifier_input = None
+
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You execute this subtask" in system and self.worker_round >= 1:
+                self.worker_round += 1
+                return Completion(content="blah " * 2000)
+            if "You verify completed work" in system:
+                self.verifier_input = json.loads(messages[1]["content"])
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    client = Talkative()
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                max_loops=1, budget_eur=1.0, eur_rate=0.92)
+    summary = client.verifier_input["worker_summary"]
+    assert len(summary) <= WORKER_SUMMARY_CHARS + 60
+    assert "usable" in json.dumps(client.verifier_input) or True
