@@ -56,20 +56,6 @@ def test_rocky_skills_env_loads_unlisted(tmp_path, monkeypatch):
     assert "custom-foo" in names
 
 
-def test_legacy_orche_skills_env_still_works(tmp_path, monkeypatch):
-    extra = tmp_path / "legacy"
-    folder = extra / "legacy-bar"
-    folder.mkdir(parents=True)
-    (folder / "SKILL.md").write_text(
-        "---\nname: legacy-bar\ndescription: extra\n---\n# Bar\n",
-        encoding="utf-8",
-    )
-    monkeypatch.delenv("ROCKY_SKILLS", raising=False)
-    monkeypatch.setenv("ORCHE_SKILLS", str(extra))
-    names = {s["name"] for s in list_skills()}
-    assert "legacy-bar" in names
-
-
 def test_catalog_for_prompt_has_names():
     rows = catalog_for_prompt()
     names = {r["name"] for r in rows}

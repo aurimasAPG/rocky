@@ -21,16 +21,8 @@ def runs_root(workspace: str | Path) -> Path:
     return Path(workspace).expanduser().resolve() / ".rocky" / "runs"
 
 
-def legacy_runs_root(workspace: str | Path) -> Path:
-    return Path(workspace).expanduser().resolve() / ".orche" / "runs"
-
-
 def run_dir(workspace: str | Path, run_id: str) -> Path:
-    workspace = Path(workspace).expanduser().resolve()
-    modern = runs_root(workspace) / run_id
-    if modern.exists() or not (legacy_runs_root(workspace) / run_id).exists():
-        return modern
-    return legacy_runs_root(workspace) / run_id
+    return runs_root(workspace) / run_id
 
 
 def new_run_id() -> str:
@@ -184,18 +176,13 @@ def refresh_meta(folder: Path) -> dict[str, Any]:
 
 def list_runs(workspace: str | Path, limit: int = 40) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for root in (runs_root(workspace), legacy_runs_root(workspace)):
-        if not root.is_dir():
-            continue
+    root = runs_root(workspace)
+    if root.is_dir():
         for folder in root.iterdir():
             if not folder.is_dir() or not (folder / "meta.json").exists():
                 continue
-            if folder.name in seen:
-                continue
             try:
                 rows.append(refresh_meta(folder))
-                seen.add(folder.name)
             except (OSError, json.JSONDecodeError):
                 continue
     rows.sort(key=lambda r: str(r.get("created") or r.get("id") or ""), reverse=True)

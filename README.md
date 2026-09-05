@@ -9,8 +9,6 @@ rocky serve
 rocky help
 ```
 
-`orche` is a silent alias for `rocky`.
-
 ## Install
 
 One line. It installs [uv](https://docs.astral.sh/uv/) if you do not have it, then Rocky as an isolated tool.

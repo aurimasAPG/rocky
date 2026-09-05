@@ -17,7 +17,6 @@ def test_rocky_home_env_override(monkeypatch, tmp_path):
 
 def test_preferred_worker_env(monkeypatch):
     monkeypatch.delenv("ROCKY_WORKER", raising=False)
-    monkeypatch.delenv("ORCHE_WORKER", raising=False)
     assert preferred_worker() is None
     monkeypatch.setenv("ROCKY_WORKER", "deepseek/v4-flash")
     assert preferred_worker() == "deepseek/v4-flash"

@@ -70,7 +70,7 @@ def home_skills_dir() -> Path:
 
 
 def _env_skill_dirs() -> list[Path]:
-    raw = os.environ.get("ROCKY_SKILLS") or os.environ.get("ORCHE_SKILLS") or ""
+    raw = os.environ.get("ROCKY_SKILLS") or ""
     out: list[Path] = []
     for part in raw.split(","):
         part = part.strip()

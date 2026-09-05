@@ -2,7 +2,7 @@
 
 Rocky is an OpenRouter **agent orchestrator**. You give it a goal and a folder. It picks models from the live catalog, splits the work, uses tools, and checks the result. The default money cap is **€1 per run**.
 
-The command is `rocky`. `orche` is a silent alias for the same binary.
+The command is `rocky`.
 
 ---
 

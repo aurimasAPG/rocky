@@ -254,4 +254,4 @@ def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools, spen
 def _vision_model() -> str:
     import os
 
-    return (os.environ.get("ROCKY_VISION_MODEL") or os.environ.get("ORCHE_VISION_MODEL") or "google/gemini-2.5-flash").strip()
+    return (os.environ.get("ROCKY_VISION_MODEL") or "google/gemini-2.5-flash").strip()

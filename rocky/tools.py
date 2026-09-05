@@ -147,8 +147,6 @@ class WorkspaceTools:
     def _todo_load(self) -> list:
         path = self.root / ".rocky" / "todo.json"
         if not path.exists():
-            path = self.root / ".orche" / "todo.json"
-        if not path.exists():
             return []
         try:
             data = json.loads(path.read_text(encoding="utf-8"))

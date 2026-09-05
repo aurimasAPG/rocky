@@ -2,7 +2,7 @@
 
 Rocky — „OpenRouter“ **agentų orkestratorius**. Duodi tikslą ir katalogą. Jis iš gyvo modelių katalogo parenka modelius, suskaido darbą, naudoja įrankius ir patikrina rezultatą. Numatytosios išlaidų lubos — **1 EUR vienam paleidimui**.
 
-Komanda — `rocky`. `orche` yra tylus tos pačios programos sinonimas.
+Komanda — `rocky`.
 
 Angliškas vadovas su tuo pačiu turiniu: `rocky help` (failas `rocky/HELP.md`).
 

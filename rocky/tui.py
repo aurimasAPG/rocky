@@ -44,7 +44,7 @@ class GoalInput(Input):
         self.replace(clip, start, end)
 
 
-class OrcheTui(App):
+class RockyTui(App):
     CSS = """
     Screen { background: #1C2B33; }
     Header { background: #152228; color: #E8F0EA; text-style: italic; }
@@ -374,7 +374,7 @@ def run_tui(
     include_server_tools: bool,
     attach_id: str | None = None,
 ) -> None:
-    app = OrcheTui(
+    app = RockyTui(
         goal=goal,
         workspace=workspace,
         max_loops=max_loops,

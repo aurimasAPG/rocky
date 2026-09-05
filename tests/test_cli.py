@@ -213,6 +213,6 @@ def test_tui_input_stays_enabled_while_a_run_streams():
 
     from rocky import tui
 
-    src = inspect.getsource(tui.RockyTui._watch) if hasattr(tui, "RockyTui") else inspect.getsource(tui.OrcheTui._watch)
+    src = inspect.getsource(tui.RockyTui._watch)
     assert "disabled = True" not in src, "q + Enter must be able to detach during a run"
     assert any(b.key == "ctrl+v" for b in tui.GoalInput.BINDINGS)

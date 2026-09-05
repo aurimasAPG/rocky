@@ -45,7 +45,6 @@ browser = ["playwright>=1.49"]
 
 [project.scripts]
 rocky = "rocky.cli:main"
-orche = "rocky.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["rocky*"]
