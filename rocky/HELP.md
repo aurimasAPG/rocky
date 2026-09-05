@@ -115,10 +115,10 @@ The **next** run still defaults to €1 unless you pass `--budget` again.
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable.
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
 3. **Cast** — live OpenRouter catalog. Planner (strong), worker (**Gemini 3.7 Flash** by default — Lithuanian + tools; override with `ROCKY_WORKER`), verifier (other family; read-only tools).
-4. **Critic** — attacks the brief, sets a quality bar. Skipped for `trivial` goals.
+4. **Critic** — attacks the brief, sets a quality bar **sized to the goal and the cap**: a one-line goal with a €1 cap gets the bar a good freelancer meets in an afternoon, written as a few checkable statements — never "zero factual errors as judged by a historian", extra methodology sections, or formats you did not ask for. Skipped for `trivial` goals.
 5. **Plan** — subtasks with `depends_on`. Skipped for `trivial` goals (one worker step straight to the verifier; the planner only steps in if verification fails). Independent steps can run in parallel (up to 4).
 6. **Workers** — each subtask is its own chat, shared folder.
-7. **Verifier** — judges the **whole** result. It can open files itself (`read_file`, `list_dir`, `grep`, `office_read` for decks and sheets; up to 6 read-only calls). Almost-right is a fail; the planner resplits and workers continue.
+7. **Verifier** — judges the **whole** result. It can open files itself (`read_file`, `list_dir`, `grep`, `office_read` for decks and sheets; up to 6 read-only calls). It sorts what it finds into **blocking** defects (file missing, wrong language or format, a required part absent, core content wrong) and **notes** (polish, headings, citations nobody asked for). A blocking defect is a fail: the planner resplits and workers continue. Notes alone end the run right there as `passed_with_notes` — you get the file and the notes instead of paying for loops of polish. On a replan the **deliverable path is kept**: the steps may change, the file you will be handed does not.
    If two verifications in a row fail, Rocky assumes the worker model is the problem: it keeps the plan and **swaps the worker** for a stronger one — the most capable model under ~$12/M from a family not tried yet (`stall` event) — instead of replanning again.
 8. Stop when it passes, loops run out, or the euro cap is hit. Three endings: **passed**; **passed_with_notes** — the loops or the cap ran out, but the last verdict scored ≥ 0.7 and the deliverable is on disk, so you get the file plus the verifier's open points as notes (`--json` returns them under `notes`, exit code 0); **unmet** — nothing usable. Inside the loop "almost right" is still a fail: that is what drives the replan.
    The last lines of every run are the **handover**: `result deliverables/…` (plus `also written …` for the notes and other files), or `no result … was never written`, `partial work …` listing what did land on disk, and `continue with rocky resume <id>`. Errors, nudges, incomplete steps, compactions, and loop guards are printed in words, not as raw event dicts. `--json` carries the same under `deliverable_path`, `deliverable_exists`, and `files`; `meta.json` stores them too.
@@ -345,7 +345,7 @@ While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of
 | Copy does not work in TUI | Select text, then Cmd+C. Quit with **q**, not Ctrl+C. |
 | Run died after closing the window | It should not. `rocky ps` — if status is `crashed`, read `.rocky/runs/<id>/worker.log`, then `rocky resume` |
 | Run ended `error` / `crashed` mid-way | `rocky resume [id]` — continues from the saved plan and the files already written |
-| Verifier almost-passes | Inside the loop that is a fail and Rocky replans. After the last loop a score ≥ 0.7 with the file on disk ends as `passed_with_notes`. |
+| Verifier almost-passes | Only a **blocking** defect fails a loop and triggers a replan. Notes alone end the run as `passed_with_notes` with the file. After the last loop a score ≥ 0.7 with the file on disk and nothing blocking also ends as `passed_with_notes`. |
 
 ---
 

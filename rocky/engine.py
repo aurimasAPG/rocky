@@ -68,6 +68,8 @@ HALF_SPEND = 0.5
 # After the last loop, a failed verdict at or above this score with the deliverable on disk
 # ends as "passed_with_notes": the user has a good file, the report lists what is left.
 NOTES_SCORE = 0.7
+# A verdict with an empty blocking list passes with notes from this score up.
+NOTES_MIN_SCORE = 0.5
 
 ASSESS_SCHEMA = {
     "name": "assessment",
@@ -170,10 +172,19 @@ VERIFY_SCHEMA = {
             "passed": {"type": "boolean"},
             "score": {"type": "number"},
             "summary": {"type": "string"},
-            "issues": {"type": "array", "items": {"type": "string"}},
+            "blocking": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Defects that make the deliverable unusable for the goal as written. Empty when the user can use the file.",
+            },
+            "issues": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Non-blocking notes: polish, style, extra rigor. They do not fail the run.",
+            },
             "remaining": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["passed", "score", "summary", "issues", "remaining"],
+        "required": ["passed", "score", "summary", "blocking", "issues", "remaining"],
     },
 }
 
@@ -404,6 +415,7 @@ def orchestrate(
                 critique=critique,
                 revision=resume.get("verify") or None,
                 memory_snapshot=memory_snapshot,
+                pinned_deliverable=str(plan.get("deliverable_path") or ""),
             )
         else:
             fire("plan", resumed=True, **plan)
@@ -416,7 +428,14 @@ def orchestrate(
         fire("plan", **plan)
     else:
         critique = _critique(
-            client, cast.critic, goal, assessment, spender("critic"), fire, memory_snapshot=memory_snapshot
+            client,
+            cast.critic,
+            goal,
+            assessment,
+            spender("critic"),
+            fire,
+            memory_snapshot=memory_snapshot,
+            budget_eur=eur_from_usd(usd_cap, rate),
         )
         plan = _make_plan(
             client,
@@ -570,6 +589,7 @@ def orchestrate(
             critique=critique,
             revision=verify,
             memory_snapshot=memory_snapshot,
+            pinned_deliverable=str(plan.get("deliverable_path") or ""),
         )
 
     summary = (verify.get("summary") if verify else worker_summary) or ""
@@ -641,15 +661,18 @@ def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tool
     replan. Once the loops or the cap are gone, a deliverable the verifier
     scored >= NOTES_SCORE is a result the user can use — say so, list the notes.
     """
-    if passed:
+    if passed and not verify.get("notes_only"):
         return "passed", []
     if not verify:
+        return "unmet", []
+    if verify.get("blocking"):
+        # A named blocking defect means the user cannot use the file, whatever the score says.
         return "unmet", []
     try:
         score = float(verify.get("score") or 0.0)
     except (TypeError, ValueError):
         score = 0.0
-    if score < NOTES_SCORE:
+    if not verify.get("notes_only") and score < NOTES_SCORE:
         return "unmet", []
     deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
     if not deliverable or _missing_files(tools, [deliverable]):
@@ -842,7 +865,16 @@ def _maybe_lift_budget(
     return usd_cap, new_eur
 
 
-def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str = "") -> dict:
+PROPORTIONATE_BAR = (
+    "Size the quality bar to the goal and the budget. A one-line goal with a small cap gets the bar a "
+    "competent freelancer meets in an afternoon — a usable, correct, well-organised deliverable — not a "
+    "peer-reviewed report. Never demand external judges, zero-tolerance rules, a citation for every number, "
+    "methodology sections, or formats the user did not ask for. Write the bar as two to five checkable "
+    "statements about the deliverable itself. "
+)
+
+
+def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str = "", budget_eur: float = 0.0) -> dict:
     completion = _chat(
         client,
         model=model,
@@ -850,12 +882,13 @@ def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str
             {
                 "role": "system",
                 "content": _with_memory(
-                    "You critique briefs for Rocky. Be strict. "
+                    "You critique briefs for Rocky. Be precise, not harsh. "
                     "Point out missing constraints, hidden risks, and the quality bar. "
                     "Reframe the goal so a worker cannot hide behind a vague prompt. "
                     "The quality bar describes the deliverable the user asked for — never add new "
                     "deliverables, checklists, logs, proof files, or reporting formats the user did not request; "
                     "a follow-up goal keeps the previous bar, it does not raise it. "
+                    + PROPORTIONATE_BAR +
                     "Suggest how to split the work. Return JSON only. Do not refuse the task. "
                     "If MEMORY or RECENT RUNS name a deliverable, treat follow-up goals as continuations.",
                     memory_snapshot,
@@ -863,7 +896,11 @@ def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str
             },
             {
                 "role": "user",
-                "content": json.dumps({"goal": goal, "assessment": assessment}, ensure_ascii=False, indent=2),
+                "content": json.dumps(
+                    {"goal": goal, "assessment": assessment, "budget_eur": round(float(budget_eur or 0), 2)},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
             },
         ],
         json_schema=CRITIQUE_SCHEMA,
@@ -927,7 +964,11 @@ def _make_plan(
     critique=None,
     revision=None,
     memory_snapshot: str = "",
+    pinned_deliverable: str = "",
 ) -> dict:
+    """The plan. On a revision ``pinned_deliverable`` is the path from the previous
+    plan and it is kept: a replan may change the steps, never the file the
+    user will be handed (a rename between loops has lost a finished result)."""
     listing = ""
     try:
         listing = WorkspaceTools(workspace).list_dir(".")
@@ -941,6 +982,7 @@ def _make_plan(
         "brief_critique": critique,
         "workspace_files": listing,
         "revision_from_verifier": revision,
+        "deliverable_path_fixed": pinned_deliverable or None,
         "available_skills": catalog_for_prompt(),
         "available_recipes": recipe_catalog(recipes),
         "recipe": (
@@ -976,7 +1018,11 @@ def _make_plan(
                     "If the deliverable is xlsx/docx/pptx/pdf, that worker step must skill_view the matching skill. "
                     "If a recipe is given, its steps are mandatory and ordered — a recipe is a proven "
                     "sequence for this kind of deliverable; Rocky will enforce it. "
-                    "Name the final deliverable_path. Workers are fully autonomous in the workspace. "
+                    "Name the final deliverable_path. If deliverable_path_fixed is set, use exactly that path — "
+                    "the previous loop's work is there and the user expects that file. "
+                    "When revision_from_verifier is given, change what the verifier faulted and keep what passed; "
+                    "its blocking list is what must change, its issues are notes. "
+                    "Workers are fully autonomous in the workspace. "
                     "Continue MEMORY and RECENT RUNS: 'that' / 'the article' / 'now make X from it' "
                     "means the last deliverable unless the goal clearly replaces it.",
                     memory_snapshot,
@@ -1000,6 +1046,8 @@ def _make_plan(
     plan = _normalize_steps(plan, goal)
     plan = ensure_pipeline(plan, goal, assessment, recipe=recipe)
     plan["deliverable_path"] = place_deliverable(str(plan.get("deliverable_path") or ""))
+    if pinned_deliverable:
+        plan["deliverable_path"] = pinned_deliverable
     if recipe:
         plan["recipe"] = recipe.name
     fire("plan", **plan)
@@ -1305,8 +1353,13 @@ def _verify(
             "role": "system",
             "content": _with_memory(
                 "You verify completed work against the original goal and the critic's quality bar. You are Rocky's verifier. "
-                "Judge the WHOLE result, not one subtask. Be strict. "
-                "passed=true only if the deliverable exists and meets every success criterion. "
+                "Judge the WHOLE result, not one subtask. Be exact and fair. "
+                "Sort what you find into two lists. blocking: defects that make the deliverable unusable for the goal "
+                "as written — the file is missing or empty, wrong language, wrong format, a required part absent, "
+                "core content wrong or invented. issues: everything else — polish, style, headings, missing citations "
+                "the user never asked for, extra rigor. passed=true when the deliverable exists and blocking is empty; "
+                "issues alone never fail a run, they are handed to the user as notes. "
+                "Judge against the goal the user wrote, not against a stricter reading of it. "
                 "You have read-only tools: read_file, list_dir, grep, and office_read for .pptx/.xlsx/.docx/.pdf. "
                 "Open the deliverable yourself when the excerpt is not enough — never trust the worker summary alone. "
                 "When you have seen enough, stop calling tools and return JSON only. "
@@ -1401,8 +1454,26 @@ def _verify(
         verify = {"passed": False, "score": 0.0, "summary": "", "issues": [], "remaining": []}
         verify.update(parsed)
     verify = _normalize_verdict(verify)
+    if _notes_only(verify) and deliverable and not _missing_files(tools, [deliverable]):
+        # The verifier faulted nothing blocking but did not say passed: that is a pass with notes,
+        # not another loop of polish the user did not ask for.
+        verify["passed"] = True
+        verify["notes_only"] = True
     fire("verify", **verify)
     return verify
+
+
+def _notes_only(verify: dict) -> bool:
+    """A verdict that names no blocking defect and still withholds passed."""
+    if verify.get("passed") or "blocking" not in verify:
+        return False
+    if verify.get("blocking"):
+        return False
+    try:
+        score = float(verify.get("score") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    return score >= NOTES_MIN_SCORE
 
 
 def _looks_like_verdict(content: str) -> bool:
@@ -1428,12 +1499,16 @@ def _normalize_verdict(verify: dict) -> dict:
     if score <= 0 and verify["passed"]:
         score = 1.0
     verify["score"] = round(min(max(score, 0.0), 1.0), 2)
-    for key in ("issues", "remaining"):
+    for key in ("blocking", "issues", "remaining"):
+        if key == "blocking" and key not in verify:
+            continue
         value = verify.get(key)
         if isinstance(value, str):
             verify[key] = [value] if value.strip() else []
         elif not isinstance(value, list):
             verify[key] = []
+        else:
+            verify[key] = [str(v) for v in value if str(v).strip()]
     return verify
 
 

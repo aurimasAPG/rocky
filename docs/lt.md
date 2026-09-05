@@ -117,10 +117,10 @@ rocky help
 1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas.
 2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).
 3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (stiprus), darbuotojas (numatytai **Gemini 3.7 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai).
-4. **Kritikas** — puola užduotį, nustato kokybės kartelę. `trivial` tikslams praleidžiamas.
+4. **Kritikas** — puola užduotį, nustato kokybės kartelę, **pritaikytą tikslui ir luboms**: vienos eilutės tikslas su 1 € lubomis gauna kartelę, kurią geras laisvai samdomas specialistas pasiekia per popietę, surašytą keliais patikrinamais teiginiais — niekada „nulis faktinių klaidų istoriko akimis“, papildomi metodologijos skyriai ar formatai, kurių neprašei. `trivial` tikslams praleidžiamas.
 5. **Planas** — dalys su `depends_on`. `trivial` tikslams praleidžiamas (vienas darbuotojo žingsnis tiesiai tikrintojui; planuotojas įsijungia tik jei tikrinimas nepavyksta). Nepriklausomos dalys gali vykti lygiagrečiai (iki 4).
 6. **Darbuotojai** — kiekviena dalis yra atskiras pokalbis, bendras katalogas.
-7. **Tikrintojas** — vertina **visą** rezultatą. Failus atsidaro pats (`read_file`, `list_dir`, `grep`, `office_read` skaidrėms ir lentelėms; iki 6 skaitymo kvietimų). Ciklo viduje „beveik gerai“ = nesėkmė; planuotojas perskirsto, darbuotojai tęsia.
+7. **Tikrintojas** — vertina **visą** rezultatą. Failus atsidaro pats (`read_file`, `list_dir`, `grep`, `office_read` skaidrėms ir lentelėms; iki 6 skaitymo kvietimų). Radinius skirsto į **blokuojančius** trūkumus (failo nėra, ne ta kalba ar formatas, trūksta privalomos dalies, esminis turinys klaidingas) ir **pastabas** (šlifavimas, antraštės, citatos, kurių niekas neprašė). Blokuojantis trūkumas = nesėkmė: planuotojas perskirsto, darbuotojai tęsia. Vien pastabos paleidimą baigia iš karto kaip `passed_with_notes` — gauni failą ir pastabas, o ne moki už šlifavimo ciklus. Perplanuojant **galutinio failo kelias išlieka**: žingsniai gali keistis, failas, kurį gausi, — ne.
    Jei dvi patikros iš eilės nepavyksta, Rocky laiko, kad problema — darbuotojo modelis: planą palieka, o **darbuotoją keičia** stipresniu — pajėgiausiu modeliu iki ~12 $/M iš dar nebandytos šeimos (`stall` įvykis), užuot planavęs iš naujo.
 8. Stabdo, kai pavyksta, baigiasi ciklai arba pasiekiamos eurų lubos. Trys pabaigos: **passed** — pavyko; **passed_with_notes** — ciklai ar lubos baigėsi, bet paskutinis įvertis ≥ 0,7 ir galutinis failas yra diske, tad gauni failą ir tikrintojo pastabas (`--json` jas grąžina lauke `notes`, išeities kodas 0); **unmet** — nieko naudojamo. Ciklo viduje „beveik gerai“ vis tiek yra nesėkmė — būtent ji verčia perplanuoti.
    Paskutinės kiekvieno paleidimo eilutės — **perdavimas**: `result deliverables/…` (ir `also written …` užrašams bei kitiems failams) arba `no result … was never written`, `partial work …` su tuo, kas vis dėlto atsirado diske, ir `continue with rocky resume <id>`. Klaidos, paraginimai, nebaigti žingsniai, suspaudimai ir ciklo sargas spausdinami žodžiais, ne kaip neapdoroti įvykių žodynai. `--json` tą patį grąžina laukuose `deliverable_path`, `deliverable_exists` ir `files`; `meta.json` juos taip pat saugo.
@@ -349,7 +349,7 @@ Kol darbuotojai dirba, Rocky vieną kartą įspėja (`budget_warn`, etapas `half
 | Kopijavimas TUI neveikia | Pažymėk tekstą, tada Cmd+C. Išeik su **q**, ne Ctrl+C. |
 | Paleidimas mirė uždarius langą | Neturėtų. `rocky ps` — jei būsena `crashed`, skaityk `.rocky/runs/<id>/worker.log`, tada `rocky resume` |
 | Paleidimas baigėsi `error` / `crashed` pusiaukelėje | `rocky resume [id]` — tęsia nuo išsaugoto plano ir jau parašytų failų |
-| Tikrintojas „beveik“ praleidžia | Ciklo viduje tai nesėkmė ir Rocky perplanuoja. Po paskutinio ciklo įvertis ≥ 0,7 su failu diske baigiasi `passed_with_notes`. |
+| Tikrintojas „beveik“ praleidžia | Ciklą sužlugdo ir perplanavimą sukelia tik **blokuojantis** trūkumas. Vien pastabos paleidimą baigia kaip `passed_with_notes` su failu. Po paskutinio ciklo įvertis ≥ 0,7 su failu diske ir be nieko blokuojančio taip pat baigiasi `passed_with_notes`. |
 
 ---
 

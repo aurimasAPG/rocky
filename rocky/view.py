@@ -154,14 +154,13 @@ def render_event(event: Event) -> None:
     if kind == "verify":
         mark = "pass" if payload.get("passed") else "fail"
         color = f"#{OK}" if payload.get("passed") else f"#{FAIL}"
-        console.print(
-            Panel(
-                f"{payload.get('summary')}\nscore {payload.get('score')}\n"
-                + "\n".join(payload.get("issues") or []),
-                title=f"verify · {mark}",
-                border_style=color,
-            )
-        )
+        lines = [f"{payload.get('summary')}", f"score {payload.get('score')}"]
+        lines += [f"blocking  {b}" for b in payload.get("blocking") or []]
+        prefix = "note  " if "blocking" in payload else ""
+        lines += [f"{prefix}{i}" for i in payload.get("issues") or []]
+        if payload.get("notes_only"):
+            mark = "pass with notes"
+        console.print(Panel("\n".join(lines), title=f"verify · {mark}", border_style=color))
         return
     if kind == "done":
         status = str(payload.get("status") or ("passed" if payload.get("passed") else "unmet"))

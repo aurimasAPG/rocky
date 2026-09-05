@@ -1193,3 +1193,101 @@ def test_half_cap_without_deliverable_warns_once(tmp_path, monkeypatch):
     order = [e.type for e in events]
     first_write = next(i for i, e in enumerate(events) if e.type == "tool_call" and e.payload["name"] == "write_file")
     assert order.index("budget_warn") < first_write
+
+
+class NotesOnlyClient(AlmostClient):
+    """Verifier withholds passed but names nothing blocking — only polish."""
+
+    blocking: list = []
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You critique briefs" in system:
+            self.critic_prompt = (system, messages[-1]["content"])
+        if "You verify completed work" in system:
+            return Completion(
+                content=json.dumps(
+                    {
+                        "passed": False,
+                        "score": self.score,
+                        "summary": "Usable, could be nicer.",
+                        "blocking": list(self.blocking),
+                        "issues": ["No Methodology heading"],
+                        "remaining": ["Tighten the intro"],
+                    }
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_no_blocking_issue_passes_with_notes_in_the_first_loop(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = NotesOnlyClient()
+    client.score = 0.55
+    events = []
+    result = orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                         emit=events.append, max_loops=3, budget_eur=1.0, eur_rate=0.92)
+    assert result.status == "passed_with_notes" and result.passed is True
+    assert result.loops == 1, "polish alone must not burn more loops"
+    assert result.notes == ["No Methodology heading", "Tighten the intro"]
+    verify = next(e.payload for e in events if e.type == "verify")
+    assert verify["passed"] is True and verify["notes_only"] is True
+    assert client.plan_calls == 1
+
+
+def test_a_blocking_defect_stays_unmet_whatever_the_score(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = NotesOnlyClient()
+    client.score = 0.85
+    client.blocking = ["Written in English, the goal asked for Lithuanian"]
+    result = orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                         max_loops=1, budget_eur=1.0, eur_rate=0.92)
+    assert result.status == "unmet" and result.passed is False
+
+
+def test_critic_is_told_the_budget_and_to_size_the_bar(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = NotesOnlyClient()
+    client.score = 0.9
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                max_loops=1, budget_eur=2.5, eur_rate=0.92)
+    system, user = client.critic_prompt
+    assert "Size the quality bar" in system
+    assert json.loads(user)["budget_eur"] == 2.5
+
+
+class RenamingPlanner(StubbornClient):
+    """Every replan names a different deliverable file."""
+
+    def __init__(self):
+        super().__init__()
+        self.plan_prompts = []
+
+    def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+        system = messages[0]["content"] if messages else ""
+        if "You write the plan" in system:
+            self.plan_calls += 1
+            self.plan_prompts.append(messages[-1]["content"])
+            return Completion(
+                content=json.dumps(
+                    {
+                        "summary": f"plan {self.plan_calls}",
+                        "steps": [{"id": 1, "title": "Write", "detail": "write", "depends_on": [], "writes": []}],
+                        "deliverable_path": f"deliverables/version{self.plan_calls}.md",
+                        "notes": "",
+                    }
+                )
+            )
+        return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+
+def test_replan_keeps_the_deliverable_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    client = RenamingPlanner()
+    events = []
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                emit=events.append, max_loops=2, budget_eur=1.0, eur_rate=0.92)
+    plans = [e.payload["deliverable_path"] for e in events if e.type == "plan"]
+    assert plans == ["deliverables/version1.md", "deliverables/version1.md"]
+    assert json.loads(client.plan_prompts[0])["deliverable_path_fixed"] is None
+    assert json.loads(client.plan_prompts[1])["deliverable_path_fixed"] == "deliverables/version1.md"
