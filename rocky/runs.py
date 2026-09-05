@@ -224,6 +224,19 @@ def run_history(workspace: str | Path, limit: int = 40) -> list[dict[str, Any]]:
     return rows
 
 
+def list_runs_priced(workspace: str | Path, limit: int = 40) -> list[dict[str, Any]]:
+    """list_runs, with `eur` / `complexity` filled from events for runs whose meta predates those fields."""
+    rows = list_runs(workspace, limit=limit)
+    for row in rows:
+        if row.get("eur") is None and str(row.get("status") or "") in TERMINAL:
+            found = _estimate_and_cost_from_events(run_dir(workspace, str(row["id"])) / "events.jsonl")
+            if found.get("eur") is not None:
+                row["eur"] = found["eur"]
+            if row.get("complexity") is None and found.get("complexity"):
+                row["complexity"] = found["complexity"]
+    return rows
+
+
 def _estimate_and_cost_from_events(path: Path) -> dict[str, Any]:
     out: dict[str, Any] = {}
     if not path.exists():

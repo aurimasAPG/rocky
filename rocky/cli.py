@@ -28,7 +28,7 @@ from rocky.runs import (
     TERMINAL,
     EventCursor,
     create_run,
-    list_runs,
+    list_runs_priced,
     load_resume_state,
     read_ask,
     refresh_meta,
@@ -285,15 +285,16 @@ STATUS_COLOR = {
 
 
 def _ps(workspace: Path) -> int:
-    rows = list_runs(workspace)
+    rows = list_runs_priced(workspace)
     if not rows:
         console.print("[dim]no runs in this folder[/]")
         return 0
     console.print(f"[bold]{'id':<24} {'status':<10} {'eur':>6}  {'when':<5}  goal[/]")
+    room = max(24, console.width - 52)
     for row in rows:
         goal = (row.get("goal") or "").replace("\n", " ")
-        if len(goal) > 50:
-            goal = goal[:47] + "..."
+        if len(goal) > room:
+            goal = goal[: room - 3] + "..."
         ident = str(row.get("id") or "")
         status = str(row.get("status") or "?")
         color = STATUS_COLOR.get(status, "white")
@@ -350,7 +351,7 @@ def _config(workspace: Path, cfg: dict, args) -> int:
 
 def _cost(workspace: Path) -> int:
     """`rocky cost`: what this folder has spent, and where it went."""
-    rows = list_runs(workspace, limit=1000)
+    rows = list_runs_priced(workspace, limit=1000)
     if not rows:
         console.print("[dim]no runs in this folder[/]")
         return 0

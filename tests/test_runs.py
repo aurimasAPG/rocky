@@ -262,3 +262,16 @@ def test_cost_command_prints_the_summary(tmp_path, capsys):
     assert "per usable result" in out and "€0.42" in out
     assert "gave nothing" in out and "€8.36" in out
     assert "costliest" in out
+
+
+def test_priced_listing_reads_old_runs_cost_from_events(tmp_path):
+    from rocky.runs import list_runs_priced
+
+    meta = create_run(workspace=tmp_path, goal="old", budget_eur=1.0, max_loops=2, include_server_tools=True)
+    folder = run_dir(tmp_path, meta["id"])
+    append_event(folder, Event(type="assessed", payload={"complexity": "hard", "estimated_eur": 3.5}))
+    append_event(folder, Event(type="done", payload={"passed": False, "eur": 8.36}))
+    meta.update(status="unmet", passed=False, pid=None)  # no eur in meta, as runs before 2026-09 were written
+    write_meta(folder, meta)
+    row = list_runs_priced(tmp_path)[0]
+    assert row["eur"] == 8.36 and row["complexity"] == "hard"
