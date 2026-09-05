@@ -53,3 +53,19 @@ def test_patch_keeps_the_whole_file_past_the_read_clip(tmp_path):
     assert text.startswith("# Better title\n") and text.endswith("END\n")
     assert len(text) == len("# Better title\n") + len(body) + len("END\n")
     assert "truncated" not in text
+
+
+def test_bash_finds_rockys_python_and_drops_pythonpath(tmp_path, monkeypatch):
+    import os
+    import sys
+
+    from rocky.tools import bash_env
+
+    monkeypatch.setenv("PYTHONPATH", "/somewhere/else")
+    env = bash_env()
+    assert "PYTHONPATH" not in env
+    assert env["PATH"].split(os.pathsep)[0] == str(__import__("pathlib").Path(sys.executable).parent)
+    tools = WorkspaceTools(tmp_path)
+    out = tools.bash("python3 -c 'import sys, pptx, openpyxl; print(sys.executable)'")
+    assert "exit" not in out.splitlines()[0]
+    assert "Traceback" not in out

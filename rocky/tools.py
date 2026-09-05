@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import threading
@@ -173,6 +174,7 @@ class WorkspaceTools:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=bash_env(),
             )
         except subprocess.TimeoutExpired as exc:
             raise ToolError(f"timed out after {timeout}s: {command}") from exc
@@ -180,6 +182,26 @@ class WorkspaceTools:
         if proc.returncode != 0:
             out = f"exit {proc.returncode}\n{out}"
         return _clip(out.strip() or "(no output)")
+
+
+def bash_env() -> dict[str, str]:
+    """Environment for worker shell commands: Rocky's own Python first, no inherited PYTHONPATH.
+
+    The job process is started with PYTHONPATH pointing at Rocky's site-packages so
+    `python -m rocky.job` imports. A worker's `python3` is whatever the shell finds
+    (Homebrew 3.14 on this Mac); with that PYTHONPATH it loads Rocky's 3.13-compiled
+    lxml and crashes on `import pptx`. Putting Rocky's interpreter directory first
+    makes `python3` the one that has python-pptx, openpyxl, python-docx, reportlab.
+    """
+    import sys
+
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    bindir = str(Path(sys.executable).parent)  # not resolve(): a venv python is a symlink out of the venv
+    path = env.get("PATH", "")
+    if bindir not in path.split(os.pathsep):
+        env["PATH"] = bindir + os.pathsep + path
+    return env
 
 
 def _clip(text: str, limit: int = MAX_OUTPUT) -> str:
