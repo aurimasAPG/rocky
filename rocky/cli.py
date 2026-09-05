@@ -78,6 +78,25 @@ def prompt_goal(label: str = "Užduotis") -> str:
     return line
 
 
+COMMANDS_HELP = """commands:
+  rocky "goal"                     start a background run in this folder and attach
+  rocky                            interactive: type goals one after another
+  rocky tui [--attach ID]          three-pane viewer (plan / work / verify)
+  rocky ps                         runs in this folder: status, €, when, goal, deliverable
+  rocky attach [ID]                follow a run (Enter or Ctrl+C detaches, the job keeps going)
+  rocky stop [ID]                  end a run now; what it wrote stays, it can be resumed
+  rocky resume [ID]                continue an unmet / error / crashed / stopped run
+  rocky resume [ID] "what to change"   follow up on any finished run, passed ones included
+  rocky open [ID]                  open the run's deliverable
+  rocky cost                       what this folder has spent and where it went
+  rocky config                     config files read, effective defaults, an example
+  rocky doctor                     key, OpenRouter, folder, sandbox, browser, skills, models
+  rocky serve [--host --port]      team web UI
+  rocky route "goal"               only assess and pick models
+  rocky help                       the full guide (docs/lt.md has the Lithuanian one)
+"""
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "config", "doctor", "help", "version", "_job"}
@@ -94,7 +113,14 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(f"rocky {__version__}\n")
         return 0
 
-    parser = argparse.ArgumentParser(prog="rocky", add_help=True)
+    parser = argparse.ArgumentParser(
+        prog="rocky",
+        add_help=True,
+        usage="rocky [goal] | rocky <command> [args] [options]",
+        description="OpenRouter agent orchestrator: plan → work → verify, €1 cap by default.",
+        epilog=COMMANDS_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("goal", nargs="*", help="What to accomplish, or a run id for attach / resume")
     parser.add_argument("-d", "--dir", default=".", help="Workspace folder")
     parser.add_argument("--attach", default="", help="TUI: attach to an existing run id")

@@ -59,7 +59,7 @@ Turėtum pamatyti auksaspalvio retriverio plakatą. Įrašyk užduotį, spausk E
 Vienu kartu:
 
 ```bash
-rocky -d /tmp/rocky-demo "parašyk trijų sakinių santrauką į summary.md"
+rocky -d /tmp/rocky-demo "parašyk trijų sakinių santrauką į deliverables/summary.md"
 ```
 
 Interaktyvi trijų langų žiūryklė:
@@ -97,7 +97,7 @@ rocky help
 | `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
 | `rocky config` | Parodo Rocky skaitomus konfigūracijos failus, galiojantį biudžetą / ciklus / darbuotoją / kalbą ir pavyzdinį failą, jei jo nėra. |
 | `rocky doctor` | Patikrina raktą, „OpenRouter“ pasiekiamumą, katalogą, smėlio dėžę, naršyklę, įgūdžius. Išeities kodas 1, jei kas nors sugedę. |
-| `rocky help` | Angliškas vadovas. |
+| `rocky help` | Angliškas vadovas. `rocky --help` viename ekrane išvardija komandas ir parametrus. |
 
 ---
 
@@ -241,7 +241,7 @@ Langai: **planas** | **darbas** | **tikrinimas**. Rašyk laukelyje apačioje.
 | Klavišas | Veiksmas |
 | --- | --- |
 | Enter | Pateikti naują tikslą arba atsakyti į klausimą |
-| q, tada Enter | Atsijungti (paleidimo **nenužudo**) |
+| q, tada Enter | Atsijungti (paleidimo **nenužudo**; įvesties laukelis veikia ir kol paleidimas rodomas) |
 | Ctrl+Q | Uždaryti TUI |
 | Page Up / Page Down | Slinkti darbo žurnalą |
 | Tempimas pele | Žymėti tekstą |
@@ -303,7 +303,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
 
 ### Vaizdai
 
@@ -387,7 +387,7 @@ Kol darbuotojai dirba, Rocky vieną kartą įspėja (`budget_warn`, etapas `half
 | `Cannot reach OpenRouter after 4 attempts` | Tinklas, DNS ar tarpinis serveris. Katalogo užklausa ir kiekvienas užbaigimas pirmiausia kartojami su pauzėmis; patikrink ryšį, tada `rocky doctor` |
 | `ModuleNotFoundError: rocky` | Įdiek iš naujo be `--editable` (Python 3.13) |
 | `rocky: command not found` | `uv tool install --force --reinstall .` iš klono; `~/.local/bin` turi būti `PATH` |
-| TUI „nieko nevyksta“ | Palauk, kol atsisiųs katalogas; „working…“ turėtum matyti iškart. Patikrink raktą. |
+| TUI „nieko nevyksta“ | Palauk, kol atsisiųs katalogas; būsenos eilutė rodo „starting“, tada „fetching models“. Jei taip ir lieka, patikrink raktą su `rocky doctor`. |
 | Kopijavimas TUI neveikia | Pažymėk tekstą, tada Cmd+C. Išeik su **q**, ne Ctrl+C. |
 | Paleidimas mirė uždarius langą | Neturėtų. `rocky ps` — jei būsena `crashed`, skaityk `.rocky/runs/<id>/worker.log`, tada `rocky resume` |
 | Paleidimas baigėsi `error` / `crashed` pusiaukelėje | `rocky resume [id]` — tęsia nuo išsaugoto plano ir jau parašytų failų |

@@ -32,6 +32,7 @@ class GoalInput(Input):
 
     BINDINGS = [
         Binding("super+v", "paste", "Paste", show=False),
+        Binding("ctrl+v", "paste", "Paste", show=False),
         Binding("ctrl+shift+v", "paste", "Paste", show=False),
     ]
 
@@ -131,7 +132,7 @@ class OrcheTui(App):
             )
             return
         if self._busy:
-            self.query_one("#work_log", Log).write_line("palauk — dar dirba (q atsikabina)")
+            self.query_one("#work_log", Log).write_line("palauk — dar dirba (q + Enter atsikabina, rocky stop nutraukia)")
             return
         self._start(text)
 
@@ -169,7 +170,9 @@ class OrcheTui(App):
         self._awaiting_ask = False
         self._ask_ts = None
         self.sub_title = f"{run_id}  ·  q detaches"
-        self.query_one("#goal_in", GoalInput).disabled = True
+        # The input stays enabled while the run streams: `q` + Enter detaches, and a
+        # clarify / budget question can be answered in the same box.
+        self.query_one("#goal_in", GoalInput).placeholder = "q + Enter atsikabina (darbas tęsiasi)   ·   atsakymas į klausimą čia"
         stop = self._follow_stop
         self.run_worker(lambda: self._follow(run_id, stop), exclusive=True, thread=True, exit_on_error=False)
 
@@ -209,7 +212,7 @@ class OrcheTui(App):
         if not self._pulse.startswith("done"):
             self._pulse = "ready"
             self.query_one("#pulse", Static).update("ready")
-        self.query_one("#goal_in", GoalInput).disabled = False
+        self.query_one("#goal_in", GoalInput).placeholder = "Užduotis + Enter   ·   q atsikabina   ·   PgUp  ·   ⌘C copy"
         self.query_one("#goal_in", GoalInput).focus()
 
     def _emit(self, event: Event) -> None:

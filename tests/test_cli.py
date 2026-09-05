@@ -197,3 +197,22 @@ def test_lithuanian_guide_keeps_parity_with_help():
         assert token in en, f"{token} missing from HELP.md"
         assert token.replace("100k", "100 tūkst.") in lt, f"{token} missing from docs/lt.md"
     assert "„" in lt and '"citata"' not in lt  # Lithuanian quotes
+
+
+def test_dash_dash_help_lists_the_subcommands(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["--help"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    for cmd in ("rocky ps", "rocky stop", "rocky resume", "rocky open", "rocky cost", "rocky config", "rocky doctor", "--model", "--lang"):
+        assert cmd in out, cmd
+
+
+def test_tui_input_stays_enabled_while_a_run_streams():
+    import inspect
+
+    from rocky import tui
+
+    src = inspect.getsource(tui.RockyTui._watch) if hasattr(tui, "RockyTui") else inspect.getsource(tui.OrcheTui._watch)
+    assert "disabled = True" not in src, "q + Enter must be able to detach during a run"
+    assert any(b.key == "ctrl+v" for b in tui.GoalInput.BINDINGS)

@@ -57,7 +57,7 @@ You should see a golden retriever banner. Type a task, press Enter.
 One shot:
 
 ```bash
-rocky -d /tmp/rocky-demo "write a 3-sentence summary to summary.md"
+rocky -d /tmp/rocky-demo "write a 3-sentence summary to deliverables/summary.md"
 ```
 
 Interactive three-pane viewer:
@@ -95,7 +95,7 @@ rocky help
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
 | `rocky config` | Show the config files Rocky reads, the effective budget / loops / worker / language, and an example file if there is none. |
 | `rocky doctor` | Check key, OpenRouter access, folder, sandbox, browser, skills. Exit 1 if anything is broken. |
-| `rocky help` | Print this guide. |
+| `rocky help` | Print this guide. `rocky --help` lists the commands and flags in one screen. |
 
 ---
 
@@ -237,7 +237,7 @@ Panes: **plan** | **work** | **verify**. Type in the box at the bottom.
 | Key | Action |
 | --- | --- |
 | Enter | Submit a new goal, or answer a question |
-| q then Enter | Detach (does **not** kill the run) |
+| q then Enter | Detach (does **not** kill the run; the input stays usable while a run streams) |
 | Ctrl+Q | Quit the TUI |
 | Page Up / Page Down | Scroll the work log |
 | Drag | Select text |
@@ -299,7 +299,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, plus any **MCP** tools you configure (below).
 
 ### Images
 
@@ -383,7 +383,7 @@ While workers run, Rocky warns once (`budget_warn`, stage `half`) when **50 % of
 | `Cannot reach OpenRouter after 4 attempts` | Network, DNS, or proxy. The catalog fetch and every completion are retried with backoff first; check the connection, then `rocky doctor` |
 | `ModuleNotFoundError: rocky` | Reinstall without `--editable` (Python 3.13) |
 | `rocky: command not found` | `uv tool install --force --reinstall .` from the clone; ensure `~/.local/bin` is on `PATH` |
-| TUI “nothing happens” | Wait for catalog fetch; you should see “working…” immediately. Check the key. |
+| TUI “nothing happens” | Wait for the catalog fetch; the status line shows “starting”, then “fetching models”. If it stays there, check the key with `rocky doctor`. |
 | Copy does not work in TUI | Select text, then Cmd+C. Quit with **q**, not Ctrl+C. |
 | Run died after closing the window | It should not. `rocky ps` — if status is `crashed`, read `.rocky/runs/<id>/worker.log`, then `rocky resume` |
 | Run ended `error` / `crashed` mid-way | `rocky resume [id]` — continues from the saved plan and the files already written |
