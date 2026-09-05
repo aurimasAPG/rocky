@@ -87,7 +87,8 @@ rocky help
 | `rocky ps` | Šio katalogo paleidimų sąrašas. |
 | `rocky attach` | Vėl prisijungti prie naujausio paleidimo. |
 | `rocky attach ID` | Prisijungti prie to paleidimo (užtenka pradžios). |
-| `rocky resume [ID]` | Pratęsti `unmet` / `error` / `crashed` paleidimą iš išsaugoto plano ir failų. Be ID — naujausią tokį. |
+| `rocky resume [ID]` | Pratęsti `unmet` / `error` / `crashed` / `stopped` paleidimą iš išsaugoto plano ir failų. Be ID — naujausią tokį. |
+| `rocky stop [ID]` | Nutraukti vykstantį darbą dabar. Jau įrašyti failai lieka; paleidimas tampa `stopped` ir gali būti pratęstas. Be ID — naujausią paleidimą. |
 | `rocky serve` | Komandos tinklo sąsaja (numatytai http://127.0.0.1:8787). |
 | `rocky route "tikslas"` | Tik įvertina ir parenka modelius. Be įrankių, be failų. |
 | `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
@@ -142,8 +143,10 @@ Paleidimas yra **atskiras procesas**. Uždarius žiūryklę darbas nenutrūksta.
 
 | Esi | Atsijungti (darbas tęsiasi) |
 | --- | --- |
-| CLI attach | **Enter** |
+| CLI attach | **Enter** arba **Ctrl+C** |
 | TUI | **q**, tada Enter (arba Ctrl+Q) |
+
+Atsijungimas darbo niekada nenutraukia. Nutraukti: `rocky stop` (naujausią paleidimą) arba `rocky stop ID`. Darbas gauna akimirką švariai išeiti, paleidimas pažymimas `stopped`, kas įrašyta — lieka diske, o `rocky resume ID` vėliau jį pratęsia.
 
 Sugrįžti:
 
@@ -189,7 +192,8 @@ Terminale viena būsenos eilutė perrašoma toje pačioje vietoje (kaip Claude C
 
 - Įrašyk tikslą, Enter — paleidžia ir prisijungia.
 - Tuščia eilutė arba `q` **tikslo** eilutėje — išeiti iš Rocky.
-- **Enter**, kol paleidimas rodomas — atsijungti.
+- **Enter** arba **Ctrl+C**, kol paleidimas rodomas — atsijungti (darbas tęsiasi; `rocky stop` jį nutraukia).
+- **Ctrl+C** tikslo eilutėje — išeiti iš Rocky.
 - Jei agentas klausia — įrašyk `yes` / `keep` / skaičių / trumpą atsakymą.
 
 Kopijavimas CLI — įprastas terminalo žymėjimas: pažymėk, tada Cmd+C (macOS) arba Ctrl+C.

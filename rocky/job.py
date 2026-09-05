@@ -11,6 +11,7 @@ from rocky.engine import orchestrate
 from rocky.events import Event
 from rocky.llm import OpenRouterClient
 from rocky.runs import (
+    TERMINAL,
     append_event,
     clear_ask,
     load_resume_state,
@@ -42,12 +43,36 @@ def file_ask_user(folder: Path, question: str, options=None) -> str:
     return "user did not answer; continue with documented assumptions"
 
 
+def _install_stop_handler(folder: Path) -> None:
+    """SIGTERM (rocky stop, kill) ends the job as `stopped`, not `crashed`."""
+    import signal
+
+    def handle(signum, frame):  # noqa: ARG001
+        try:
+            meta = read_meta(folder)
+            if str(meta.get("status") or "") not in TERMINAL:
+                meta["status"] = "stopped"
+                meta["passed"] = False
+                meta["finished"] = _now()
+                meta["summary"] = "stopped by the user"
+                write_meta(folder, meta)
+                append_event(folder, Event(type="done", payload={"passed": False, "status": "stopped", "summary": "stopped by the user"}))
+        finally:
+            os._exit(130)
+
+    try:
+        signal.signal(signal.SIGTERM, handle)
+    except (ValueError, OSError):
+        pass  # not the main thread, or an odd platform — rocky stop still writes meta itself
+
+
 def run_worker(run_id: str, workspace: str | Path) -> int:
     folder = run_dir(workspace, run_id)
     meta = read_meta(folder)
     meta["pid"] = os.getpid()
     meta["status"] = "running"
     write_meta(folder, meta)
+    _install_stop_handler(folder)
 
     def emit(event: Event) -> None:
         append_event(folder, event)

@@ -10,9 +10,11 @@ from typing import Any
 
 from rocky.events import Event
 
-TERMINAL = frozenset({"passed", "passed_with_notes", "unmet", "error", "crashed"})
+TERMINAL = frozenset({"passed", "passed_with_notes", "unmet", "error", "crashed", "stopped"})
 # Runs that `rocky resume` may pick up: they stopped without a clean pass.
-RESUMABLE = frozenset({"unmet", "error", "crashed"})
+RESUMABLE = frozenset({"unmet", "error", "crashed", "stopped"})
+# How long `rocky stop` gives the job to exit after SIGTERM before SIGKILL.
+STOP_GRACE = 3.0
 
 
 def runs_root(workspace: str | Path) -> Path:
@@ -94,6 +96,49 @@ def pid_alive(pid: int | None) -> bool:
     except (OSError, ValueError):
         return False
     return True
+
+
+def stop_run(workspace: str | Path, run_id: str, grace: float = STOP_GRACE) -> dict[str, Any]:
+    """End a running job now. Files already written stay; the run becomes `stopped` and resumable.
+
+    SIGTERM first, SIGKILL after ``grace`` seconds. meta.json and a final
+    `done` event are written here, so a viewer that is attached sees the end
+    even if the job died before its own handler ran.
+    """
+    import signal
+
+    folder = run_dir(workspace, run_id)
+    meta = read_meta(folder)
+    status = str(meta.get("status") or "")
+    if status in TERMINAL:
+        return meta
+    pid = meta.get("pid")
+    if pid_alive(pid):
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+        except OSError:
+            pass
+        deadline = time.monotonic() + max(float(grace), 0.0)
+        while pid_alive(pid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        if pid_alive(pid):
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except OSError:
+                pass
+    meta = read_meta(folder)
+    if str(meta.get("status") or "") not in TERMINAL:
+        meta["status"] = "stopped"
+        meta["passed"] = False
+        meta["finished"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        meta.setdefault("summary", "stopped by the user")
+        write_meta(folder, meta)
+        append_event(
+            folder,
+            Event(type="done", payload={"passed": False, "status": "stopped", "summary": "stopped by the user"}),
+        )
+    clear_ask(folder)
+    return meta
 
 
 def refresh_meta(folder: Path) -> dict[str, Any]:

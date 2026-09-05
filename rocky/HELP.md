@@ -85,7 +85,8 @@ rocky help
 | `rocky ps` | List runs in this folder. |
 | `rocky attach` | Reattach to the latest run. |
 | `rocky attach ID` | Reattach to that run (prefix is enough). |
-| `rocky resume [ID]` | Continue an `unmet` / `error` / `crashed` run from its saved plan and files. No id = the latest one. |
+| `rocky resume [ID]` | Continue an `unmet` / `error` / `crashed` / `stopped` run from its saved plan and files. No id = the latest one. |
+| `rocky stop [ID]` | End a running job now. Files already written stay; the run becomes `stopped` and can be resumed. No id = the latest run. |
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
@@ -138,8 +139,10 @@ A run is a **separate process**. Closing the viewer does not kill the job.
 
 | You are in | Detach (job keeps going) |
 | --- | --- |
-| CLI attach | **Enter** |
+| CLI attach | **Enter** or **Ctrl+C** |
 | TUI | **q** then Enter (or Ctrl+Q) |
+
+Detaching never kills the job. To end it: `rocky stop` (latest run) or `rocky stop ID`. The job gets a moment to exit cleanly, the run is marked `stopped`, whatever it wrote stays on disk, and `rocky resume ID` picks it up later.
 
 Come back:
 
@@ -185,7 +188,8 @@ On a TTY, one spinner line is rewritten in place (Claude Code / OpenCode style):
 
 - Type a goal, Enter — start a run and attach.
 - Empty line or `q` at the **goal** prompt — leave Rocky.
-- **Enter** while a run is streaming — detach.
+- **Enter** or **Ctrl+C** while a run is streaming — detach (the job keeps going; `rocky stop` ends it).
+- **Ctrl+C** at the goal prompt — leave Rocky.
 - If the agent asks a question — type `yes` / `keep` / a number / a short answer.
 
 Copy-paste in the CLI is normal terminal selection: drag, then Cmd+C (macOS) or Ctrl+C.

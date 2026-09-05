@@ -22,6 +22,7 @@ from rocky.runs import (
     resolve_resumable,
     resolve_run_id,
     run_dir,
+    stop_run,
     write_answer,
 )
 from rocky.status import TRANSCRIPT_TYPES, status_line
@@ -54,7 +55,8 @@ def _help() -> int:
 def prompt_goal(label: str = "Užduotis") -> str:
     try:
         line = input(f"{label}: ").strip()
-    except EOFError:
+    except (EOFError, KeyboardInterrupt):
+        sys.stdout.write("\n")
         return ""
     if line.lower() in {"q", "quit", "exit"}:
         return ""
@@ -63,7 +65,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "doctor", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "stop", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -129,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
             console.print(f"[red]{exc}[/]")
             return 1
         return _attach(workspace, run_id)
+    if command == "stop":
+        return _stop(workspace, goal or None)
     if command == "doctor":
         return _doctor(workspace)
 
@@ -221,11 +225,30 @@ def _ps(workspace: Path) -> int:
             "unmet": "red",
             "error": "red",
             "crashed": "red",
+            "stopped": "yellow",
         }.get(status, "white")
         origin = f" [dim]↻ {str(row.get('resume_from'))[:15]}[/]" if row.get("resume_from") else ""
         console.print(f"{ident:26} [{color}]{status:<10}[/] {goal}{origin}")
-    console.print("[dim]rocky attach [id]   ·   rocky resume [id]   ·   Enter while attached detaches[/]")
+    console.print("[dim]rocky attach [id]   ·   rocky resume [id]   ·   rocky stop [id]   ·   Enter while attached detaches[/]")
     return 0
+
+
+def _stop(workspace: Path, ident: str | None) -> int:
+    """`rocky stop [id]`: end the job now; what it wrote stays, and the run can be resumed."""
+    try:
+        run_id = resolve_run_id(workspace, ident)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 1
+    before = refresh_meta(run_dir(workspace, run_id)).get("status") or ""
+    if before in TERMINAL:
+        console.print(f"[dim]{run_id} already {before} — nothing to stop[/]")
+        return 0
+    meta = stop_run(workspace, run_id)
+    console.print(f"[bold]stopped[/] {run_id}  ·  was {before}")
+    console.print("[dim]files already written stay in the workspace[/]")
+    console.print(f"[dim]continue with  rocky resume {run_id}[/]")
+    return 0 if meta.get("status") == "stopped" else 1
 
 
 def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_out=False) -> int:
@@ -389,7 +412,7 @@ def _attach(workspace: Path, run_id: str) -> int:
     cursor = EventCursor(folder / "events.jsonl")
     console.print(f"[bold]attach[/] {run_id}")
     if sys.stdin.isatty():
-        console.print("[dim]Enter = detach (do not kill)[/]")
+        console.print(f"[dim]Enter or Ctrl+C = detach, the job keeps going  ·  rocky stop {run_id[:15]} = end it[/]")
     live = sys.stdout.isatty()
     pulse = None
     if live:
@@ -443,6 +466,14 @@ def _attach(workspace: Path, run_id: str) -> int:
                     pulse.stop()
                 console.print(f"[dim]detached  {run_id}  still {status or 'running'}[/]")
                 return 0
+    except KeyboardInterrupt:
+        if pulse is not None:
+            pulse.stop()
+        console.print(
+            f"\n[dim]detached  {run_id}  still running in the background  ·  "
+            f"rocky attach {run_id[:15]} to watch  ·  rocky stop {run_id[:15]} to end it[/]"
+        )
+        return 0
     finally:
         if pulse is not None:
             pulse.stop()
