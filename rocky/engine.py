@@ -1394,7 +1394,9 @@ def _run_subtask(
                             "You stopped, but this step must write these files and they were not written "
                             "(missing, empty, or untouched since the step began): "
                             + ", ".join(missing)
-                            + ". Write them now with write_file (or bash for Office files), then summarise."
+                            + ". Write them now: write_file / append_file for text; for .pptx .xlsx .docx .pdf "
+                            "run your script with bash (python3 runs/notes/make_x.py) — a script on disk is not "
+                            "the deliverable until it has run and the file exists. Then summarise."
                         ),
                     }
                 )
