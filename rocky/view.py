@@ -218,6 +218,8 @@ def render_event(event: Event) -> None:
         missing = ", ".join(str(m) for m in payload.get("missing") or [])
         if payload.get("reason") == "turns":
             text = f"nudge  {payload.get('subtask')} ran out of turns before writing {missing or 'its files'} · last pass, writing only"
+        elif payload.get("reason") == "turns_left":
+            text = f"nudge  {payload.get('subtask')} has {payload.get('left')} turns left and {missing or 'its files'} unwritten · told to write now"
         else:
             text = f"nudge  {payload.get('subtask')} stopped without writing {missing or 'its files'} · asked again ({payload.get('n')})"
         console.print(Text(text, style=f"#{APRICOT}"))

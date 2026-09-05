@@ -1445,3 +1445,29 @@ def test_verdict_issue_objects_become_one_line_each():
     })
     assert v["blocking"] == ["deliverables/plan.md: missing", "plain string", "no path"]
     assert v["issues"] == ["a.md: typo"]
+
+
+def test_worker_is_warned_five_turns_before_the_cap(tmp_path, monkeypatch):
+    from rocky.engine import MAX_SUBTASK_TURNS, TURNS_WARN_LEFT
+
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr("rocky.engine.WebTools.search", lambda self, query, **k: f"result for {query}", raising=False)
+
+    class HeedsWarning(ResearchForeverClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You execute this subtask" in system and messages[-1]["role"] == "user" and "turns are left" in messages[-1]["content"]:
+                self.warned_at = self.searches
+                return Completion(content="", tool_calls=[ToolCall(id="w", name="write_file",
+                                  arguments={"path": "runs/notes/research.md", "content": "# early\n"})])
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    client = HeedsWarning()
+    events = []
+    orchestrate(goal="Write a short article", workspace=tmp_path, client=client, models=MODELS,
+                emit=events.append, max_loops=1, budget_eur=5.0, eur_rate=0.92, include_server_tools=False)
+    assert client.warned_at == MAX_SUBTASK_TURNS - TURNS_WARN_LEFT
+    assert (tmp_path / "runs/notes/research.md").read_text() == "# early\n"
+    warn = [e.payload for e in events if e.type == "nudge" and e.payload.get("reason") == "turns_left"]
+    assert warn and warn[0]["left"] == TURNS_WARN_LEFT
+    assert not any(e.type == "subtask_incomplete" for e in events)

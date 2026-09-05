@@ -49,6 +49,8 @@ from rocky.waves import schedule_waves
 MAX_SUBTASK_TURNS = 20
 # Extra turns a worker gets after the cap, writing tools only, to save what it found.
 FINAL_WRITE_TURNS = 2
+# With this many turns left and declared files still unwritten, the worker is told so.
+TURNS_WARN_LEFT = 5
 WRITE_ONLY_TOOLS = frozenset({"write_file", "append_file", "patch", "bash", "read_file", "list_dir", "todo"})
 # Read-only tool turns the verifier may spend inspecting the workspace.
 MAX_VERIFY_TURNS = 6
@@ -1351,9 +1353,28 @@ def _run_subtask(
             )
 
     turns = 0
+    warned_turns = False
     for turns in range(1, MAX_SUBTASK_TURNS + 1):
         if cost_so_far() >= budget or aborted:
             break
+        left = MAX_SUBTASK_TURNS - turns + 1
+        if left == TURNS_WARN_LEFT and not warned_turns and expected:
+            missing_now = _missing_files(tools, expected, since=started_at)
+            if missing_now:
+                # A research step happily spends every turn on the web; say when the end is near.
+                warned_turns = True
+                fire("nudge", subtask=step.get("title"), missing=missing_now, n=nudges, reason="turns_left", left=left)
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Only {left} turns are left in this step and these files are still not written: "
+                            + ", ".join(missing_now)
+                            + ". Write them now from what you have (write_file, then append_file for long text); "
+                            "search more only if turns remain after that."
+                        ),
+                    }
+                )
         squeezed = compact(messages, context_length=worker_context, summarize=summarize)
         if squeezed:
             fire("compact", subtask=step.get("title"), **squeezed)
