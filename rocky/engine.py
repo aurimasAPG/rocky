@@ -336,6 +336,7 @@ def orchestrate(
             eur_before=resume.get("eur"),
             replan=bool(resume.get("replan")),
             done_steps=list(resume.get("done_steps") or []),
+            follow_up=resume.get("follow_up") or "",
         )
         fire("assessed", resumed=True, **{k: assessment[k] for k in assessment})
     else:

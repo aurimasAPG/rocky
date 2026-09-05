@@ -261,16 +261,26 @@ def _estimate_and_cost_from_events(path: Path) -> dict[str, Any]:
     return out
 
 
-def resolve_resumable(workspace: str | Path, ident: str | None) -> str:
-    """A run id `rocky resume` may continue: the given one, or the latest that did not pass."""
+def resolve_resumable(workspace: str | Path, ident: str | None, follow_up: bool = False) -> str:
+    """A run id `rocky resume` may continue: the given one, or the latest that did not pass.
+
+    With ``follow_up`` any finished run qualifies — a passed run is the usual
+    target of "now make it shorter".
+    """
+    allowed = TERMINAL if follow_up else RESUMABLE
     if ident:
         run_id = resolve_run_id(workspace, ident)
         status = str(refresh_meta(run_dir(workspace, run_id)).get("status") or "")
-        if status not in RESUMABLE:
-            raise FileNotFoundError(f"run {run_id} is {status or 'unknown'} — only unmet, error, or crashed runs can be resumed")
+        if status not in allowed:
+            if status in TERMINAL:
+                raise FileNotFoundError(
+                    f"run {run_id} is {status} — it needs no resume; to build on it, say what to change: "
+                    f'rocky resume {run_id[:15]} "make it shorter"'
+                )
+            raise FileNotFoundError(f"run {run_id} is {status or 'unknown'} — it is still going; rocky attach or rocky stop first")
         return run_id
     for row in list_runs(workspace):
-        if str(row.get("status") or "") not in RESUMABLE:
+        if str(row.get("status") or "") not in allowed:
             continue
         try:
             load_resume_state(run_dir(workspace, str(row["id"])))
@@ -280,7 +290,7 @@ def resolve_resumable(workspace: str | Path, ident: str | None) -> str:
     raise FileNotFoundError("no unmet, error, or crashed run with a plan to resume in this folder")
 
 
-def load_resume_state(folder: Path) -> dict[str, Any]:
+def load_resume_state(folder: Path, follow_up: str = "") -> dict[str, Any]:
     """Everything a new run needs to continue this one: plan, cast, verdict, finished steps.
 
     All of it already sits in events.jsonl. Steps count as done only when they
@@ -340,6 +350,22 @@ def load_resume_state(folder: Path) -> dict[str, Any]:
         )
     state["replan"] = judged
     state["done_steps"] = [] if judged else [i for i in done if i not in incomplete]
+    follow_up = (follow_up or "").strip()
+    if follow_up:
+        # A new instruction on top of the old result: keep assessment, critic, cast and
+        # the deliverable path; replan from the instruction as if the verifier had asked for it.
+        state["follow_up"] = follow_up
+        state["goal"] = follow_up
+        state["replan"] = True
+        state["done_steps"] = []
+        state["verify"] = {
+            "passed": False,
+            "score": 0.0,
+            "summary": f"The user looked at the previous result and asked: {follow_up}",
+            "blocking": [follow_up],
+            "issues": [],
+            "remaining": [],
+        }
     return state
 
 

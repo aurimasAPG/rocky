@@ -43,9 +43,12 @@ def render_event(event: Event) -> None:
         return
     if kind == "resumed":
         done = payload.get("done_steps") or []
-        what = "replanning from the last verdict" if payload.get("replan") else (
-            f"skipping finished steps {done}" if done else "redoing every step"
-        )
+        if payload.get("follow_up"):
+            what = f"follow-up on its result: {payload['follow_up']}"
+        elif payload.get("replan"):
+            what = "replanning from the last verdict"
+        else:
+            what = f"skipping finished steps {done}" if done else "redoing every step"
         spent = f"  ·  €{payload.get('eur_before')} spent before" if payload.get("eur_before") is not None else ""
         console.print(
             Text(f"resume  from {payload.get('from_run')} · {what}{spent}", style=f"bold #{APRICOT}")

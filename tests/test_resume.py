@@ -238,3 +238,104 @@ def test_run_history_reads_meta_or_falls_back_to_events(tmp_path):
     rows = {r["id"]: r for r in run_history(tmp_path)}
     assert rows[newer["id"]]["eur"] == 0.5 and rows[newer["id"]]["estimated_eur"] == 0.9
     assert rows[run_id]["eur"] == 1.2 and rows[run_id]["estimated_eur"] == 0.9 and rows[run_id]["complexity"] == "moderate"
+
+
+def _passed_run(tmp_path, deliverable="deliverables/article.md"):
+    run_id, folder = _crashed_run(tmp_path, done_steps=(1, 2), judged=True, status="passed")
+    from rocky.runs import read_meta
+
+    meta = read_meta(folder)
+    meta.update(status="passed", passed=True, deliverable_path=deliverable, deliverable_exists=True, files=[deliverable])
+    write_meta(folder, meta)
+    (tmp_path / deliverable).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / deliverable).write_text("# Ads\n\nlong text\n", encoding="utf-8")
+    return run_id, folder
+
+
+def test_follow_up_state_replans_from_the_instruction(tmp_path):
+    run_id, folder = _passed_run(tmp_path)
+    with pytest.raises(FileNotFoundError, match="make it shorter"):
+        resolve_resumable(tmp_path, run_id)
+    assert resolve_resumable(tmp_path, run_id, follow_up=True) == run_id
+    assert resolve_resumable(tmp_path, None, follow_up=True) == run_id
+    state = load_resume_state(folder, follow_up="sutrumpink iki 300 žodžių")
+    assert state["goal"] == "sutrumpink iki 300 žodžių"
+    assert state["replan"] is True and state["done_steps"] == []
+    assert state["verify"]["blocking"] == ["sutrumpink iki 300 žodžių"]
+    assert state["plan"]["deliverable_path"] == "article.md"
+
+
+def test_follow_up_run_replans_on_the_same_file_without_assessing_again(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    _, folder = _passed_run(tmp_path, deliverable="article.md")
+    state = load_resume_state(folder, follow_up="make it shorter")
+
+    class Planner(ResumingClient):
+        def __init__(self):
+            super().__init__()
+            self.plan_input = None
+
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            system = messages[0]["content"] if messages else ""
+            if "You write the plan" in system:
+                self.plan_input = json.loads(messages[-1]["content"])
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    client = Planner()
+    events = []
+    orchestrate(goal=state["goal"], workspace=tmp_path, client=client, models=MODELS, emit=events.append,
+                max_loops=1, budget_eur=1.0, eur_rate=0.92, resume=state)
+    assert not any("You assess tasks" in p or "You critique briefs" in p for p in client.prompts)
+    assert client.plan_input["revision_from_verifier"]["blocking"] == ["make it shorter"]
+    assert client.plan_input["deliverable_path_fixed"] == "article.md"
+    resumed = next(e.payload for e in events if e.type == "resumed")
+    assert resumed["follow_up"] == "make it shorter"
+
+
+def test_cli_resume_with_an_instruction_targets_a_passed_run(tmp_path, monkeypatch):
+    from rocky.cli import main, split_resume_args
+
+    assert split_resume_args(["20260905-1200-ab", "make", "it", "shorter"]) == ("20260905-1200-ab", "make it shorter")
+    assert split_resume_args(["make", "it", "shorter"]) == (None, "make it shorter")
+    assert split_resume_args([]) == (None, "")
+
+    run_id, _ = _passed_run(tmp_path)
+    spawned = {}
+    monkeypatch.setattr("rocky.cli.api_key", lambda: "sk-test")
+    monkeypatch.setattr("rocky.cli.spawn_worker", lambda meta: spawned.update(meta) or 1)
+    monkeypatch.setattr("rocky.cli._attach", lambda workspace, rid: 0)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
+    assert main(["resume", "-d", str(tmp_path)]) == 1, "a passed run is not resumed without an instruction"
+    assert main(["resume", run_id[:12], "make it shorter", "-d", str(tmp_path)]) == 0
+    assert spawned["resume_from"] == run_id and spawned["goal"] == "make it shorter"
+    assert main(["resume", "sutrumpink", "-d", str(tmp_path)]) == 0
+    assert spawned["goal"] == "sutrumpink"
+
+
+def test_cli_open_prints_the_deliverable_or_the_partial_files(tmp_path, monkeypatch, capsys):
+    from rocky.cli import main
+
+    launched = []
+    monkeypatch.setattr("rocky.cli.open_path", lambda path: launched.append(path) or True)
+    run_id, folder = _passed_run(tmp_path)
+    assert main(["open", "-d", str(tmp_path)]) == 0
+    assert launched == [tmp_path / "deliverables/article.md"]
+    assert "deliverables/article.md" in capsys.readouterr().out
+    (tmp_path / "deliverables/article.md").unlink()
+    (tmp_path / "notes.md").write_text("x")
+    from rocky.runs import read_meta
+
+    meta = read_meta(folder)
+    meta["files"] = ["notes.md"]
+    write_meta(folder, meta)
+    assert main(["open", run_id[:10], "-d", str(tmp_path)]) == 1
+    out = capsys.readouterr().out
+    assert "no deliverable" in out and "notes.md" in out

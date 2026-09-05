@@ -89,6 +89,8 @@ rocky help
 | `rocky attach ID` | Prisijungti prie to paleidimo (užtenka pradžios). |
 | `rocky resume [ID]` | Pratęsti `unmet` / `error` / `crashed` / `stopped` paleidimą iš išsaugoto plano ir failų. Be ID — naujausią tokį. |
 | `rocky stop [ID]` | Nutraukti vykstantį darbą dabar. Jau įrašyti failai lieka; paleidimas tampa `stopped` ir gali būti pratęstas. Be ID — naujausią paleidimą. |
+| `rocky resume [ID] "ką pakeisti"` | Tęsti nuo **bet kurio** baigto paleidimo, įskaitant pavykusius: ta pati sudėtis, tas pats failas, be naujo įvertinimo / kritikos; planuotojas pradeda nuo tavo nurodymo. |
+| `rocky open [ID]` | Atidaro paleidimo galutinį failą sistemos programa ir išspausdina jo kelią. Be ID — naujausią paleidimą. |
 | `rocky serve` | Komandos tinklo sąsaja (numatytai http://127.0.0.1:8787). |
 | `rocky route "tikslas"` | Tik įvertina ir parenka modelius. Be įrankių, be failų. |
 | `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
@@ -179,6 +181,16 @@ rocky resume --budget 3 # naujos lubos tęsiniui
 Viskas, ko reikia, jau guli `events.jsonl` ir darbo kataloge: įvertinimas, kritiko kartelė, planas, sudėtis, paskutinis verdiktas ir kurie žingsniai baigti. Pratęstas paleidimas **nemoka** už įvertinimą / kritiką / planą antrą kartą. Žingsniai, baigti po paskutinio plano ir kurių `writes` failai tebėra diske, praleidžiami (`subtask_skipped` įvykis); kiti vykdomi įprastai. Jei senąjį paleidimą tikrintojas jau buvo įvertinęs, pratęsimas pradedamas perplanavimu nuo to verdikto. Naujas paleidimas gauna savo ID, susiejamas su senuoju (`rocky ps` rodo `↻`) ir palieka senąsias lubas, nebent nurodai `--budget`.
 
 Laikini „OpenRouter“ sutrikimai — laiko limitai, nutrūkęs ryšys, 408 / 429 / 5xx, tušti atsakymai — kartojami iki 3 kartų su pauze, kol paleidimas pasiduoda, tad vienas sutrikimas 25 minučių darbo nebenužudo.
+
+### Tęsti nuo gero rezultato
+
+```bash
+rocky open                                   # atidaro naujausią galutinį failą
+rocky resume "sutrumpink iki 300 žodžių"     # tęsia nuo naujausio baigto paleidimo
+rocky resume 20260905-11 "pridėk CTA kiekvienam skelbimui"  # arba nuo to konkretaus
+```
+
+Pavykęs paleidimas niekada nepratęsiamas toks, koks yra (nėra ko perdaryti), bet su nurodymu jis tampa **tęsinio** pagrindu: įvertinimas, kritiko kartelė, sudėtis ir galutinio failo kelias išlieka, o planuotojas perplanuoja nuo tavo nurodymo taip, lyg jo būtų paprašęs tikrintojas. Naujas paleidimas susiejamas su senuoju kaip bet kuris pratęsimas. Interaktyvioje CLI tas pats nutinka tiesiog įrašius kitą nurodymą — atmintis jį susieja su paskutiniu galutiniu failu, — bet `resume` praleidžia įvertinimo / kritikos kvietimus ir prisega failą.
 
 ---
 

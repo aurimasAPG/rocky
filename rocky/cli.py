@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import select
 import sys
 import time
@@ -65,7 +67,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "stop", "doctor", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "attach", "resume", "stop", "open", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -133,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         return _attach(workspace, run_id)
     if command == "stop":
         return _stop(workspace, goal or None)
+    if command == "open":
+        return _open(workspace, goal or None)
     if command == "doctor":
         return _doctor(workspace)
 
@@ -142,11 +146,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if command == "resume":
+        ident, follow_up = split_resume_args(args.goal)
         return _resume(
             workspace,
-            goal or None,
+            ident,
             budget_eur=args.budget if budget_given else None,
             json_out=bool(args.json_out),
+            follow_up=follow_up,
         )
 
     client = OpenRouterClient(key, base_url())
@@ -188,6 +194,10 @@ def main(argv: list[str] | None = None) -> int:
             if not nxt:
                 return code
             code = _dispatch(command, client, nxt, workspace, args)
+            if command == "run":
+                console.print(
+                    "[dim]rocky open — atidaro rezultatą  ·  rocky resume \"ką pakeisti\" — tęsia nuo šio rezultato[/]"
+                )
     finally:
         client.close()
 
@@ -301,11 +311,67 @@ def _onboard(workspace: Path) -> str:
     return raw
 
 
-def _resume(workspace: Path, ident: str | None, *, budget_eur: float | None, json_out: bool = False) -> int:
-    """Continue an unmet / error / crashed run from its saved plan and files."""
+_RUN_ID = re.compile(r"^\d{8}-")
+
+
+def split_resume_args(tokens: list[str]) -> tuple[str | None, str]:
+    """`rocky resume [id] [instruction…]` → (id or None, instruction). Run ids start with a date."""
+    tokens = [t for t in (tokens or []) if t.strip()]
+    if tokens and _RUN_ID.match(tokens[0]):
+        return tokens[0], " ".join(tokens[1:]).strip()
+    return None, " ".join(tokens).strip()
+
+
+def _open(workspace: Path, ident: str | None) -> int:
+    """`rocky open [id]`: open the run's deliverable with the system opener and print its path."""
     try:
-        run_id = resolve_resumable(workspace, ident)
-        state = load_resume_state(run_dir(workspace, run_id))
+        run_id = resolve_run_id(workspace, ident)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 1
+    meta = refresh_meta(run_dir(workspace, run_id))
+    rel = str(meta.get("deliverable_path") or "")
+    path = (workspace / rel) if rel else None
+    if path is None or not path.is_file():
+        files = [f for f in meta.get("files") or [] if (workspace / str(f)).is_file()]
+        console.print(f"[red]no deliverable for {run_id}[/]" + (f"  ({rel} is not on disk)" if rel else ""))
+        if files:
+            console.print("[dim]files it did write:[/] " + ", ".join(files))
+        return 1
+    console.print(f"[bold]{path}[/]")
+    opened = open_path(path)
+    if not opened:
+        console.print("[dim]could not launch an opener on this system — the path above is the file[/]")
+    return 0
+
+
+def open_path(path: Path) -> bool:
+    import subprocess
+
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        elif sys.platform.startswith("win"):
+            os.startfile(str(path))  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except (OSError, AttributeError):
+        return False
+    return True
+
+
+def _resume(
+    workspace: Path,
+    ident: str | None,
+    *,
+    budget_eur: float | None,
+    json_out: bool = False,
+    follow_up: str = "",
+) -> int:
+    """Continue an unmet / error / crashed / stopped run — or, with an instruction, build on any finished one."""
+    try:
+        run_id = resolve_resumable(workspace, ident, follow_up=bool(follow_up))
+        state = load_resume_state(run_dir(workspace, run_id), follow_up=follow_up)
     except FileNotFoundError as exc:
         console.print(f"[red]{exc}[/]")
         return 1
@@ -321,9 +387,12 @@ def _resume(workspace: Path, ident: str | None, *, budget_eur: float | None, jso
     if json_out:
         return _run_json(workspace, meta["id"])
     done = state.get("done_steps") or []
-    what = "replan from the last verdict" if state.get("replan") else (
-        f"skip finished steps {done}" if done else "redo the plan's steps"
-    )
+    if follow_up:
+        what = f"follow-up: {follow_up}"
+    elif state.get("replan"):
+        what = "replan from the last verdict"
+    else:
+        what = f"skip finished steps {done}" if done else "redo the plan's steps"
     console.print(
         f"[dim]resume {run_id} → run {meta['id']}  ·  {what}  ·  cap €{meta['budget_eur']:.2f}  ·  Enter detaches[/]"
     )

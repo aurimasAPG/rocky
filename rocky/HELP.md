@@ -87,6 +87,8 @@ rocky help
 | `rocky attach ID` | Reattach to that run (prefix is enough). |
 | `rocky resume [ID]` | Continue an `unmet` / `error` / `crashed` / `stopped` run from its saved plan and files. No id = the latest one. |
 | `rocky stop [ID]` | End a running job now. Files already written stay; the run becomes `stopped` and can be resumed. No id = the latest run. |
+| `rocky resume [ID] "what to change"` | Follow up on **any** finished run, passed ones included: same cast, same file, no new assess / critic; the planner starts from your instruction. |
+| `rocky open [ID]` | Open the run's deliverable with the system opener and print its path. No id = the latest run. |
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
@@ -175,6 +177,16 @@ rocky resume --budget 3 # new cap for the continuation
 Everything Rocky needs is already in `events.jsonl` and the workspace: the assessment, the critic's bar, the plan, the cast, the last verdict, and which steps finished. A resumed run does **not** pay for assess / critic / plan again. Steps that finished after the last plan and whose `writes` files are still on disk are skipped (`subtask_skipped` event); the rest run as usual. If the old run had already been judged by the verifier, the resume starts with a replan from that verdict. The new run gets its own id, is linked to the old one (`rocky ps` shows `↻`), and keeps the old cap unless you pass `--budget`.
 
 Transient OpenRouter failures — timeouts, connection drops, 408 / 429 / 5xx, empty answers — are retried up to 3 times with backoff before a run gives up, so a single hiccup no longer kills a 25-minute job.
+
+### Follow up on a good result
+
+```bash
+rocky open                                   # open the latest deliverable
+rocky resume "sutrumpink iki 300 žodžių"     # build on the latest finished run
+rocky resume 20260905-11 "add a CTA per ad"  # or on that one
+```
+
+A passed run is never resumed as-is (there is nothing to redo), but with an instruction it becomes the base of a **follow-up**: the assessment, critic's bar, cast, and the deliverable path are kept, and the planner replans from your instruction as if the verifier had asked for it. The new run is linked to the old one like any resume. In the interactive CLI the same thing happens when you just type the next instruction — memory ties it to the last deliverable — but `resume` skips the assess / critic calls and pins the file.
 
 ---
 
