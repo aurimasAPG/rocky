@@ -59,7 +59,12 @@ at pack level objections, buyer (payer, user, money_metric, money_value, source)
 shortlist_spec, buying_unit with technical_terms, involvement and category — leave a field out rather than guess it. \
 Fill what applies from the facts: complete_product and purchase_route for what the buyer needs and how they get it, delivered and price_position \
 (with scarcity, quality_evidence and evaluation_cue when the copy makes that kind of claim) for every promise and price, and for a set of ads test_design \
-with each ad's selector, qualifier, benefit, offer or attributes so the test holds what it says it holds."""
+with each ad's selector, qualifier, benefit, offer or attributes so the test holds what it says it holds. \
+Where they apply, also fill: endorsements and referral on share or influencer ads; defect on clearance stock; green for any sustainability word; \
+backer and proof_test when testing who backs a proof; placement (name or dwell_seconds, adjacency) and tracking for every non-feed or multi-placement ad; \
+stockist, channel, chain and pack when the product is sold through retailers; activation for in-market buyers; outcomes for brand campaigns; \
+shows with range when visuals could misrepresent the range; or set kind to event_plan (demo, event) or sequence (sequence, inquiries) \
+when the goal is a live demonstration or a message sequence."""
 
 [[steps]]
 id = 3
