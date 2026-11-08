@@ -301,7 +301,13 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, plus any **MCP** tools you configure (below).
+
+### Numbers
+
+`unit_economics` does the arithmetic behind pricing, discounts, promotions and acquisition decisions, so a worker never estimates it in prose: contribution per unit and margin, total contribution, break-even units when `fixed_costs` are given, and for a `new_price` or `discount_pct` the sales needed to keep today's contribution (`required_units`, `extra_units`, `required_uplift_pct`). Give it an `expected_uplift_pct` and it returns a decision plus the unit cost and the uplift at which that decision flips. When `variable_cost` is unknown the result says so under `missing` and gives a conditional table across typical margins; the worker then asks you with `clarify` or labels the assumption.
+
+Ask Rocky "We sell 100 units at €100, variable cost €60. If we cut the price to €90, how many extra sales do we need?" and the answer is **34 extra sales, 134 in total**, to keep €4,000 of contribution.
 
 ### Images
 

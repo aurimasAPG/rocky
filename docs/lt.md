@@ -305,7 +305,13 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+
+### Skaičiai
+
+`unit_economics` atlieka kainodaros, nuolaidų, akcijų ir pritraukimo sprendimų aritmetiką, kad darbuotojas niekada jos nespėliotų tekste: vieneto įnašą (contribution) ir maržą, bendrą įnašą, lūžio taško vienetus, kai nurodytos `fixed_costs`, o nurodžius `new_price` arba `discount_pct` — kiek pardavimų reikia, kad išliktų šiandieninis įnašas (`required_units`, `extra_units`, `required_uplift_pct`). Pridėjus `expected_uplift_pct`, grąžinamas sprendimas ir vieneto savikaina bei augimas, ties kuriais sprendimas apsiverčia. Kai `variable_cost` nežinoma, rezultate tai nurodoma lauke `missing` ir pateikiama sąlyginė lentelė pagal tipines maržas; tada darbuotojas paklausia tavęs per `clarify` arba aiškiai įvardija prielaidą.
+
+Paklausk Rocky: „Parduodame 100 vnt. po 100 €, kintamoji savikaina 60 €. Jei kainą sumažinsime iki 90 €, kiek papildomų pardavimų reikės?“ — atsakymas: **34 papildomi pardavimai, iš viso 134**, kad išliktų 4 000 € įnašo.
 
 ### Vaizdai
 

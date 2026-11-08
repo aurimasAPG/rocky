@@ -447,6 +447,33 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "unit_economics",
+            "description": (
+                "Calculate contribution, margin, break-even and what a price change must win back. "
+                "Use it for every pricing, discount, promotion, offer or acquisition-cost question instead of "
+                "doing the arithmetic yourself. Give numbers per unit in one currency. If variable_cost is unknown "
+                "the result lists it under missing with a conditional table: ask the user (clarify) or state the assumption."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "price": {"type": "number", "description": "current price per unit"},
+                    "variable_cost": {"type": "number", "description": "cost per unit that scales with sales"},
+                    "units": {"type": "number", "description": "current sales per period"},
+                    "fixed_costs": {"type": "number", "description": "costs per period that do not scale, for break-even"},
+                    "new_price": {"type": "number", "description": "the price being considered"},
+                    "discount_pct": {"type": "number", "description": "alternative to new_price: percent off"},
+                    "new_variable_cost": {"type": "number", "description": "cost per unit after the change, if it moves"},
+                    "expected_uplift_pct": {"type": "number", "description": "the volume gain the marketer expects, to get a decision"},
+                    "currency": {"type": "string", "description": "EUR by default"},
+                },
+                "required": ["price"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -813,6 +840,10 @@ def dispatch(
             from rocky.adboard import ad_board_tool
 
             return ad_board_tool(tools, args)
+        if name == "unit_economics":
+            from rocky.calc import unit_economics_tool
+
+            return unit_economics_tool(args)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 

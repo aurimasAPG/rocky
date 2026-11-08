@@ -1317,6 +1317,8 @@ def _run_subtask(
             "role": "system",
             "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
+                "Margins, break-even, discounts, promotions and acquisition costs go through unit_economics; "
+                "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +

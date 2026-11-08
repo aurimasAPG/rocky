@@ -45,6 +45,7 @@ _TOOL_VERB = {
     "vision_analyze": "looking",
     "image_generate": "drawing",
     "ad_board": "building ads",
+    "unit_economics": "calculating",
     "clarify": "asking you",
 }
 
