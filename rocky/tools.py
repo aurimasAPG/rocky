@@ -1426,6 +1426,224 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "seo_inspect",
+            "description": "The search-channel checks to run before paying for traffic, done by code instead of eyeballing titles, URLs, robots.txt and exports. Pick the mode for the question: 'snippet' (are titles and descriptions descriptive, unique, within 60/160 characters, does the snippet's promise and price appear in the H1 and first screen; add query to read competing titles), 'urls' (are addresses readable, do canonical tags, noindex and redirects point one way), 'crawl_rules' (does robots.txt block an important page for Googlebot, which important pages are missing from the sitemaps, which sitemap urls robots blocks), 'structured_data' (does the JSON-LD price, availability and rating match what the page shows), 'crawler_content' (which required facts exist only in rendered_text from browser_snapshot and not in the HTML; images without alt), 'templates' (3-10 pages from one template: unique text share, decision fields present), 'serp' (rank of owned domain and competitors per query or per generated ladder, rule-based intent per result, ambiguous_modifier when no intent reaches 60%), 'keywords' (a Google Ads search-terms CSV/XLSX: term clusters, ad groups that mix needs, negative-keyword candidates with estimated saving). Pages are given as html, a workspace path or a url; a url or query that could not be fetched or searched lands under missing, never guessed. Findings are ordered block / warn / info; fix blocks before buying traffic.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "snippet",
+                            "urls",
+                            "crawl_rules",
+                            "structured_data",
+                            "crawler_content",
+                            "templates",
+                            "serp",
+                            "keywords"
+                        ],
+                        "description": "which check to run"
+                    },
+                    "pages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "url": {
+                                    "type": "string"
+                                },
+                                "path": {
+                                    "type": "string"
+                                },
+                                "html": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "snippet, templates: the pages, one source each"
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "structured_data, crawler_content: the page address"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "structured_data, crawler_content: workspace HTML file; urls: text file with one url per line; keywords: the search-terms export (.csv/.xlsx)"
+                    },
+                    "html": {
+                        "type": "string",
+                        "description": "structured_data, crawler_content: the page source"
+                    },
+                    "brand": {
+                        "type": "string",
+                        "description": "snippet: brand name, so brand words do not count as the subject"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "snippet: one search query whose top results give the competing titles"
+                    },
+                    "urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "urls: the addresses to check (max 200)"
+                    },
+                    "sitemap_url": {
+                        "type": "string",
+                        "description": "urls: take the addresses from this sitemap; crawl_rules: an extra sitemap to read"
+                    },
+                    "html_by_url": {
+                        "type": "object",
+                        "description": "urls: {url: html} for pages already fetched"
+                    },
+                    "site": {
+                        "type": "string",
+                        "description": "crawl_rules: the site root, e.g. https://www.shop.lt"
+                    },
+                    "important_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "crawl_rules: the pages that must be crawlable and in the sitemap"
+                    },
+                    "staging_hosts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "crawl_rules: staging hostnames that must not appear in robots.txt or the urls"
+                    },
+                    "schema": {
+                        "type": "string",
+                        "description": "structured_data: JSON-LD to evaluate as if it were on the page"
+                    },
+                    "rendered_text": {
+                        "type": "string",
+                        "description": "crawler_content: the page text after JavaScript, from browser_snapshot"
+                    },
+                    "required_facts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "crawler_content: facts (specs, prices, guarantees) that must be in the HTML"
+                    },
+                    "decision_fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "templates: override of price, availability, delivery, reviews, specs, images, local_info"
+                    },
+                    "queries": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "serp: the queries to search"
+                    },
+                    "brand_domain": {
+                        "type": "string",
+                        "description": "serp: the brand's domain (counted as owned)"
+                    },
+                    "product": {
+                        "type": "string",
+                        "description": "serp: product name for generated model and price_specs queries"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "serp: category phrase for generated category and shortlist queries"
+                    },
+                    "lang": {
+                        "type": "string",
+                        "description": "serp: lt or en for generated queries"
+                    },
+                    "stages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "serp: subset of category, shortlist, model, price_specs"
+                    },
+                    "owned_domains": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "competitors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "description": "serp: results read per query, default 8"
+                    },
+                    "term_column": {
+                        "type": "string",
+                        "description": "keywords: search-term column; auto-detected from Google Ads headers (EN/LT) when omitted"
+                    },
+                    "clicks_column": {
+                        "type": "string"
+                    },
+                    "cost_column": {
+                        "type": "string"
+                    },
+                    "conversions_column": {
+                        "type": "string"
+                    },
+                    "value_column": {
+                        "type": "string"
+                    },
+                    "group_column": {
+                        "type": "string",
+                        "description": "keywords: ad-group column for split candidates"
+                    },
+                    "sheet": {
+                        "type": "string",
+                        "description": "keywords: XLSX sheet name"
+                    },
+                    "protect_terms": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "keywords: words whose terms are never proposed as negatives"
+                    },
+                    "brand_terms": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "keywords: brand words; their clusters are marked and excluded from negatives"
+                    },
+                    "min_cost": {
+                        "type": "number",
+                        "description": "keywords: a term must have spent at least this to be a negative candidate, default 10"
+                    },
+                    "max_conversions": {
+                        "type": "number",
+                        "description": "keywords: default 0"
+                    },
+                    "min_share": {
+                        "type": "number",
+                        "description": "keywords: a cluster under this share of its ad group's spend is a split candidate, default 0.2"
+                    }
+                },
+                "required": [
+                    "mode"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -1858,6 +2076,15 @@ def dispatch(
             from rocky.reach import reach_overlap_tool
 
             return reach_overlap_tool(args)
+        if name == "seo_inspect":
+            from rocky.seo import seo_inspect_tool
+
+            return seo_inspect_tool(
+                tools,
+                args,
+                fetch_html=getattr(searcher, "fetch_html", None) if searcher is not None else None,
+                search=getattr(searcher, "search", None) if searcher is not None else None,
+            )
         if name == "claim_check":
             from rocky.claims import claim_check_tool
 

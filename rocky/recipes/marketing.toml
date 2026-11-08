@@ -44,7 +44,8 @@ skill_view customer-research when the goal matches: a spec, landing copy or brie
 ideas, differentiation, what to borrow or kitos sritys (`## Analogous markets`, one source per field); experts or people to interview (runs/notes/experts.md as a referral chain with a URL per row); \
 most sales offline (the till survey and an `Offline influence:` line, never an online-only ROAS); awareness or recall measurement (žinomumas, apklausa: runs/notes/survey.md with its four separate blocks); \
 a perceptual map the marketer can confirm with buyers (the interview that confirms the map). \
-skill_view pr-response when the goal asks users to share mods, templates or plugins (`## Contributor incentives` before any incentive)."""
+skill_view pr-response when the goal asks users to share mods, templates or plugins (`## Contributor incentives` before any incentive). \
+If the goal is SEO, search visibility, a site audit or a paid-search account, run seo_inspect (snippet, urls, crawl_rules, structured_data, serp or keywords as the question needs) and quote its findings in research.md."""
 
 [[steps]]
 id = 2

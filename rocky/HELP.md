@@ -301,7 +301,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `claim_check`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `seo_inspect`, `claim_check`, plus any **MCP** tools you configure (below).
 
 ### Numbers
 
@@ -326,6 +326,10 @@ Rocky can also read out a finished test, not only plan one. Give `experiment_pla
 ### Ad against its landing page
 
 `page_inspect` checks that the page an ad or email links to keeps what the ad says, by code rather than by a worker's impression. Give it the ad (`headline`, `primary_text`, `cta`, `price`, `audience`, `offer`, `language`) and the page as a `url`, a workspace `path` or raw `html`; it pulls out the title, H1s, first-screen text, buttons, prices, forms and language. It then reports findings with the exact ad copy and the exact page element behind each: a price in the ad that the page does not show is a **block**, a page with no button or form is a block, and a promise the H1 does not restate, a CTA no button repeats, audience or offer words missing from the page, a language switch or a thin page are warnings. Prices are normalised, so `1 200,50 €` and `€1,200.50` match, and Lithuanian endings are tolerated when words are compared. The ads recipe runs it for every ad before handing over; a page Rocky could not fetch goes under `missing`, never into a guess.
+
+### Search
+
+`seo_inspect` runs the search-channel checks a marketer wants before paying for traffic, by code instead of by eye. Give it a `mode`: `snippet` reads titles and descriptions across pages (length, duplicates, brand, whether the snippet's promise and price appear in the H1 and first screen, competing titles for a query); `urls` judges whether addresses are readable and whether canonical tags, noindex and redirects point one way; `crawl_rules` parses robots.txt per crawler, tells which important pages are blocked and which are missing from the sitemaps (indexes are followed three levels deep); `structured_data` compares JSON-LD price, availability and rating with what the page shows; `crawler_content` lists facts that exist only after JavaScript renders; `templates` measures how much of a templated page is unique text and which buying fields it lacks; `serp` ranks the owned domain and competitors for a query ladder and flags queries with mixed intent; `keywords` clusters a search-terms export, finds ad groups that mix needs and lists negative-keyword candidates with the money they would save. Pages come as html, a workspace path or a url the engine fetches; whatever could not be fetched lands under `missing`, never guessed. Fix the blocks before you buy traffic to the page.
 
 ### Claims against sources
 

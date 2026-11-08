@@ -305,7 +305,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `claim_check`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `seo_inspect`, `claim_check`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
 
 ### Skaičiai
 
@@ -330,6 +330,10 @@ Rocky dabar gali ne tik suplanuoti testą, bet ir perskaityti jo rezultatą. Nur
 ### Reklama prieš jos nusileidimo puslapį
 
 `page_inspect` patikrina, ar puslapis, į kurį veda reklama ar el. laiškas, laikosi to, ką reklama žada, – kodu, o ne darbuotojo įspūdžiu. Nurodyk reklamą (`headline`, `primary_text`, `cta`, `price`, `audience`, `offer`, `language`) ir puslapį kaip `url`, darbo katalogo `path` arba patį `html`; įrankis ištraukia pavadinimą, H1 antraštes, pirmojo ekrano tekstą, mygtukus, kainas, formas ir kalbą. Tada grąžina išvadas su tikslia reklamos kopija ir tiksliu puslapio elementu prie kiekvienos: reklamoje nurodyta kaina, kurios puslapis nerodo, yra **blokas**, puslapis be jokio mygtuko ar formos – blokas, o H1 nepakartotas pažadas, raginimas, kurio nekartoja nė vienas mygtukas, puslapyje trūkstami auditorijos ar pasiūlymo žodžiai, pasikeitusi kalba ar per plonas puslapis – įspėjimai. Kainos sunormuojamos, todėl `1 200,50 €` ir `€1,200.50` sutampa, o lyginant žodžius toleruojamos lietuviškos galūnės. Reklamų receptas paleidžia jį kiekvienai reklamai prieš perduodant darbą; puslapis, kurio Rocky nepavyko parsisiųsti, patenka į `missing`, o ne į spėjimą.
+
+### Paieška
+
+`seo_inspect` atlieka paieškos kanalo patikras, kurių rinkodarininkas nori prieš mokėdamas už srautą, – kodu, o ne akimis. Nurodyk `mode`: `snippet` perskaito puslapių pavadinimus ir aprašymus (ilgį, dublikatus, prekės ženklą, ar fragmento pažadas ir kaina matomi H1 ir pirmame ekrane, konkuruojančius pavadinimus pagal užklausą); `urls` įvertina, ar adresai skaitomi ir ar kanoninės žymos, noindex bei peradresavimai rodo viena kryptimi; `crawl_rules` išanalizuoja robots.txt pagal robotą, pasako, kurie svarbūs puslapiai užblokuoti ir kurių nėra svetainės žemėlapiuose (indeksai sekami trimis lygiais); `structured_data` palygina JSON-LD kainą, prieinamumą ir įvertinimą su tuo, ką rodo puslapis; `crawler_content` išvardija faktus, kurie atsiranda tik įvykdžius „JavaScript“; `templates` išmatuoja, kiek šabloninio puslapio teksto yra unikalu ir kurių pirkimo sprendimui reikalingų laukų trūksta; `serp` nustato savo ir konkurentų domenų pozicijas užklausų kopėčiose ir pažymi užklausas su mišria intencija; `keywords` suskirsto paieškos terminų eksportą į grupes, randa skelbimų grupes, kuriose maišomi skirtingi poreikiai, ir pateikia neigiamų raktažodžių kandidatus su suma, kurią jie sutaupytų. Puslapiai pateikiami kaip HTML, darbo katalogo kelias arba URL, kurį variklis parsiunčia; ko nepavyko parsiųsti, atsiduria `missing` – niekada nespėjama. Ištaisyk block lygio radinius, prieš pirkdamas srautą į puslapį.
 
 ### Teiginiai prieš šaltinius
 

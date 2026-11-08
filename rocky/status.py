@@ -53,6 +53,7 @@ _TOOL_VERB = {
     "table_analyze": "reading the table",
     "reach_overlap": "estimating reach",
     "page_inspect": "checking the landing page",
+    "seo_inspect": "checking search",
     "claim_check": "checking claims",
     "clarify": "asking you",
 }
