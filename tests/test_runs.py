@@ -121,6 +121,23 @@ def _fake_job(tmp_path, goal="stop me"):
     return meta, proc, folder
 
 
+def test_pid_alive_finds_the_run_id_when_columns_is_narrow(monkeypatch):
+    import subprocess
+    import sys
+
+    from rocky.runs import pid_alive
+
+    # The run id sits at the end of the command line, past where `ps` cuts at COLUMNS.
+    mark = "20260905-193555-32c801"
+    proc = subprocess.Popen([sys.executable, "-c", f"import time; time.sleep(30)  # {mark}"])
+    try:
+        monkeypatch.setenv("COLUMNS", "20")
+        assert pid_alive(proc.pid, mark=mark)
+    finally:
+        proc.kill()
+        proc.wait()
+
+
 def test_stop_run_kills_the_job_and_marks_it_stopped(tmp_path):
     from rocky.runs import RESUMABLE, stop_run
 

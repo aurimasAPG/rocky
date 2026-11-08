@@ -107,7 +107,7 @@ def _pid_command(pid: int) -> str | None:
 
     try:
         out = subprocess.run(
-            ["ps", "-o", "command=", "-p", str(pid)],
+            ["ps", "-ww", "-o", "command=", "-p", str(pid)],
             capture_output=True,
             text=True,
             timeout=2.0,
