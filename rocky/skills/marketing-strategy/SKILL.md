@@ -65,3 +65,13 @@ When a goal compares product lines or asks where money should go, place each lin
 - Share and growth are rarely public for a small company. Use sourced figures where they exist. Otherwise label each position as an estimate, give its range, and name the number that would change the answer.
 
 Source: Principles of Marketing, pp. 71–73.
+
+## Separate market development from market penetration
+
+Selling more to the market a brand already serves is penetration. Taking the same product to new buyers or a new country is development, and it carries a risk penetration does not: those buyers may not be reachable at all.
+
+- Say which one the campaign is, on a `Growth: …` line in `runs/notes/facts.md`.
+- For development, add a `Reach: …` line with evidence: a channel they use, the language, delivery that covers them. A Lithuanian site and Lithuanian ads do not reach Latvian buyers.
+- If you cannot find that evidence, leave `reach` empty. The page warns the marketer, which is better than an invented answer.
+
+Source: Principles of Marketing, pp. 75–76.

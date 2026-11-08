@@ -123,6 +123,45 @@ def test_no_ads_blocks():
     assert _codes(_check(pack, images={}), "block") == ["no_ads"]
 
 
+def _growth(kind, reach=""):
+    pack = _pack()
+    pack["growth"] = {"kind": kind, "reach": reach}
+    return pack
+
+
+def test_a_new_market_with_no_evidence_of_reach_warns():
+    assert _codes(_check(_growth("development")), "warn") == ["no_reach"]
+
+
+def test_a_new_market_with_evidence_of_reach_passes():
+    assert _check(_growth("development", "Latviškas puslapis ir pristatymas į Rygą")) == []
+
+
+def test_selling_more_in_the_existing_market_needs_no_reach_evidence():
+    assert _check(_growth("penetration")) == []
+
+
+def test_an_unknown_growth_kind_is_dropped():
+    assert normalize(_growth("sideways"))["growth"]["kind"] == ""
+
+
+def test_the_page_names_the_market_and_flags_missing_reach():
+    pack = normalize(_growth("development"))
+    page = render(pack, check_pack(pack, None, {1: "x"}), {1: "x"})
+    assert '<p class="growth">Nauja rinka</p>' in page
+    assert "<li>Nauja rinka: nėra įrodymų" in page
+
+
+def test_the_page_shows_how_a_new_market_is_reached():
+    assert "Kaip pasieksime: Rygos pristatymas" in render(normalize(_growth("development", "Rygos pristatymas")), [], {})
+
+
+def test_the_recipe_separates_penetration_from_development():
+    steps = {step["title"]: step["detail"] for step in load_recipes()["ads"].render_steps("goal")}
+    assert "`Growth: `" in steps["Facts"] and "`Reach: `" in steps["Facts"]
+    assert "growth (kind, reach)" in steps["Ads"]
+
+
 def _portfolio(*products):
     pack = _pack()
     pack["ads"] = [

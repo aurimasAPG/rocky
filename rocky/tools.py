@@ -571,6 +571,14 @@ CLIENT_TOOL_SPECS = [
                             "required": ["primary_text", "headline", "cta"],
                         },
                     },
+                    "growth": {
+                        "type": "object",
+                        "description": "whether these ads sell more in a market the brand already serves, or open a new one",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["penetration", "development"]},
+                            "reach": {"type": "string", "description": "for development: the evidence that these buyers can be reached"},
+                        },
+                    },
                     "table_stakes": {
                         "type": "array",
                         "description": "what buyers expect from anyone in this category",

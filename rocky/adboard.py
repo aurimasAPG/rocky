@@ -34,6 +34,8 @@ MIX_FIELDS = ("product", "price", "place")
 TEST_ROLES = ("control", "challenger")
 # What buyers expect from anyone in the category, checked before money goes on differentiation (Jobs to Be Done, pp. 105–106).
 STAKE_STATUSES = ("met", "unmet", "unknown")
+# Selling more where the brand already sells, or taking it to new buyers, which needs proof they can be reached (Principles of Marketing, pp. 75–76).
+GROWTH_KINDS = ("penetration", "development")
 # What the feed shows before it cuts the text.
 FEED_LIMITS = {"primary_text": 125, "headline": 40, "description": 30}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
@@ -65,6 +67,7 @@ _MESSAGES = {
         "promise": "Absolute promise “{value}”: make sure you can prove it.",
         "no_image": "No visual yet.",
         "mix_missing": "The promise needs an offer behind it: add {field}.",
+        "no_reach": "New market: there is no evidence these buyers can be reached.",
         "stake_unmet": "“{value}” is below the minimum buyers expect. Fix it before spending on ads.",
         "no_stakes": "Table stakes are not listed: say what buyers expect from anyone in this category.",
         "no_test": "To compare messages, mark one ad as the control (the current pitch) and at least one as a challenger.",
@@ -80,6 +83,7 @@ _MESSAGES = {
         "promise": "Absoliutus pažadas „{value}“: patikrinkite, ar galite jį įrodyti.",
         "no_image": "Vizualas dar nesukurtas.",
         "mix_missing": "Pažadą turi palaikyti pasiūlymas: nurodykite, {field}.",
+        "no_reach": "Nauja rinka: nėra įrodymų, kad šiuos pirkėjus galima pasiekti.",
         "stake_unmet": "„{value}“: nepasiektas minimumas, kurio pirkėjai tikisi. Pirma sutvarkykite tai, tik tada leiskite biudžetą.",
         "no_stakes": "Nenurodyta, ko pirkėjai tikisi iš bet kurio šios srities pardavėjo.",
         "no_test": "Kad galėtumėte palyginti žinutes, pažymėkite vieną reklamą kaip kontrolinę (dabartinė žinutė) ir bent vieną kaip naują.",
@@ -95,6 +99,7 @@ _LABELS = {
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
         "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
         "role_control": "Control: current pitch", "role_challenger": "Challenger",
+        "growth_penetration": "Existing market", "growth_development": "New market", "growth_reach": "How we reach them",
         "guide": "Who gets what", "guide_note": "When a lead comes from an ad, this says which product to offer.",
         "guide_ad": "Ad", "guide_for": "For", "guide_offer": "Offer",
         "stakes": "Before you spend",
@@ -112,6 +117,7 @@ _LABELS = {
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
         "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
         "role_control": "Kontrolinė: dabartinė žinutė", "role_challenger": "Nauja žinutė",
+        "growth_penetration": "Esama rinka", "growth_development": "Nauja rinka", "growth_reach": "Kaip pasieksime",
         "guide": "Kam ką siūlyti", "guide_note": "Kai užklausa ateina iš reklamos, šis sąrašas pasako, kurį produktą siūlyti.",
         "guide_ad": "Reklama", "guide_for": "Kam", "guide_offer": "Ką siūlyti",
         "stakes": "Prieš leidžiant biudžetą",
@@ -181,6 +187,10 @@ def normalize(args: dict) -> dict:
             for claim in _dicts(args.get("claims"))
             if _text(claim.get("text"))
         ],
+        "growth": {
+            "kind": kind if (kind := _text(_object(args.get("growth")).get("kind")).lower()) in GROWTH_KINDS else "",
+            "reach": _text(_object(args.get("growth")).get("reach"), 400),
+        },
         "table_stakes": [
             {
                 "outcome": _text(stake.get("outcome"), 200),
@@ -218,6 +228,9 @@ def check_pack(pack: dict, facts: str | None, images: dict[int, str]) -> list[Ch
             checks.append(Check("block", "source_unknown", value=claim["text"]))
         else:
             sourced.update(_NUMBER.findall(claim["text"]))
+    growth = pack.get("growth") or {}
+    if growth.get("kind") == "development" and not growth.get("reach"):
+        checks.append(Check("warn", "no_reach"))
     stakes = pack.get("table_stakes") or []
     if not stakes:
         checks.append(Check("warn", "no_stakes"))
@@ -447,6 +460,15 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
     )
 
 
+def _growth_line(pack: dict, labels: dict) -> str:
+    e = html.escape
+    growth = pack.get("growth") or {}
+    if not growth.get("kind"):
+        return ""
+    reach = f' · {e(labels["growth_reach"])}: {e(growth["reach"])}' if growth.get("reach") else ""
+    return f'<p class="growth">{e(labels["growth_" + growth["kind"]])}{reach}</p>'
+
+
 def _guide(pack: dict, labels: dict) -> str:
     """Which product to offer whoever arrives from each ad (Jobs to Be Done, pp. 113–115). One product needs no guide."""
     e = html.escape
@@ -521,7 +543,7 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
         f'<header class="mast"><p class="slug">{e(labels["slug"])}</p><h1>{e(pack["brand"])}</h1>{site}'
         f'<dl class="tally"><div><dt>{e(labels["ads"])}</dt><dd>{len(pack["ads"])}</dd></div>'
         f'<div><dt>{e(labels["ready"])}</dt><dd>{ready_count}</dd></div>'
-        f'<div class="{"bad" if fix else ""}"><dt>{e(labels["fix"])}</dt><dd>{fix}</dd></div></dl>{alerts}</header>'
+        f'<div class="{"bad" if fix else ""}"><dt>{e(labels["fix"])}</dt><dd>{fix}</dd></div></dl>{_growth_line(pack, labels)}{alerts}</header>'
         f'<main>{proofs}</main>{_guide(pack, labels)}{stakes}'
         f'<section class="evidence"><h2>{e(labels["evidence"])}</h2><p>{e(labels["evidence_note"])}</p>{evidence}</section>'
         f"<script>{_SCRIPT}</script></body></html>"
@@ -546,6 +568,7 @@ h1{font:400 clamp(44px,8vw,86px)/.98 var(--serif);letter-spacing:-.025em;margin:
 .tally{grid-column:2;grid-row:1/span 3;display:flex;gap:28px;margin:0}
 .tally dd{margin:2px 0 0;font:400 44px/1 var(--serif)}
 .tally .bad dd,.tally .bad dt{color:var(--stop)}
+.growth{grid-column:1/-1;margin:16px 0 0;font-size:15px}
 .alerts{grid-column:1/-1;margin:18px 0 0;padding:12px 16px 12px 32px;border:1px solid var(--stop);color:var(--stop)}
 .proof{position:relative;display:grid;grid-template-columns:minmax(0,500px) minmax(0,1fr);gap:clamp(24px,5vw,60px);align-items:start;background:var(--sheet);padding:clamp(16px,3.4vw,36px);margin-bottom:36px;
 outline:1px solid var(--rule);animation:rise .55s cubic-bezier(.2,.75,.25,1) both;animation-delay:calc(var(--i)*90ms)}

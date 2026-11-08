@@ -70,3 +70,9 @@ def test_the_growth_share_rule_labels_estimates_and_cites_its_source():
     assert "label each position as an estimate" in text
     assert "Principles of Marketing, pp. 71–73" in text
 
+
+def test_the_growth_direction_rule_is_in_the_skill_with_its_source():
+    text = view_skill("marketing-strategy")
+    assert "Separate market development from market penetration" in text
+    assert "Principles of Marketing, pp. 75–76" in text
+
