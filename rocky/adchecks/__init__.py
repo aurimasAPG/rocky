@@ -26,13 +26,21 @@ from typing import Any
 REQUIRED_ATTRS = ("check", "MESSAGES")
 
 
+# Modules that failed to import, by name, so a broken topic file is visible without stopping the board.
+IMPORT_ERRORS: dict[str, str] = {}
+
+
 @lru_cache(maxsize=1)
 def modules() -> tuple[ModuleType, ...]:
     found: list[ModuleType] = []
     for info in sorted(pkgutil.iter_modules(__path__), key=lambda i: i.name):
         if info.name.startswith("_"):
             continue
-        module = importlib.import_module(f"{__name__}.{info.name}")
+        try:
+            module = importlib.import_module(f"{__name__}.{info.name}")
+        except Exception as exc:  # noqa: BLE001 — one bad topic module must not take the ad board down
+            IMPORT_ERRORS[info.name] = f"{type(exc).__name__}: {exc}"[:200]
+            continue
         if all(hasattr(module, attr) for attr in REQUIRED_ATTRS):
             found.append(module)
     return tuple(found)
@@ -67,6 +75,8 @@ def run(pack: dict, facts: str | None, images: dict[int, str]) -> list:
     from rocky.adboard import Check
 
     checks: list = []
+    for name, error in IMPORT_ERRORS.items():
+        checks.append(Check("warn", "check_failed", value=f"{name}: {error}"[:200]))
     for m in modules():
         try:
             checks.extend(m.check(pack, facts, images) or [])

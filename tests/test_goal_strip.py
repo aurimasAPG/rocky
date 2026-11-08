@@ -35,7 +35,8 @@ def test_a_goal_rocky_does_not_recognise_shows_nothing(served):
 
 def test_only_elements_code_enforces_are_listed():
     assert all(e.codes and e.number for e in checks_for("ads"))
-    assert {e.number for e in checks_for("ads")} == {1, 4, 5, 8, 9}
+    listed = {e.number for e in checks_for("ads")}
+    assert {1, 4, 5, 8, 9} <= listed  # the core checks; topic modules add their own elements
 
 
 def test_switching_a_check_off_is_remembered_and_shown(served):

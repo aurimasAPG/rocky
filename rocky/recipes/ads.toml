@@ -28,6 +28,8 @@ Use at most ten tool calls in all and write as soon as you have enough. \
 Write runs/notes/facts.md for: {goal}. Start it with a line `Job: ` saying what the customer is trying to get done, a line `Pitch: ` quoting the main message the site uses today, then two or three `Segment: ` lines, each an outcome a group struggles to reach and the circumstance that identifies them, with its rough size, buying power and cost to reach, marked as estimates unless sourced. Drop a segment too small or too poor to pay back. Then one `Match: ` line per product on sale naming the segment it serves best. Then what is sold, to whom, the offer, prices, where and how buyers get it (delivery, outlets, booking), proof numbers, tone, brand colours as hex: \
 one line per fact, with the URL it came from. Add a `Growth: ` line: penetration if this campaign sells more where the brand already sells, development if it takes the product to new buyers or a new country. For development add a `Reach: ` line with the evidence and URL that those buyers can be reached. Add two or three `Table stake: ` lines: an outcome customers expect from anyone in this category and already get from competitors, its minimum acceptable level, and whether this brand meets it (met, unmet or unknown). If the goal asks about competitors, add two or three with URLs. \
 Mark what you could not confirm. No invented numbers, quotes or reviews. \
+Where the sources give them, add `ZMOT: ` lines (where buyers research and compare, with URL), a `Personal risk: ` line for business buyers (or `not researched`), \
+and a `Shortlist spec: ` line (the one spec buyers use to shortlist, with URL). \
 If the ads will carry a price, a discount or a promotion, skill_view marketing-numbers and check the offer with unit_economics before writing it into the facts. \
 If the brand is new or the ads will compare it with known names, skill_view marketing-strategy and write every rating with its count, platform and fetched URL, never a bare score. \
 If buyers substitute a named competitor, skill_view marketing-strategy and write a `Compare:` line with attributes, fair conditions and the next-purchase metric. \
@@ -50,7 +52,14 @@ Put every number in the copy into claims with its URL from runs/notes/facts.md, 
 When ad_board lists problems, fix them and call it again with the whole pack. Do not write the page yourself. \
 Then run page_inspect for each ad against the url the ads link to (headline, primary_text, cta, price, audience, offer); \
 a block (price the page does not show, no button or form) means the ad or the landing page must change before handing over — say which in the ad's angle and call ad_board again. \
-An ad that names a competitor is an invitation to the trial on the Compare line, never a superiority claim."""
+An ad that names a competitor is an invitation to the trial on the Compare line, never a superiority claim. \
+From the facts also fill, where the facts give them: per ad attribute (name, kind), objection (text, source), adoption_stage, outcomes (functional, emotional, social), \
+occasion (when, for_whom, kind), place_effort when the offer names a shop, prior_exposure, appeal, for_role, register, and setting on challengers only; \
+at pack level objections, buyer (payer, user, money_metric, money_value, source), end_market for suppliers, zmot from the ZMOT lines, review_signals, triggers, \
+shortlist_spec, buying_unit with technical_terms, involvement and category — leave a field out rather than guess it. \
+Fill what applies from the facts: complete_product and purchase_route for what the buyer needs and how they get it, delivered and price_position \
+(with scarcity, quality_evidence and evaluation_cue when the copy makes that kind of claim) for every promise and price, and for a set of ads test_design \
+with each ad's selector, qualifier, benefit, offer or attributes so the test holds what it says it holds."""
 
 [[steps]]
 id = 3

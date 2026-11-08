@@ -48,7 +48,7 @@ def test_every_finding_has_a_record_with_both_languages():
 
 def test_the_shipped_elements_are_all_in_the_registry_with_their_sources():
     numbered = {e.number: e for e in elements() if e.number}
-    assert sorted(numbered) == list(range(1, 11))
+    assert set(range(1, 11)) <= set(numbered)  # the core ten; elements-<topic>.toml files add more
     assert all(e.source and e.enforced in {"check", "recipe", "rule"} for e in numbered.values())
 
 

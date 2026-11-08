@@ -1,0 +1,244 @@
+# How people and organizations buy, and the research behind it: the elements
+# rocky/adchecks/buying.py enforces on the ad board. Same record format as
+# elements.toml; number is the concept id in 500list.md.
+
+[[element]]
+number = 70
+title = "Visible product attributes"
+topic = "Customer research and innovation"
+applies = ["ads"]
+enforced = "check"
+codes = ["attribute_missing", "attribute_internal_lead"]
+source = "My Life in Advertising, pp. 49–51"
+question.en = "Does the ad lead with something the buyer will see, or with engineering?"
+question.lt = "Ar reklama prasideda tuo, ką pirkėjas matys, ar inžinerija?"
+why.en = "A homeowner chooses a finish they can picture in their own kitchen. An internal spec persuades the engineer who built it; it belongs under the promise as proof, not in the headline."
+why.lt = "Namų savininkas renkasi apdailą, kurią gali įsivaizduoti savo virtuvėje. Vidinė specifikacija įtikina ją sukūrusį inžinierių; jos vieta – po pažadu kaip įrodymo, o ne antraštėje."
+
+[[element]]
+number = 76
+title = "Field sales as copy research"
+topic = "Customer research and innovation"
+applies = ["ads"]
+enforced = "check"
+codes = ["objection_missing", "objection_unsourced", "objection_unanswered"]
+manual = ["objection_unsourced"]
+source = "Scientific Advertising, p. 16"
+question.en = "Does each ad answer an objection a buyer actually raised?"
+question.lt = "Ar kiekviena reklama atsako į prieštaravimą, kurį pirkėjas tikrai išsakė?"
+why.en = "Buyers object in their own words on sales calls. An ad that answers a recorded objection meets a real doubt; one that answers an imagined objection spends money on a question nobody asked."
+why.lt = "Pardavimo skambučiuose pirkėjai prieštarauja savais žodžiais. Reklama, atsakanti į užfiksuotą prieštaravimą, išsklaido tikrą abejonę; atsakanti į įsivaizduotą – leidžia pinigus klausimui, kurio niekas neuždavė."
+
+[[element]]
+number = 85
+title = "Early-adopter bias"
+topic = "Customer research and innovation"
+applies = ["ads"]
+enforced = "check"
+codes = ["adoption_missing", "adoption_single_stage", "adoption_no_proof"]
+source = "Unleashing the Ideavirus, pp. 169–171"
+question.en = "Is the launch message tested on ordinary buyers, not only on enthusiasts?"
+question.lt = "Ar paleidimo žinutė tikrinama su įprastais pirkėjais, o ne tik su entuziastais?"
+why.en = "Beta users love novelty and forgive rough edges. Later buyers need to see that the product reliably solves a problem they already know they have, so a pack written only for enthusiasts stops working when they run out."
+why.lt = "Pirmieji vartotojai mėgsta naujoves ir atleidžia trūkumus. Vėlesniems pirkėjams reikia pamatyti, kad produktas patikimai sprendžia jiems jau pažįstamą problemą, tad vien entuziastams parašytas paketas nustoja veikti, kai jie baigiasi."
+
+[[element]]
+number = 90
+title = "Separate social and emotional outcomes"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["outcome_missing", "outcome_functional_only", "outcome_not_in_copy"]
+source = "Jobs to Be Done, p. 59"
+question.en = "Does an ad say how the buyer wants to feel or to be seen, not only what gets done?"
+question.lt = "Ar reklama pasako, kaip pirkėjas nori jaustis ar atrodyti, o ne tik ką atlikti?"
+why.en = "A novice wants private calm; a professional wants to look prepared in front of clients. The same functional job carries different feelings, and copy that names the right one is the copy that gets chosen."
+why.lt = "Pradedantysis nori ramybės, profesionalas – atrodyti pasiruošęs prieš klientus. Ta pati funkcinė užduotis neša skirtingus jausmus, ir pasirenkamas tas tekstas, kuris įvardija tinkamą."
+
+[[element]]
+number = 91
+title = "Quantify the buyer's financial criteria"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["buyer_missing", "buyer_payer_gap", "buyer_money_unsourced"]
+manual = ["buyer_missing"]
+source = "Jobs to Be Done, p. 61"
+question.en = "When someone else pays, does an ad speak in the number the payer watches?"
+question.lt = "Kai moka kitas žmogus, ar bent viena reklama kalba skaičiumi, kurį stebi mokėtojas?"
+why.en = "Drivers like less paperwork, but the owner signs for fuel cost per truck. An ad pack that only pleases the user never reaches the person who can say yes, and a payer figure without a source is a number the owner will check and doubt."
+why.lt = "Vairuotojams patinka mažiau popierizmo, bet savininkas pasirašo dėl kuro sąnaudų vienam vilkikui. Paketas, įtinkantis tik naudotojui, nepasiekia žmogaus, kuris gali pasakyti „taip“, o mokėtojo skaičius be šaltinio – skaičius, kurį savininkas patikrins ir suabejos."
+
+[[element]]
+number = 94
+title = "Trace derived demand to the final market"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["end_market_missing", "end_market_unsourced"]
+source = "Principles of Marketing, pp. 143–144"
+question.en = "Who buys the finished product, and how is that market moving?"
+question.lt = "Kas perka galutinį produktą ir kaip tai rinkai sekasi?"
+why.en = "A supplier's orders fall when its customers' customers buy less, even if nobody switched supplier. Ads that try to win back buyers who never left answer the wrong question; a sourced end-market indicator tells you which question to answer."
+why.lt = "Tiekėjo užsakymai krinta, kai jo klientų klientai perka mažiau, net jei niekas nepakeitė tiekėjo. Reklamos, bandančios susigrąžinti niekur nepabėgusius pirkėjus, atsako į klaidingą klausimą; galutinės rinkos rodiklis su šaltiniu pasako, į kurį klausimą atsakyti."
+
+[[element]]
+number = 95
+title = "Segment by purchase occasion"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["occasion_missing", "occasion_mixed", "occasion_single"]
+source = "Principles of Marketing, p. 174"
+question.en = "Does each ad speak to one occasion: when the purchase happens and for whom?"
+question.lt = "Ar kiekviena reklama kalba apie vieną progą: kada perkama ir kam?"
+why.en = "The same person buys a bar for herself on the way home and a boxed gift for a colleague in December. One ad that mixes both offers speaks to neither, and a seasonal brief with a single occasion leaves the gift money on the table."
+why.lt = "Tas pats žmogus perka plytelę sau pakeliui namo ir dėžutę dovanų kolegai gruodį. Viena reklama, maišanti abu pasiūlymus, nekalba nė vienam, o šventinė užduotis su vienintele proga palieka dovanų pinigus ant stalo."
+
+[[element]]
+number = 96
+title = "Match shopping effort to the retail experience"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["place_effort_missing", "place_effort_mismatch"]
+source = "Principles of Marketing, pp. 324–325"
+question.en = "Do buyers grab this category by habit, compare, or seek one product, and does the shop plan follow?"
+question.lt = "Ar pirkėjai šią kategoriją griebia iš įpročio, lygina, ar ieško vieno produkto, ir ar parduotuvės planas tai atitinka?"
+why.en = "A habit pickup needs the right shelf, not a promoter; a compared good needs to stand beside its rivals; a sought-out product needs to be findable. Shelf and assistance recommendations without the class are opinions."
+why.lt = "Įpročio pirkiniui reikia tinkamos lentynos, o ne degustatorės; lyginamai prekei – stovėti šalia konkurentų; ieškomam produktui – būti randamam. Lentynos ir aptarnavimo rekomendacijos be klasės yra nuomonės."
+
+[[element]]
+number = 97
+title = "Zero Moment of Truth"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["zmot_missing", "zmot_unsourced", "zmot_stage_gap", "zmot_destination"]
+source = "Winning the Zero Moment of Truth, pp. 15–16"
+question.en = "What does the buyer check after first hearing about the product, and does the ad send them somewhere that wins?"
+question.lt = "Ką pirkėjas patikrina išgirdęs apie produktą ir ar reklama siunčia jį ten, kur laimima?"
+why.en = "Between the ad and the purchase, buyers look things up. If the ad sends them to a page nobody trusts, the research step loses the sale the ad earned; knowing which sources they trust tells you where to send them."
+why.lt = "Tarp reklamos ir pirkimo pirkėjai ieško informacijos. Jei reklama siunčia juos į puslapį, kuriuo niekas nepasitiki, paieškos žingsnis praranda reklamos pelnytą pardavimą; žinant, kuriais šaltiniais jie pasitiki, aišku, kur juos siųsti."
+
+[[element]]
+number = 98
+title = "Experience-to-research feedback"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["review_signals_missing", "review_contradicted"]
+source = "Winning the Zero Moment of Truth, p. 16"
+question.en = "Do the reviews prospects will read contradict what the ad promises?"
+question.lt = "Ar atsiliepimai, kuriuos skaitys būsimi pirkėjai, prieštarauja reklamos pažadui?"
+why.en = "An ad that promises four-week delivery while the top reviews complain about ten weeks costs twice: the click, and the trust. Recording review themes with counts lets code catch the contradiction before the budget does."
+why.lt = "Reklama, žadanti pristatymą per keturias savaites, kai matomiausi atsiliepimai skundžiasi dešimčia, kainuoja dvigubai: paspaudimą ir pasitikėjimą. Užfiksavus atsiliepimų temas su skaičiais, prieštaravimą pagauna kodas, o ne biudžetas."
+
+[[element]]
+number = 103
+title = "Exposure before a trigger"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["exposure_mismatch", "exposure_unsourced"]
+source = "Decoding Decisions, pp. 19–20"
+question.en = "What did buyers already know about the category before the ad, and does the ad respect it?"
+question.lt = "Ką pirkėjai jau žinojo apie kategoriją iki reklamos ir ar reklama į tai atsižvelgia?"
+why.en = "An ad that says 'discover kombucha' to a market where most already drink it talks down to its buyers. Prior exposure decides which brands they investigate first, so the copy should start from what they know."
+why.lt = "Reklama, sakanti „atraskite kombučą“ rinkai, kurioje dauguma ją jau geria, kalba su pirkėjais iš aukšto. Ankstesnė patirtis lemia, kuriuos prekių ženklus jie tikrina pirmiausia, tad tekstas turi prasidėti nuo to, ką jie žino."
+
+[[element]]
+number = 105
+title = "Multiple purchase triggers"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["trigger_too_few", "trigger_unsourced"]
+manual = ["trigger_too_few"]
+source = "Decoding Decisions, p. 24"
+question.en = "Is the channel recommendation tied to what actually made buyers act?"
+question.lt = "Ar kanalo rekomendacija remiasi tuo, kas iš tikrųjų paskatino pirkėjus veikti?"
+why.en = "A need, a reminder and an ad combine to start shopping. Putting the next budget into a channel without recorded triggers is a last-click guess; fewer than five recorded buyers is too few to call it a pattern."
+why.lt = "Poreikis, priminimas ir reklama kartu pradeda apsipirkimą. Skirti kitą biudžetą kanalui be užfiksuotų paskatų yra paskutinio paspaudimo spėjimas; mažiau nei penki užfiksuoti pirkėjai – per mažai, kad tai vadintume dėsningumu."
+
+[[element]]
+number = 106
+title = "Category heuristics"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["shortlist_missing", "shortlist_unsourced", "shortlist_buried"]
+source = "Decoding Decisions, p. 49"
+question.en = "Does a challenger lead with the one specification buyers shortlist on?"
+question.lt = "Ar nauja žinutė prasideda ta viena savybe, pagal kurią pirkėjai atsirenka?"
+why.en = "People shortlist phone plans on gigabytes, not on 5G. If no ad puts the shortlist spec in the headline, the test cannot show whether leading with it beats the current pitch."
+why.lt = "Žmonės mobiliuosius planus atsirenka pagal gigabaitus, o ne pagal 5G. Jei nė viena reklama neįrašo atrankos savybės į antraštę, testas negali parodyti, ar ja pradėti geriau nei dabartine žinute."
+
+[[element]]
+number = 117
+title = "Personal risk in business decisions"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["appeal_no_risk_variant", "appeal_risk_unknown"]
+manual = ["appeal_risk_unknown"]
+source = "The 5 Principles of Growth in B2B Marketing, pp. 29–31"
+question.en = "Does an ad address what a wrong choice would cost the buyer personally?"
+question.lt = "Ar reklama atsako į tai, ką klaidingas pasirinkimas kainuotų pirkėjui asmeniškai?"
+why.en = "A logistics manager who picks the wrong system is the one blamed when the warehouse stops at Christmas. Operational benefits earn a look; speaking to that personal stake earns consideration, so a B2B pack should test it."
+why.lt = "Logistikos vadovas, pasirinkęs netinkamą sistemą, bus kaltinamas, kai sandėlis sustos per Kalėdas. Operacinė nauda pelno žvilgsnį; kalbėjimas apie asmeninę riziką pelno svarstymą, tad B2B paketas turėtų tai išbandyti."
+
+[[element]]
+number = 118
+title = "Influence beyond technical buyers"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["role_uncovered", "role_jargon", "role_unknown"]
+manual = ["role_unknown"]
+source = "The 5 Principles of Growth in B2B Marketing, p. 32"
+question.en = "Who else must say yes, and can they understand this ad?"
+question.lt = "Kas dar turi pritarti, ir ar jie supras šią reklamą?"
+why.en = "The IT manager likes the integration; the finance director signs. An ad full of API and SSO means nothing to the person holding the budget, and a role with no ad at all is a yes nobody asked for."
+why.lt = "IT vadovui patinka integracija; pasirašo finansų direktorius. Reklama, pilna API ir SSO, nieko nesako biudžetą laikančiam žmogui, o vaidmuo be jokios reklamos – „taip“, kurio niekas nepaprašė."
+
+[[element]]
+number = 119
+title = "Purchase involvement"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["involvement_register_mismatch", "involvement_unknown", "involvement_unsourced"]
+manual = ["involvement_unknown"]
+source = "Effectiveness in Context, pp. 12–15"
+question.en = "How much effort and feeling does this purchase carry, and do the ads match it?"
+question.lt = "Kiek pastangų ir jausmų lydi šį pirkimą, ir ar reklamos tai atitinka?"
+why.en = "A mattress is researched for weeks and still bought on the hope of sleeping without pain. A considered purchase can be emotional; when buyers say it is, a pack of spec-and-discount ads leaves the strongest message untested."
+why.lt = "Čiužinys renkamasi savaitėmis ir vis tiek perkamas tikintis išsimiegoti be skausmo. Apgalvotas pirkimas gali būti emocinis; kai pirkėjai taip sako, vien specifikacijų ir nuolaidų paketas palieka stipriausią žinutę neišbandytą."
+
+[[element]]
+number = 122
+title = "Occasion associations in food choice"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["setting_missing", "setting_untested", "setting_unsourced"]
+source = "The Psychology of Advertising, pp. 207–208"
+question.en = "Is the food shown at the moment people actually eat it?"
+question.lt = "Ar maistas rodomas tą akimirką, kai žmonės jį tikrai valgo?"
+why.en = "A loaf on a white background sells nothing; the same loaf at Sunday breakfast sells the meal. Test the occasion against the plain product shot, and name where the occasion came from so it is not an invented tradition."
+why.lt = "Kepalas baltame fone nieko neparduoda; tas pats kepalas per sekmadienio pusryčius parduoda valgį. Palyginkite progą su pliku produkto kadru ir nurodykite, iš kur proga paimta, kad tai nebūtų išgalvota tradicija."
+
+[[element]]
+number = 123
+title = "Design the use setting"
+topic = "How people and organizations buy"
+applies = ["ads"]
+enforced = "check"
+codes = ["setting_aspirational", "setting_mismatch"]
+manual = ["setting_aspirational"]
+source = "Propaganda, pp. 59–60"
+question.en = "Can the buyer see the product in a place they actually have?"
+question.lt = "Ar pirkėjas gali pamatyti produktą vietoje, kurią jis tikrai turi?"
+why.en = "A piano exhibition sold pianos by showing furnished music rooms. A sauna beside a lakeside villa tells a six-are plot owner it is not for him; the scene must be one the segment can afford, which needs its buying power on record."
+why.lt = "Pianinų paroda pardavė pianinus rodydama įrengtus muzikos kambarius. Pirtis prie ežero vilos šešių arų sklypo savininkui sako, kad ji ne jam; scena turi būti tokia, kokią segmentas gali sau leisti, o tam reikia užfiksuotos jo perkamosios galios."

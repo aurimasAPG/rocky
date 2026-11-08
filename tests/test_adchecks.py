@@ -137,3 +137,38 @@ def test_playbook_loads_topic_element_files_and_the_core_file_wins(tmp_path, mon
         assert playbook.for_code("price_position_missing").number == 200
     finally:
         playbook.elements.cache_clear()
+
+
+def test_a_module_cannot_redefine_a_core_schema_key(monkeypatch):
+    m = _stub_module()
+    m.SCHEMA = {"ad": {"headline": {"type": "integer"}, "promise": {"type": "string"}}, "pack": {"ads": {"type": "string"}, "job": {"type": "string"}}}
+    monkeypatch.setattr(adchecks, "modules", lambda: (m,))
+    spec = next(t for t in worker_tools(False) if t["function"]["name"] == "ad_board")
+    props = spec["function"]["parameters"]["properties"]
+    assert props["ads"]["type"] == "array" and "properties" in props["ads"]["items"]
+    assert props["ads"]["items"]["properties"]["headline"]["type"] == "string"
+    assert "promise" in props["ads"]["items"]["properties"] and "job" in props
+
+
+def test_a_topic_module_that_fails_to_import_is_skipped_and_reported(monkeypatch):
+    import importlib
+    import types as _types
+
+    real_import = importlib.import_module
+
+    def flaky(name, *args, **kwargs):
+        if name.endswith(".broken_topic"):
+            raise NameError("name '_TAIL' is not defined")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(adchecks.importlib, "import_module", flaky)
+    monkeypatch.setattr(adchecks.pkgutil, "iter_modules", lambda path: [_types.SimpleNamespace(name="broken_topic")])
+    monkeypatch.setattr(adchecks, "IMPORT_ERRORS", {})
+    adchecks.modules.cache_clear()
+    try:
+        assert adchecks.modules() == ()
+        assert "broken_topic" in adchecks.IMPORT_ERRORS
+        checks = adchecks.run({"ads": []}, None, {})
+        assert [c.code for c in checks] == ["check_failed"] and "broken_topic" in checks[0].value
+    finally:
+        adchecks.modules.cache_clear()

@@ -2375,8 +2375,10 @@ def _extended_ad_board_spec(spec: dict) -> dict:
         return spec
     spec = copy.deepcopy(spec)
     props = spec["function"]["parameters"]["properties"]
-    props["ads"]["items"]["properties"].update(additions["ad"])
-    props.update(additions["pack"])
+    ad_props = props["ads"]["items"]["properties"]
+    # A module may add fields, never redefine a core one (ads, brand, url, claims, growth, table_stakes …).
+    ad_props.update({k: v for k, v in additions["ad"].items() if k not in ad_props})
+    props.update({k: v for k, v in additions["pack"].items() if k not in props})
     return spec
 
 
