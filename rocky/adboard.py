@@ -30,6 +30,8 @@ REQUIRED = ("primary_text", "headline", "cta")
 COPY_FIELDS = ("primary_text", "headline", "description")
 # The offer behind each ad's promise; the ad itself is the promotion (Principles of Marketing, pp. 32–35).
 MIX_FIELDS = ("product", "price", "place")
+# A set of ads is a test: the current pitch against messages about outcomes already delivered (Jobs to Be Done, pp. 99–101).
+TEST_ROLES = ("control", "challenger")
 # What the feed shows before it cuts the text.
 FEED_LIMITS = {"primary_text": 125, "headline": 40, "description": 30}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
@@ -61,6 +63,7 @@ _MESSAGES = {
         "promise": "Absolute promise “{value}”: make sure you can prove it.",
         "no_image": "No visual yet.",
         "mix_missing": "The promise needs an offer behind it: add {field}.",
+        "no_test": "To compare messages, mark one ad as the control (the current pitch) and at least one as a challenger.",
     },
     "lt": {
         "no_ads": "Nėra nė vienos reklamos.",
@@ -73,6 +76,7 @@ _MESSAGES = {
         "promise": "Absoliutus pažadas „{value}“: patikrinkite, ar galite jį įrodyti.",
         "no_image": "Vizualas dar nesukurtas.",
         "mix_missing": "Pažadą turi palaikyti pasiūlymas: nurodykite, {field}.",
+        "no_test": "Kad galėtumėte palyginti žinutes, pažymėkite vieną reklamą kaip kontrolinę (dabartinė žinutė) ir bent vieną kaip naują.",
     },
 }
 _LABELS = {
@@ -84,6 +88,7 @@ _LABELS = {
         "evidence": "Evidence", "evidence_note": "Where every number in these ads comes from.", "claim": "Claim",
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
         "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
+        "role_control": "Control: current pitch", "role_challenger": "Challenger",
     },
     "lt": {
         "slug": "Rocky · reklamų lenta", "ads": "Reklamų", "ready": "Paruošta", "fix": "Reikia pataisyti",
@@ -94,6 +99,7 @@ _LABELS = {
         "evidence_note": "Iš kur paimtas kiekvienas skaičius šiose reklamose.", "claim": "Teiginys",
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
         "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
+        "role_control": "Kontrolinė: dabartinė žinutė", "role_challenger": "Nauja žinutė",
     },
 }
 
@@ -148,6 +154,7 @@ def normalize(args: dict) -> dict:
             {
                 **{name: _text(ad.get(name)) for name in fields},
                 "mix": {name: _text(_object(ad.get("mix")).get(name), 300) for name in MIX_FIELDS},
+                "test_role": role if (role := _text(ad.get("test_role")).lower()) in TEST_ROLES else "",
             }
             for ad in _dicts(args.get("ads"))[:MAX_ADS]
         ],
@@ -184,6 +191,9 @@ def check_pack(pack: dict, facts: str | None, images: dict[int, str]) -> list[Ch
             checks.append(Check("block", "source_unknown", value=claim["text"]))
         else:
             sourced.update(_NUMBER.findall(claim["text"]))
+    roles = [ad.get("test_role") for ad in pack["ads"]]
+    if len(roles) > 1 and (roles.count("control") != 1 or "challenger" not in roles):
+        checks.append(Check("warn", "no_test", ad=1))
     for n, ad in enumerate(pack["ads"], 1):
         for name in REQUIRED:
             if not ad[name]:
@@ -378,6 +388,7 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
     audience = (
         f'<p class="audience"><small>{e(labels["audience"])}</small>{e(ad["audience"])}</p>' if ad["audience"] else ""
     )
+    role = f' · {e(labels["role_" + ad["test_role"]])}' if ad.get("test_role") else ""
     mix = ad.get("mix") or {}
     offer = "".join(
         f'<div><dt>{e(labels["mix_" + name])}</dt><dd>{e(mix[name])}</dd></div>' for name in MIX_FIELDS if mix.get(name)
@@ -395,7 +406,7 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
     return (
         '<aside class="note">'
         f'<div class="stamp {kind}">{e(stamp)}</div>'
-        f'<h2><small>{e(labels["number"])} {n}</small>{e(ad["angle"])}</h2>'
+        f'<h2><small>{e(labels["number"])} {n}{role}</small>{e(ad["angle"])}</h2>'
         f"{audience}{offer}"
         f'<ul class="checks">{items}</ul>'
         f'<div class="copies"><small>{e(labels["copy"])}</small><div>{buttons}</div>{download}</div>'

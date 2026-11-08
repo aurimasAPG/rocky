@@ -26,3 +26,12 @@ Age, job title and company size describe people. They do not say why anyone woul
 - Give each ad one segment. Its `audience` field states the struggle and the circumstance, so the marketer can turn it into targeting.
 
 Source: Jobs to Be Done, pp. 97–98.
+
+## Test repositioning before changing the product
+
+A new message costs far less than a new product, so try it first. Find an outcome the product already delivers that a segment struggles to reach, and write that as the challenger. Run it against the pitch the site uses today, which is the control.
+
+- The challenger promises only what the product does now. If keeping the promise would need a product change, it is not a repositioning.
+- Quote today's pitch in `runs/notes/facts.md` as `Pitch: …`, so the control is the real message and not a weaker rewrite.
+
+Source: Jobs to Be Done, pp. 99–101.

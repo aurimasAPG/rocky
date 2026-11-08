@@ -122,6 +122,43 @@ def test_no_ads_blocks():
     assert _codes(_check(pack, images={}), "block") == ["no_ads"]
 
 
+def _two_ads(*roles):
+    pack = _pack()
+    pack["ads"] = [{**pack["ads"][0], "test_role": role} for role in roles]
+    return _check(pack, images={1: "x", 2: "x"})
+
+
+def test_a_set_of_ads_without_a_control_and_a_challenger_warns():
+    assert _codes(_two_ads("", ""), "warn") == ["no_test"]
+    assert _codes(_two_ads("control", "control"), "warn") == ["no_test"]
+    assert _codes(_two_ads("challenger", "challenger"), "warn") == ["no_test"]
+
+
+def test_a_control_against_a_challenger_is_a_ready_test():
+    assert _two_ads("control", "challenger") == []
+
+
+def test_one_ad_needs_no_test():
+    assert _check(_pack()) == []
+
+
+def test_an_unknown_test_role_is_dropped():
+    assert normalize(_pack(test_role="winner"))["ads"][0]["test_role"] == ""
+    assert normalize(_pack(test_role="Control"))["ads"][0]["test_role"] == "control"
+
+
+def test_the_page_labels_the_control_and_the_challenger():
+    page = render(normalize(_pack(test_role="control")), [], {})
+    assert "Kontrolinė: dabartinė žinutė" in page
+    assert "Nauja žinutė" in render(normalize(_pack(test_role="challenger")), [], {})
+
+
+def test_the_recipe_runs_the_real_pitch_against_outcomes_already_delivered():
+    steps = {step["title"]: step["detail"] for step in load_recipes()["ads"].render_steps("goal")}
+    assert "`Pitch: `" in steps["Facts"]
+    assert "test_role control" in steps["Ads"] and "already delivers" in steps["Ads"]
+
+
 def test_an_ad_with_no_offer_behind_it_warns_for_each_gap():
     checks = _check(_pack(mix={"product": "Auditas"}))
     assert _codes(checks, "block") == [] and _codes(checks, "warn") == ["mix_missing", "mix_missing"]

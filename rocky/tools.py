@@ -553,6 +553,11 @@ CLIENT_TOOL_SPECS = [
                                 "cta": {"type": "string", "description": "button label"},
                                 "angle": {"type": "string"},
                                 "audience": {"type": "string"},
+                                "test_role": {
+                                    "type": "string",
+                                    "enum": ["control", "challenger"],
+                                    "description": "control is the site's current pitch as an ad; challenger is a new message",
+                                },
                                 "mix": {
                                     "type": "object",
                                     "description": "the offer that makes this ad's promise true, from the facts",
