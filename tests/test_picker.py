@@ -1,7 +1,7 @@
-from rocky.catalog import Model, pick_cast
+from rocky.catalog import Model, parse_models, pick_cast
 
 
-def _m(id, prompt, completion, context=128000, params=None, desc=""):
+def _m(id, prompt, completion, context=128000, params=None, desc="", created=0, retiring=False):
     return Model(
         id=id,
         name=id,
@@ -10,6 +10,8 @@ def _m(id, prompt, completion, context=128000, params=None, desc=""):
         context_length=context,
         params=set(params or ["tools"]),
         description=desc,
+        created=created,
+        retiring=retiring,
     )
 
 
@@ -218,3 +220,60 @@ def test_verifier_falls_back_to_the_cheapest_peer_when_nothing_is_under_the_cap(
     cast = pick_cast(FIXTURE, complexity="hard", domain="marketing")
     verifier = next(m for m in FIXTURE if m.id == cast.verifier)
     assert verifier.family != cast.planner.split("/")[0]
+
+
+NOW = 1_800_000_000
+DAY = 86400
+STRONG = ["tools", "structured_outputs", "reasoning"]
+
+
+def _generations(*extra):
+    return [
+        _m("anthropic/planner", 5e-6, 25e-6, params=STRONG, created=NOW),
+        _m("anthropic/critic", 4e-6, 20e-6, params=STRONG, created=NOW),
+        _m("openai/current", 1e-6, 5e-6, params=STRONG, created=NOW),
+        _m("google/gemini-3.8-flash", 0.8e-6, 4e-6, params=STRONG, created=NOW),
+        *extra,
+    ]
+
+
+def _roles(cast):
+    return {cast.assess, cast.critic, cast.planner, cast.worker, cast.verifier}
+
+
+def test_a_previous_generation_is_not_picked_for_costing_more():
+    old = _m("openai/previous", 4e-6, 16e-6, params=STRONG, created=NOW - 120 * DAY)
+    cast = pick_cast(_generations(old), complexity="hard", domain="writing")
+    assert old.id not in _roles(cast)
+    assert cast.verifier == "openai/current"
+
+
+def test_the_window_is_per_family_so_a_quiet_family_keeps_its_latest():
+    quiet = [
+        _m("anthropic/quiet", 5e-6, 25e-6, params=STRONG, created=NOW - 300 * DAY),
+        _m("openai/current", 1e-6, 5e-6, params=STRONG, created=NOW),
+        _m("google/gemini-3.8-flash", 0.8e-6, 4e-6, params=STRONG, created=NOW),
+    ]
+    assert pick_cast(quiet, complexity="hard", domain="writing").planner == "anthropic/quiet"
+
+
+def test_a_retiring_model_is_never_picked():
+    retiring = _m("z-ai/cheapest", 1e-9, 1e-9, params=STRONG, created=NOW, retiring=True)
+    assert retiring.id not in _roles(pick_cast(_generations(retiring), complexity="hard", domain="writing"))
+
+
+def test_a_pinned_worker_may_be_from_an_old_generation():
+    old = _m("openai/previous", 4e-6, 16e-6, params=STRONG, created=NOW - 400 * DAY)
+    cast = pick_cast(_generations(old), complexity="hard", domain="writing", preferred_worker="openai/previous")
+    assert cast.worker == "openai/previous"
+
+
+def test_the_assessor_comes_from_a_known_family():
+    unknown = _m("tinylab/tiny", 1e-9, 1e-9, params=STRONG, created=NOW)
+    assert pick_cast(_generations(unknown), complexity="hard", domain="writing").assess != unknown.id
+
+
+def test_parse_models_reads_release_and_retirement():
+    row = {"id": "a/b", "created": NOW, "expiration_date": "2026-12-01", "pricing": {"prompt": "0", "completion": "0"}}
+    model = parse_models({"data": [row]})[0]
+    assert model.created == NOW and model.retiring is True

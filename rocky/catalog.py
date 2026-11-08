@@ -39,6 +39,9 @@ COMPLEXITY_FLOOR = {
 
 # Cheap multilingual workhorse (Lithuanian + tools). Overridable via ROCKY_WORKER.
 DEFAULT_WORKER_MODEL = "google/gemini-3.8-flash"
+# Automatic picks ignore models released this long before the newest of their own family.
+# Capability leans on price, and new generations are often cheaper than the ones they replace.
+CURRENT_WINDOW_DAYS = 90
 
 
 @dataclass
@@ -50,6 +53,8 @@ class Model:
     context_length: int
     params: set[str]
     description: str = ""
+    created: int = 0
+    retiring: bool = False
 
     @property
     def family(self) -> str:
@@ -112,6 +117,8 @@ def parse_models(payload: dict) -> list[Model]:
                 context_length=int(row.get("context_length") or 0),
                 params=params,
                 description=(row.get("description") or "")[:400],
+                created=int(row.get("created") or 0),
+                retiring=bool(row.get("expiration_date")),
             )
         )
     return models
@@ -154,6 +161,15 @@ def _tool_models(models: list[Model], min_context: int = 8000) -> list[Model]:
     return out or [m for m in models if m.has_tools and ":batch" not in m.id]
 
 
+def _current(models: list[Model]) -> list[Model]:
+    """Models fit for an automatic pick: not retiring, not a generation behind."""
+    newest: dict[str, int] = {}
+    for m in models:
+        newest[m.family] = max(newest.get(m.family, 0), m.created)
+    window = CURRENT_WINDOW_DAYS * 86400
+    return [m for m in models if not m.retiring and (not m.created or m.created >= newest[m.family] - window)] or models
+
+
 def _matches_preferred_worker(model_id: str, preferred: str) -> bool:
     if not preferred or ":batch" in model_id:
         return False
@@ -184,7 +200,7 @@ def _work_families(domain: str) -> dict[str, float]:
 def eligible_workers(models: list[Model], complexity: str, domain: str) -> list[Model]:
     """Tool models strong enough for this complexity, cheapest first."""
     complexity = complexity if complexity in COMPLEXITY_FLOOR else "moderate"
-    tool = _tool_models(models)
+    tool = _current(_tool_models(models))
     floor = COMPLEXITY_FLOOR[complexity]
     families = _work_families(domain)
     pool = [
@@ -255,14 +271,17 @@ def pick_cast(
     tool = _tool_models(models)
     if not tool:
         raise ValueError("no tool-capable models in catalog")
+    current = _current(tool)
 
+    # The assessor reads goals in any language, so the cheapest model of a family Rocky knows.
     assess_pool = sorted(
-        [m for m in tool if m.context_length >= 8000],
+        [m for m in current if m.context_length >= 8000 and m.family in PLAN_FAMILIES]
+        or [m for m in current if m.context_length >= 8000],
         key=lambda m: (not m.has_structured, m.blended_per_million, -m.context_length),
     )
     assess = assess_pool[0]
 
-    plan_pool = sorted(tool, key=lambda m: capability(m, PLAN_FAMILIES), reverse=True)
+    plan_pool = sorted(current, key=lambda m: capability(m, PLAN_FAMILIES), reverse=True)
     planner = plan_pool[0]
     critic = next((m for m in plan_pool if m.id != planner.id), planner)
 
