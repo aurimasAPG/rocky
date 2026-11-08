@@ -24,7 +24,9 @@ from pydantic import BaseModel, Field
 from rocky.adboard import BOARD_PATH, current_checks, fix_instruction
 from rocky.config import allowed_workspaces, api_key, serve_token
 from rocky.job import spawn_worker
-from rocky.playbook import FIX_CAP_EUR, for_code
+from rocky.lang import detect_language
+from rocky.playbook import FIX_CAP_EUR, checks_for, for_code, set_switched_off, switched_off
+from rocky.recipes import find_recipe, load_recipes
 from rocky.runs import (
     TERMINAL,
     EventCursor,
@@ -64,6 +66,12 @@ class AnswerRequest(BaseModel):
 
 class StopRequest(BaseModel):
     workspace: str = ""
+
+
+class ToggleRequest(BaseModel):
+    workspace: str
+    number: int
+    off: bool
 
 
 class FixRequest(BaseModel):
@@ -235,6 +243,40 @@ def _follow_up(workspace: Path, run_id: str, instruction: str) -> dict[str, str]
     with _lock:
         _started[meta["id"]] = workspace
     return {"id": meta["id"], "workspace": str(workspace)}
+
+
+def _folder(raw: str) -> Path:
+    folder = Path(raw or Path.cwd()).expanduser().resolve()
+    if not _workspace_ok(folder):
+        raise HTTPException(status_code=400, detail="Workspace is not allowed.")
+    return folder
+
+
+@app.get("/api/playbook/preview")
+def playbook_preview(request: Request, goal: str = "", workspace: str = ""):
+    """What Rocky will check for this goal, as soon as it recognises the kind of work."""
+    _auth(request)
+    folder = _folder(workspace)
+    recipe = find_recipe(goal, None, load_recipes(folder))
+    language = "lt" if detect_language(goal) == "lt" else "en"
+    off = switched_off(folder)
+    return {
+        "title": "Rocky patikrins:" if language == "lt" else "Rocky will check:",
+        "edit": "keisti" if language == "lt" else "edit",
+        "items": [
+            {"number": e.number, "question": e.question[language], "off": e.number in off}
+            for e in (checks_for(recipe.name) if recipe else [])
+        ],
+    }
+
+
+@app.post("/api/playbook/toggle")
+def playbook_toggle(body: ToggleRequest, request: Request):
+    _auth(request)
+    folder = _folder(body.workspace)
+    if not any(body.number == e.number and e.codes for e in checks_for("ads")):
+        raise HTTPException(status_code=400, detail="This one cannot be switched off.")
+    return {"off": sorted(set_switched_off(folder, body.number, body.off))}
 
 
 @app.post("/api/runs/{run_id}/fix")

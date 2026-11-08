@@ -21,7 +21,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from rocky.lang import detect_language
-from rocky.playbook import FIX_CAP_EUR, for_code
+from rocky.playbook import FIX_CAP_EUR, for_code, switched_off
 from rocky.tools import ToolError, WorkspaceTools
 
 BOARD_PATH = "deliverables/ads.html"
@@ -329,9 +329,15 @@ def _keep_earlier_visuals(pack: dict, tools: WorkspaceTools) -> None:
         ad["image"] = ad["image"] or str(old.get("image") or "")
 
 
+def _switched_on(checks: list[Check], tools: WorkspaceTools) -> list[Check]:
+    """Findings from the elements this workspace has not switched off."""
+    off = switched_off(tools.root)
+    return [c for c in checks if (element := for_code(c.code)) is None or element.number not in off]
+
+
 def _publish(tools: WorkspaceTools, pack: dict) -> list[Check]:
     images = _attach(pack, tools)
-    checks = check_pack(pack, _facts(tools), images)
+    checks = _switched_on(check_pack(pack, _facts(tools), images), tools)
     tools.write_file(PACK_PATH, json.dumps(pack, ensure_ascii=False, indent=2))
     tools.write_file(BOARD_PATH, render(pack, checks, images))
     return checks
@@ -381,7 +387,7 @@ def current_checks(tools: WorkspaceTools) -> list[Check] | None:
     if pack is None:
         return None
     images = {n: "" for n, ad in enumerate(pack["ads"], 1) if _data_uri(tools, ad.get("image") or "")}
-    return check_pack(pack, _facts(tools), images)
+    return _switched_on(check_pack(pack, _facts(tools), images), tools)
 
 
 def _load_pack(tools: WorkspaceTools) -> dict | None:

@@ -7,6 +7,7 @@ playbook search all read from here instead of keeping their own copies.
 
 from __future__ import annotations
 
+import json
 import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
@@ -56,3 +57,30 @@ def elements() -> tuple[Element, ...]:
 
 def for_code(code: str) -> Element | None:
     return next((element for element in elements() if code in element.codes), None)
+
+
+def checks_for(recipe: str) -> list[Element]:
+    """The book elements code enforces on this kind of work: what a person can see and switch off."""
+    return [e for e in elements() if e.number and e.codes and recipe in e.applies]
+
+
+def _settings_path(root: str | Path) -> Path:
+    return Path(root) / ".rocky" / "playbook.json"
+
+
+def switched_off(root: str | Path) -> set[int]:
+    try:
+        raw = json.loads(_settings_path(root).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    off = raw.get("off") if isinstance(raw, dict) else None
+    return {int(n) for n in off if isinstance(n, int)} if isinstance(off, list) else set()
+
+
+def set_switched_off(root: str | Path, number: int, off: bool) -> set[int]:
+    numbers = switched_off(root)
+    numbers = numbers | {number} if off else numbers - {number}
+    path = _settings_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"off": sorted(numbers)}), encoding="utf-8")
+    return numbers

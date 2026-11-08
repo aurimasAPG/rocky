@@ -330,6 +330,65 @@ $("ask-form").addEventListener("submit", async (ev) => {
   }
 });
 
+let previewTimer = null;
+let preview = { items: [] };
+
+function paintPreview() {
+  const on = preview.items.filter((item) => !item.off);
+  $("will-check").classList.toggle("hidden", !preview.items.length);
+  $("will-title").textContent = preview.title || "";
+  $("will-edit").textContent = preview.edit || "";
+  const shown = on.slice(0, 2).map((item) => item.question).join(" · ");
+  $("will-list").textContent = on.length > 2 ? `${shown} · +${on.length - 2}` : shown;
+  const list = $("will-edit-list");
+  list.innerHTML = "";
+  preview.items.forEach((item) => {
+    const row = document.createElement("li");
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !item.off;
+    box.addEventListener("change", () => toggleCheck(item, box));
+    label.append(box, ` ${item.question}`);
+    row.append(label);
+    list.append(row);
+  });
+}
+
+async function toggleCheck(item, box) {
+  try {
+    await api("/api/playbook/toggle", {
+      method: "POST",
+      body: JSON.stringify({ workspace: $("workspace").value.trim(), number: item.number, off: !box.checked }),
+    });
+    item.off = !box.checked;
+    paintPreview();
+  } catch {
+    box.checked = !item.off;
+  }
+}
+
+async function loadPreview() {
+  const goal = $("goal").value.trim();
+  const workspace = $("workspace").value.trim();
+  if (!goal || !workspace) {
+    preview = { items: [] };
+    paintPreview();
+    return;
+  }
+  try {
+    preview = await api(`/api/playbook/preview?goal=${encodeURIComponent(goal)}&workspace=${encodeURIComponent(workspace)}`);
+    paintPreview();
+  } catch { /* token or workspace not ready yet */ }
+}
+
+$("goal").addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(loadPreview, 350);
+});
+
+$("will-edit").addEventListener("click", () => $("will-edit-list").classList.toggle("hidden"));
+
 $("workspace").addEventListener("change", refreshRuns);
 
 boot();
