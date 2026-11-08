@@ -48,6 +48,7 @@ _TOOL_VERB = {
     "unit_economics": "calculating",
     "experiment_plan": "sizing the test",
     "funnel_analyze": "reading the funnel",
+    "reach_overlap": "estimating reach",
     "clarify": "asking you",
 }
 

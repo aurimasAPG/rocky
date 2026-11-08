@@ -574,6 +574,103 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "reach_overlap",
+            "description": "Combined and incremental reach of a media plan across channels, with bounds instead of reaches added up as if nobody saw two channels. Use it whenever a brief compares channels, allocates a media budget, or quotes a combined reach or cost per person reached. Give the audience and each channel's reach in people (or reach_unit=pct); list the pairwise overlaps you know under overlaps. Unknown pairs are returned under missing with lower and upper bounds, no point estimate unless assumption=independent, and narrows_most names the one overlap to ask for (use clarify or state the assumption).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "audience": {
+                        "type": "number",
+                        "description": "target population in people"
+                    },
+                    "audience_name": {
+                        "type": "string",
+                        "description": "who the audience is, e.g. Lithuanian adults 25–54"
+                    },
+                    "channels": {
+                        "type": "array",
+                        "description": "one object per channel",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "reach": {
+                                    "type": "number",
+                                    "description": "people reached, or percent of the audience when reach_unit is pct"
+                                },
+                                "cost": {
+                                    "type": "number",
+                                    "description": "cost per period in one currency, for cost per reach"
+                                },
+                                "frequency": {
+                                    "type": "number",
+                                    "description": "average exposures per reached person, for impressions and GRPs"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "reach"
+                            ]
+                        }
+                    },
+                    "reach_unit": {
+                        "type": "string",
+                        "enum": [
+                            "people",
+                            "pct"
+                        ],
+                        "description": "unit of reach and shared; people by default"
+                    },
+                    "overlaps": {
+                        "type": "array",
+                        "description": "pairs whose duplication is known; pairs not listed are reported as missing",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "a": {
+                                    "type": "string"
+                                },
+                                "b": {
+                                    "type": "string"
+                                },
+                                "shared": {
+                                    "type": "number",
+                                    "description": "people (or percent of the audience) reached by both"
+                                }
+                            },
+                            "required": [
+                                "a",
+                                "b",
+                                "shared"
+                            ]
+                        }
+                    },
+                    "assumption": {
+                        "type": "string",
+                        "enum": [
+                            "independent",
+                            "bounds",
+                            "given"
+                        ],
+                        "description": "independent = random duplication point estimate; bounds = no point (default when a pair is unknown); given = use the overlaps supplied (default when all pairs are known)"
+                    },
+                    "budget": {
+                        "type": "number",
+                        "description": "media budget per period, checked against channel costs"
+                    }
+                },
+                "required": [
+                    "audience",
+                    "channels"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -952,6 +1049,10 @@ def dispatch(
             from rocky.funnel import funnel_analyze_tool
 
             return funnel_analyze_tool(tools, args)
+        if name == "reach_overlap":
+            from rocky.reach import reach_overlap_tool
+
+            return reach_overlap_tool(args)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 
