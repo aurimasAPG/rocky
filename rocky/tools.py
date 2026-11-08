@@ -501,6 +501,79 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "funnel_analyze",
+            "description": "Read the user's own campaign, order or event data (CSV or XLSX in the workspace) and compute the funnel: counts per stage, conversion from the previous stage and from the first, the step that loses the most, the date window actually covered, per-group funnels and the worst group. Call it whenever a brief asks where a funnel leaks, which step to fix, how conversion differs by channel or cohort, or whenever a data file with stage counts is in the workspace — never summarise such a file in prose or compute the percentages yourself. Wide files (one column per stage) take stages; long files (one row per event or per stage) take stage_column with count_column or id_column. The result lists blank cells, bad numbers, unreadable dates and empty windows under missing: report them, do not fill them in.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "CSV or XLSX file relative to the workspace"
+                    },
+                    "sheet": {
+                        "type": "string",
+                        "description": "XLSX sheet name; first sheet by default"
+                    },
+                    "layout": {
+                        "type": "string",
+                        "enum": [
+                            "wide",
+                            "long"
+                        ],
+                        "description": "wide = one column per stage (default when stages is given); long = one row per event or stage (default when stage_column is given)"
+                    },
+                    "stages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "wide layout: ordered column names holding counts, first stage first; summed over rows in the window"
+                    },
+                    "stage_column": {
+                        "type": "string",
+                        "description": "long layout: column naming the stage of each row"
+                    },
+                    "count_column": {
+                        "type": "string",
+                        "description": "long layout: column with a count per row to sum; omit to count rows"
+                    },
+                    "id_column": {
+                        "type": "string",
+                        "description": "long layout: user/order id column; each stage then counts unique ids instead of rows"
+                    },
+                    "stage_order": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "long layout: stage names in funnel order; default is order of first appearance"
+                    },
+                    "group_by": {
+                        "type": "string",
+                        "description": "column such as channel, campaign or cohort: adds one funnel per value and names the worst group (groups with at least 30 at the first stage)"
+                    },
+                    "date_column": {
+                        "type": "string",
+                        "description": "date column; rows with unreadable dates are left out and reported"
+                    },
+                    "date_from": {
+                        "type": "string",
+                        "description": "ISO date YYYY-MM-DD, inclusive"
+                    },
+                    "date_to": {
+                        "type": "string",
+                        "description": "ISO date YYYY-MM-DD, inclusive"
+                    }
+                },
+                "required": [
+                    "path"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -875,6 +948,10 @@ def dispatch(
             from rocky.calc import experiment_plan_tool
 
             return experiment_plan_tool(args)
+        if name == "funnel_analyze":
+            from rocky.funnel import funnel_analyze_tool
+
+            return funnel_analyze_tool(tools, args)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 

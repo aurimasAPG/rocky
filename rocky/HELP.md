@@ -301,7 +301,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, plus any **MCP** tools you configure (below).
 
 ### Numbers
 
@@ -310,6 +310,10 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 Ask Rocky "We sell 100 units at €100, variable cost €60. If we cut the price to €90, how many extra sales do we need?" and the answer is **34 extra sales, 134 in total**, to keep €4,000 of contribution.
 
 `experiment_plan` sizes an A/B test instead of letting a worker guess "run it for two weeks": from a `baseline_rate` (percent), the `minimum_effect` worth detecting (relative by default, or absolute percentage points) and `weekly_traffic` it returns the sample per variant, the total, the number of whole weeks, and a decision rule (fixed sample, no early stopping, the lift and p-value that count as a win). Several challengers split alpha across comparisons. Give it `max_weeks` and it says what lift is detectable in the time you have. Without traffic the duration is reported as unknown and the worker asks for it.
+
+### Your own data
+
+`funnel_analyze` reads a CSV or XLSX file in the workspace and turns it into a funnel with real numbers: the count at every stage, the share kept from the previous stage and from the first, the step that loses the most, and the overall conversion. Give it the stage columns in order (`stages`) for a wide file, or `stage_column` with `count_column` or `id_column` for one-row-per-event data; add `date_column` with `date_from` / `date_to` to limit the window, and `group_by` for a funnel per channel, campaign or cohort with the worst group named. The result reports the dates actually covered and how many rows were used, not the dates you asked for. Anything the data cannot answer — blank cells, text where a number should be, unreadable dates, an empty window, a column that does not exist — is listed under `missing` instead of being guessed, and a later stage larger than an earlier one triggers a warning. The one-sentence `summary` is written to be quoted in the report as is.
 
 ### Images
 

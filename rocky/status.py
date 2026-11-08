@@ -47,6 +47,7 @@ _TOOL_VERB = {
     "ad_board": "building ads",
     "unit_economics": "calculating",
     "experiment_plan": "sizing the test",
+    "funnel_analyze": "reading the funnel",
     "clarify": "asking you",
 }
 

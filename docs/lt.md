@@ -305,7 +305,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
 
 ### Skaičiai
 
@@ -314,6 +314,10 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 Paklausk Rocky: „Parduodame 100 vnt. po 100 €, kintamoji savikaina 60 €. Jei kainą sumažinsime iki 90 €, kiek papildomų pardavimų reikės?“ — atsakymas: **34 papildomi pardavimai, iš viso 134**, kad išliktų 4 000 € įnašo.
 
 `experiment_plan` apskaičiuoja A/B testo dydį, užuot leidęs darbuotojui spėti „paleiskime dviem savaitėms“: iš `baseline_rate` (procentais), `minimum_effect` — mažiausio verto aptikti pokyčio (numatytai santykinio, arba absoliutaus procentiniais punktais) ir `weekly_traffic` grąžina imtį vienam variantui, bendrą imtį, pilnų savaičių skaičių ir sprendimo taisyklę (iš anksto fiksuota imtis, jokio ankstyvo stabdymo, koks pokytis ir p reikšmė laikomi laimėjimu). Keli variantai prieš kontrolę dalijasi alfa. Nurodžius `max_weeks`, pasako, kokį pokytį įmanoma aptikti per turimą laiką. Be srauto duomenų trukmė pateikiama kaip nežinoma, ir darbuotojas jos paklausia.
+
+### Tavo paties duomenys
+
+`funnel_analyze` perskaito darbo kataloge esantį CSV arba XLSX failą ir paverčia jį piltuvėliu su tikrais skaičiais: kiek yra kiekviename etape, kokia dalis išlieka nuo ankstesnio ir nuo pirmojo etapo, kuriame žingsnyje prarandama daugiausia ir kokia bendra konversija. Plačiam failui nurodyk etapų stulpelius eilės tvarka (`stages`), o duomenims po vieną eilutę įvykiui – `stage_column` kartu su `count_column` arba `id_column`; pridėk `date_column` su `date_from` / `date_to`, kad apribotum laikotarpį, ir `group_by`, kad gautum piltuvėlį kiekvienam kanalui, kampanijai ar kohortai ir blogiausios grupės pavadinimą. Rezultate nurodomos iš tikrųjų aprėptos datos ir panaudotų eilučių skaičius, o ne tos datos, kurių prašei. Visa, ko duomenys negali atsakyti – tušti langeliai, tekstas vietoj skaičiaus, neįskaitomos datos, tuščias laikotarpis, neegzistuojantis stulpelis – išvardijama skiltyje `missing`, o ne spėjama, o jei vėlesnis etapas didesnis už ankstesnį, pateikiamas įspėjimas. Vieno sakinio `summary` parašytas taip, kad jį būtų galima cituoti ataskaitoje be pakeitimų.
 
 ### Vaizdai
 

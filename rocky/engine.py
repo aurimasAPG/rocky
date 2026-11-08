@@ -1320,6 +1320,7 @@ def _run_subtask(
                 "Margins, break-even, discounts, promotions and acquisition costs go through unit_economics; "
                 "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
                 "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan. "
+                "A CSV or XLSX of campaign, order or event data goes through funnel_analyze; never read its percentages by eye. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +
