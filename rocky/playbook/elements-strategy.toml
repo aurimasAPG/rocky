@@ -1,0 +1,293 @@
+# Market strategy and positioning elements enforced by rocky/adchecks/strategy.py.
+# One record per 500list concept; number is the concept id. Codes are the board findings
+# the module produces; manual lists those a follow-up run cannot settle by itself.
+# Concepts 1–10 keep their records in elements.toml.
+
+[[element]]
+number = 11
+title = "Decide separately what to adapt in a new market"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["adaptation_missing", "adaptation_unsourced", "adaptation_unknown"]
+manual = ["adaptation_unknown"]
+source = "Principles of Marketing, pp. 258–260"
+question.en = "In the new market, is the product question settled separately from the message question?"
+question.lt = "Ar naujoje rinkoje produkto klausimas sprendžiamas atskirai nuo žinutės klausimo?"
+why.en = "A product can travel well while its promise means nothing locally, or familiar advertising can hide a poor local fit. Translating the ads answers neither question."
+why.lt = "Produktas gali tikti, o jo pažadas vietoje nieko nereikšti, arba įprasta reklama gali paslėpti prastą vietinį atitikimą. Reklamų vertimas neatsako nė į vieną klausimą."
+
+[[element]]
+number = 12
+title = "Distinguish filling a range from stretching it"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["line_incomplete", "line_mismatch", "stretch_unproven"]
+source = "Principles of Marketing, pp. 328–329"
+question.en = "Does the new price fill a gap in the line or stretch it into a new tier?"
+question.lt = "Ar nauja kaina užpildo spragą linijoje, ar ištempia ją į naują lygį?"
+why.en = "Filling a missing middle option and moving into a premium tier need different evidence about buyers and competitors. The brand's existing proof points do not carry into a tier it has never sold in."
+why.lt = "Trūkstamo vidurinio varianto užpildymas ir žengimas į aukštesnį lygį reikalauja skirtingų įrodymų apie pirkėjus ir konkurentus. Esami prekės ženklo įrodymai negalioja lygyje, kuriame jis niekada nepardavinėjo."
+
+[[element]]
+number = 13
+title = "Test what each partner contributes to a co-brand"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["comparison_incomplete", "cell_no_ads", "cell_no_tradeoff", "cell_unknown"]
+source = "Principles of Marketing, pp. 336–337"
+question.en = "Is the joint offer tested against each brand selling it alone?"
+question.lt = "Ar bendras pasiūlymas lyginamas su kiekvieno prekės ženklo pardavimu atskirai?"
+why.en = "A co-brand only earns its place if the combination gains credibility with an audience that neither partner has alone. Without each partner's own version there is nothing to compare it to, and a weakened association goes unnoticed."
+why.lt = "Bendras ženklas vertas savo vietos tik tada, kai derinys įgyja patikimumą auditorijoje, kurios nė vienas partneris neturi atskirai. Be kiekvieno partnerio savos versijos nėra su kuo lyginti, o susilpnėjusi asociacija lieka nepastebėta."
+
+[[element]]
+number = 14
+title = "Check whether brand equity travels to a new category"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["credibility_unsourced"]
+source = "Principles of Marketing, pp. 339–340"
+question.en = "Do buyers say what makes the parent brand credible in the new category?"
+question.lt = "Ar pirkėjai pasako, kas daro pagrindinį prekės ženklą patikimą naujoje kategorijoje?"
+why.en = "A known name only helps if the attribute buyers trust it for matters in the new category. An assumption about that is the most expensive thing to get wrong in brand architecture."
+why.lt = "Žinomas vardas padeda tik tada, kai savybė, dėl kurios pirkėjai juo pasitiki, svarbi naujoje kategorijoje. Prielaida apie tai yra brangiausia klaida prekės ženklo architektūroje."
+
+[[element]]
+number = 16
+title = "Mid-market positioning"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["mid_reason_missing", "mid_reason_unused", "price_ladder_invalid", "ladder_missing"]
+source = "Effectiveness in Context, pp. 41–42"
+question.en = "Does the middle-priced offer give a reason to choose it that neither neighbour can claim?"
+question.lt = "Ar vidutinės kainos pasiūlymas duoda priežastį jį rinktis, kurios negali pasakyti nė vienas kaimynas?"
+why.en = "Brands at the price extremes have an easy value or quality story; the middle has to earn its own. An ad for the middle tier that never says why not the cheap one and why not the premium one leaves the buyer to decide on price alone."
+why.lt = "Kainų kraštutinumuose esantys prekės ženklai turi lengvą vertės arba kokybės istoriją, o vidurys turi užsitarnauti savąją. Vidurinio lygio reklama, kuri nepasako, kodėl ne pigusis ir kodėl ne brangusis, palieka pirkėją spręsti vien pagal kainą."
+
+[[element]]
+number = 18
+title = "Relaunch versus new launch"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["relaunch_associations_missing", "association_unsourced", "heritage_on_new_name", "relaunch_association_unused", "launch_missing"]
+source = "Effectiveness in Context, pp. 75–76"
+question.en = "Is a returning name planned as a relaunch, with what buyers still remember written down?"
+question.lt = "Ar grįžtantis vardas planuojamas kaip atgaivinimas, surašius tai, ką pirkėjai vis dar prisimena?"
+why.en = "An established name carries associations a new entrant can avoid, and relaunches performed differently from new launches in the case data. Copy that ignores what buyers remember, or a new name that claims heritage, misjudges which group it belongs to."
+why.lt = "Žinomas vardas neša asociacijas, kurių naujokas gali išvengti, o atvejų duomenyse atgaivinimai veikė kitaip nei nauji paleidimai. Tekstas, nepaisantis to, ką pirkėjai prisimena, arba naujas vardas, besiremiantis istorija, klaidingai įvertina, kuriai grupei priklauso."
+
+[[element]]
+number = 20
+title = "Write a one-sentence product vision"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["vision_missing", "vision_long", "hero_unjustified"]
+source = "Getting Real, pp. 35–36"
+question.en = "Is there one sentence saying what the product is for, and does the top promise restate it?"
+question.lt = "Ar yra vienas sakinys, sakantis, kam skirtas produktas, ir ar pagrindinis pažadas jį pakartoja?"
+why.en = "When two promises compete for the top of a page, the argument is settled by the vision, not by whoever speaks loudest. A vision longer than a sentence cannot settle anything."
+why.lt = "Kai du pažadai varžosi dėl puslapio viršaus, ginčą išsprendžia vizija, o ne tas, kas kalba garsiausiai. Vizija, ilgesnė nei sakinys, nieko neišsprendžia."
+
+[[element]]
+number = 21
+title = "Decide whose requests should shape the product"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["built_for_missing", "audience_outside", "request_unchecked"]
+manual = ["audience_outside"]
+source = "Getting Real, p. 40"
+question.en = "Is a big prospect's request checked against whom the product is built for?"
+question.lt = "Ar didelio kliento prašymas tikrinamas pagal tai, kam produktas kuriamas?"
+why.en = "A large prospect can pull the product and its ads toward buyers it was never built for, at the cost of everyone it was. Naming the customer type first makes the request a decision instead of a drift."
+why.lt = "Didelis klientas gali patraukti produktą ir jo reklamas link pirkėjų, kuriems jis niekada nebuvo kuriamas, visų kitų sąskaita. Pirmiausia įvardijus kliento tipą, prašymas tampa sprendimu, o ne slinkimu."
+
+[[element]]
+number = 22
+title = "Local optimization trap"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["local_optimum", "trial_incomplete"]
+source = "New Rules for the New Economy, pp. 94–96"
+question.en = "Are you polishing an offer buyers are abandoning instead of trying one that solves the problem differently?"
+question.lt = "Ar tobulinate pasiūlymą, kurio pirkėjai atsisako, užuot išbandę kitą, kuris problemą sprendžia kitaip?"
+why.en = "Repeated small gains on a losing offer are the sign of a local optimum. A small trial of a different mechanism costs less than another variant of the same step."
+why.lt = "Pasikartojantys menki pagerėjimai nuostolingame pasiūlyme yra vietinio optimumo ženklas. Nedidelis kitokio mechanizmo bandymas kainuoja mažiau nei dar vienas to paties žingsnio variantas."
+
+[[element]]
+number = 23
+title = "Hard-to-copy combinations of capabilities"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_headline_only", "capability_ours_missing", "capability_unsourced", "rival_capabilities_missing"]
+source = "New Rules for the New Economy, pp. 97–99"
+question.en = "Before copying a rival's feature, are the linked capabilities behind it listed and sourced?"
+question.lt = "Ar prieš kopijuojant konkurento funkciją išvardyti ir pagrįsti už jos esantys susiję gebėjimai?"
+why.en = "A headline feature often works only because delivery, expertise, licences and service work together behind it. Copying the feature alone accomplishes little and the ads then promise what the brand cannot deliver."
+why.lt = "Pagrindinė funkcija dažnai veikia tik todėl, kad už jos kartu dirba pristatymas, patirtis, licencijos ir aptarnavimas. Nukopijavus vien funkciją pasiekiama mažai, o reklamos žada tai, ko prekės ženklas negali duoti."
+
+[[element]]
+number = 25
+title = "Occasion-based repositioning"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["occasion_place"]
+source = "My Life in Advertising, pp. 48–50"
+question.en = "When an ad moves the product to a new buying occasion, does it also move where the buyer meets it?"
+question.lt = "Kai reklama perkelia produktą į naują pirkimo progą, ar ji perkelia ir vietą, kur pirkėjas jį sutinka?"
+why.en = "Hopkins sold carpet sweepers as gifts with a dedicated retail display, not just a new headline. An occasion challenger that keeps the old place sends gift buyers to a shelf built for spring cleaning."
+why.lt = "Hopkinsas pardavė kilimų šluotas kaip dovanas su atskiru prekybos stendu, o ne vien su nauja antrašte. Progos iššūkis, paliekantis seną vietą, siunčia dovanų pirkėjus prie lentynos, skirtos pavasario valymui."
+
+[[element]]
+number = 26
+title = "Competition for the same budget"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["alternatives_missing", "alternative_unsourced"]
+source = "Propaganda, pp. 58–59"
+question.en = "Do you know what else buyers would spend this money on?"
+question.lt = "Ar žinote, kam dar pirkėjai išleistų šiuos pinigus?"
+why.en = "Bernays's piano buyer might choose a car instead, so the real competitors are not other pianos. Ads written against the category miss the alternative the buyer actually weighs."
+why.lt = "Bernayso fortepijono pirkėjas galėjo rinktis automobilį, todėl tikrieji konkurentai yra ne kiti fortepijonai. Prieš kategoriją rašytos reklamos praleidžia alternatyvą, kurią pirkėjas iš tiesų sveria."
+
+[[element]]
+number = 31
+title = "Identify the real alternative"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["wrong_comparison"]
+source = "Scientific Advertising, pp. 55–56"
+question.en = "Does the ad compare against what buyers do today, not against the brand the marketer named?"
+question.lt = "Ar reklama lygina su tuo, ką pirkėjai daro šiandien, o ne su prekės ženklu, kurį įvardijo rinkodarininkas?"
+why.en = "Hopkins's canned-bean research redirected the comparison from other brands to cooking at home. An ad aimed at a named competitor speaks to the few who switch brands and not to the many who do something else entirely."
+why.lt = "Hopkinso konservuotų pupelių tyrimas nukreipė palyginimą nuo kitų ženklų į gaminimą namuose. Į įvardytą konkurentą nukreipta reklama kalba su nedaugeliu, kurie keičia ženklą, o ne su dauguma, kuri daro visai ką kita."
+
+[[element]]
+number = 32
+title = "Continuity of brand voice"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["voice_missing", "voice_unsourced", "voice_thin", "voice_address_mismatch", "voice_exclamation"]
+source = "Scientific Advertising, pp. 83–84"
+question.en = "Do the new ads keep the tone and address form customers already recognise?"
+question.lt = "Ar naujos reklamos išlaiko toną ir kreipinį, kuriuos klientai jau atpažįsta?"
+why.en = "Customers recognise a brand by how it speaks, and a change of writer should not change that. Quoted examples with sources make the voice something the next writer can check against, not a feeling."
+why.lt = "Klientai atpažįsta prekės ženklą iš to, kaip jis kalba, ir pasikeitęs rašytojas to keisti neturėtų. Cituoti pavyzdžiai su šaltiniais paverčia balsą tuo, su kuo kitas rašytojas gali sutikrinti, o ne jausmu."
+
+[[element]]
+number = 33
+title = "Borrowed brand equity trap"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["borrowed_equity"]
+source = "The Book of Advertising Tests, pp. 112–113"
+question.en = "Could a stranger to the brand tell what is sold from the ad alone?"
+question.lt = "Ar prekės ženklo nežinantis žmogus vien iš reklamos suprastų, kas parduodama?"
+why.en = "A famous brand's sparse ad works because its audience already knows what it sells. A brand nobody knows that copies the format pays for impressions that explain nothing."
+why.lt = "Garsaus prekės ženklo lakoniška reklama veikia, nes jo auditorija jau žino, ką jis parduoda. Niekam nežinomas ženklas, kopijuojantis formatą, moka už parodymus, kurie nieko nepaaiškina."
+
+[[element]]
+number = 34
+title = "Buying purpose changes the sale"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["purpose_missing", "purpose_same_pitch", "purpose_no_standard", "standard_unsourced"]
+source = "The Elements of Marketing, pp. 38–42"
+question.en = "Does each ad know whether its buyer transforms, equips or consumes, and sell to that?"
+question.lt = "Ar kiekviena reklama žino, ar jos pirkėjas perdirba, naudoja kaip įrangą ar suvartoja, ir tam parduoda?"
+why.en = "A factory that blends the product, a company that runs it through machines and a household that eats it buy by different standards and processes. One pitch for all three convinces none of them."
+why.lt = "Gamykla, kuri produktą maišo, įmonė, kuri leidžia jį per įrangą, ir namų ūkis, kuris jį valgo, perka pagal skirtingus standartus ir eigą. Vienas pažadas visiems trims neįtikina nė vieno."
+
+[[element]]
+number = 35
+title = "Brand standards across suppliers"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["standard_missing", "claim_single_origin", "origin_in_copy"]
+source = "The Elements of Marketing, pp. 174–175"
+question.en = "When several suppliers fill one label, does every claim hold for every lot?"
+question.lt = "Kai vieną etiketę užpildo keli tiekėjai, ar kiekvienas teiginys galioja kiekvienai partijai?"
+why.en = "A brand with two origins needs one standard every bottle meets, or the ad describes only the better half of the shelf. A claim sourced from one supplier's page is true for that supplier, not for the brand."
+why.lt = "Dviejų kilmių prekės ženklui reikia vieno standarto, kurį atitinka kiekvienas butelis, kitaip reklama aprašo tik geresnę lentynos pusę. Teiginys iš vieno tiekėjo puslapio galioja tam tiekėjui, o ne prekės ženklui."
+
+[[element]]
+number = 36
+title = "Timing differentiation claims"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["stage_missing", "comparison_out_of_market", "pack_all_assessing", "in_market_assumed", "versus_missing", "versus_unsourced", "memory_hook_missing"]
+manual = ["in_market_assumed"]
+source = "The 5 Principles of Growth in B2B Marketing, pp. 28–30"
+question.en = "Do comparison ads reach buyers who are choosing now, and memorable ones reach everyone else?"
+question.lt = "Ar palyginimo reklamos pasiekia dabar besirenkančius pirkėjus, o įsimenamos – visus kitus?"
+why.en = "Most of a B2B audience is not in market this month, and a feature comparison means nothing to them. A memorable story leaves more of them able to recall the supplier when the contract comes up."
+why.lt = "Dauguma B2B auditorijos šį mėnesį nesirenka, ir funkcijų palyginimas jiems nieko nereiškia. Įsimenama istorija palieka daugiau jų gebančių prisiminti tiekėją, kai ateis sutarties laikas."
+
+[[element]]
+number = 37
+title = "Service partnership positioning"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["service_unsourced", "service_angle_missing"]
+source = "The 5 Principles of Growth in B2B Marketing, p. 31"
+question.en = "When competitors list features, does one ad sell the relationship after the purchase, with evidence?"
+question.lt = "Kai konkurentai vardija funkcijas, ar viena reklama parduoda santykį po pirkimo, su įrodymais?"
+why.en = "Volkswagen's van campaign spoke to business owners' need for support after purchase, a benefit competitors' feature lists overlooked. A service promise with no service page behind it is the one promise a buyer will test on day one."
+why.lt = "„Volkswagen“ furgonų kampanija kalbėjo apie verslo savininkų poreikį gauti pagalbą po pirkimo, naudą, kurią konkurentų funkcijų sąrašai pamiršo. Aptarnavimo pažadas be aptarnavimo puslapio yra tas pažadas, kurį pirkėjas patikrins pirmą dieną."
+
+[[element]]
+number = 46
+title = "Check the boundaries of the job"
+topic = "Customer research and innovation"
+applies = ["ads"]
+enforced = "check"
+codes = ["job_boundaries_missing", "job_boundary_names_product"]
+source = "Jobs to Be Done, pp. 87–88"
+question.en = "Do you know what the buyer does right before and right after using the product?"
+question.lt = "Ar žinote, ką pirkėjas daro prieš pat naudodamas produktą ir iškart po to?"
+why.en = "A job scoped to the feature restates the product as a verb. The steps before and after show whether the business could deliver a wider result worth more to the buyer."
+why.lt = "Pagal funkciją apibrėžtas darbas tik pakartoja produktą kaip veiksmažodį. Žingsniai prieš ir po parodo, ar verslas galėtų duoti platesnį rezultatą, pirkėjui vertą daugiau."
+
+[[element]]
+number = 47
+title = "Write a usable job statement"
+topic = "Customer research and innovation"
+applies = ["ads"]
+enforced = "check"
+codes = ["job_no_circumstance", "job_vague_action", "job_statement_mismatch"]
+source = "Jobs to Be Done, pp. 90–91"
+question.en = "Does the job name an action, its object and the circumstance someone could observe?"
+question.lt = "Ar darbas įvardija veiksmą, jo objektą ir aplinkybę, kurią kas nors galėtų stebėti?"
+why.en = "“Eat healthier” gives a researcher nothing to watch; “prepare breakfast during a commute” gives a situation to investigate. Ads built on a vague job inherit its vagueness."
+why.lt = "„Valgyti sveikiau“ tyrėjui neduoda ko stebėti, o „paruošti pusryčius pakeliui į darbą“ duoda situaciją, kurią galima tirti. Ant miglotai apibrėžto darbo pastatytos reklamos paveldi jo miglotumą."
+
+[[element]]
+number = 54
+title = "Find lead users on two dimensions"
+topic = "Customer research and innovation"
+applies = ["ads"]
+enforced = "check"
+codes = ["lead_user_unqualified"]
+source = "Democratizing Innovation, pp. 38–39"
+question.en = "Does each lead user both have a solution they built and much to gain, each with a source?"
+question.lt = "Ar kiekvienas pirmaujantis naudotojas ir turi savo pasidarytą sprendimą, ir daug laimi, abu su šaltiniu?"
+why.en = "Enthusiasts who built something but have little at stake, and large buyers with much at stake who built nothing, both fail the screen. Only people who meet both conditions show what the market will want next."
+why.lt = "Entuziastai, kurie kažką pasidarė, bet mažai rizikuoja, ir dideli pirkėjai, kurie daug rizikuoja, bet nieko nepasidarė, abu neatitinka atrankos. Tik abi sąlygas atitinkantys žmonės parodo, ko rinka norės toliau."
