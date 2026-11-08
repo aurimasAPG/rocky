@@ -797,6 +797,197 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "customer_economics",
+            "description": "The economics of one customer over time and of the money spent to win them. Call it instead of unit_economics whenever the question is per customer, over several periods, or about acquisition spend: CLV against CAC (contribution per period, expected lifetime, CLV over a horizon with churn and optional discounting, payback period, acquire / marginal / do not acquire against a target ratio, the maximum CAC and the maximum churn that still pay back), returns-adjusted contribution, a category spend ceiling, a price cut as acquisition funding, a subsidised entry offer with paid follow-ons (break-even attach rate), a subscription rollout table to a target, acquisition channels ranked with a 'profitable but secondary' flag, and the value of research before a decision. Give amounts in one currency, per purchase or per period. Only the blocks whose inputs are present are computed; a block with inputs missing says so under missing, and when the cost or retention is unknown the result gives a conditional table: ask the user (clarify) or state the assumption.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "price": {
+                        "type": "number",
+                        "description": "price per purchase (use with variable_cost or margin_pct)"
+                    },
+                    "variable_cost": {
+                        "type": "number",
+                        "description": "cost per purchase that scales with sales"
+                    },
+                    "margin_pct": {
+                        "type": "number",
+                        "description": "alternative to variable_cost: contribution margin in percent"
+                    },
+                    "arpu": {
+                        "type": "number",
+                        "description": "alternative to price: revenue per customer per period (subscriptions); use with gross_margin_pct"
+                    },
+                    "gross_margin_pct": {
+                        "type": "number",
+                        "description": "gross margin on arpu in percent"
+                    },
+                    "purchases_per_period": {
+                        "type": "number",
+                        "description": "purchases per period per customer, default 1"
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": [
+                            "month",
+                            "year"
+                        ],
+                        "description": "unit of every per-period figure, default month"
+                    },
+                    "churn_pct_per_period": {
+                        "type": "number",
+                        "description": "share of customers lost each period"
+                    },
+                    "periods_retained": {
+                        "type": "number",
+                        "description": "alternative to churn: average periods a customer stays"
+                    },
+                    "annual_churn_pct": {
+                        "type": "number",
+                        "description": "alternative to churn: yearly churn, converted to the period"
+                    },
+                    "service_cost_per_customer_per_period": {
+                        "type": "number",
+                        "description": "cost of serving a customer each period"
+                    },
+                    "cac": {
+                        "type": "number",
+                        "description": "acquisition cost per new customer"
+                    },
+                    "acquisition_spend": {
+                        "type": "number",
+                        "description": "alternative to cac: spend per period, with new_customers"
+                    },
+                    "new_customers": {
+                        "type": "number",
+                        "description": "customers won per period for acquisition_spend"
+                    },
+                    "target_clv_cac_ratio": {
+                        "type": "number",
+                        "description": "ratio needed to call it 'acquire', default 3"
+                    },
+                    "horizon_periods": {
+                        "type": "integer",
+                        "description": "periods counted in CLV, default 36 months or 3 years"
+                    },
+                    "discount_rate_pct_per_year": {
+                        "type": "number",
+                        "description": "optional yearly discount rate for future periods"
+                    },
+                    "payback_target_periods": {
+                        "type": "integer",
+                        "description": "back-solves the maximum churn that still pays back within this many periods"
+                    },
+                    "return_rate_pct": {
+                        "type": "number",
+                        "description": "returns block: share of orders returned"
+                    },
+                    "return_cost_per_return": {
+                        "type": "number",
+                        "description": "reverse shipping and handling per return"
+                    },
+                    "refund_share_pct": {
+                        "type": "number",
+                        "description": "share of returns refunded (rest exchanged), default 100"
+                    },
+                    "exchange_cost": {
+                        "type": "number",
+                        "description": "re-shipping cost per exchange"
+                    },
+                    "category_spend_per_buyer_per_period": {
+                        "type": "number",
+                        "description": "ceiling block: what a buyer spends on the whole category per period"
+                    },
+                    "share_of_wallet_pct": {
+                        "type": "number",
+                        "description": "share of that spend obtainable"
+                    },
+                    "customers": {
+                        "type": "number",
+                        "description": "funding block: current customers, for the contribution pool"
+                    },
+                    "new_price": {
+                        "type": "number",
+                        "description": "price being considered as acquisition funding"
+                    },
+                    "acquisition_price_cut_pct": {
+                        "type": "number",
+                        "description": "alternative to new_price: percent off"
+                    },
+                    "entry_price": {
+                        "type": "number",
+                        "description": "follow-on block: entry offer price, 0 allowed"
+                    },
+                    "entry_variable_cost": {
+                        "type": "number",
+                        "description": "cost of the entry offer per entrant"
+                    },
+                    "variable_cost_items": {
+                        "type": "object",
+                        "description": "{name: cost per user per period}; summed to marginal_cost_per_user and used as entry_variable_cost when that is absent"
+                    },
+                    "users": {
+                        "type": "number",
+                        "description": "users served, for the serving cost per period"
+                    },
+                    "follow_on": {
+                        "type": "object",
+                        "description": "{price, variable_cost, units_per_period (1), attach_rate_pct, periods (horizon), churn_pct_per_period}"
+                    },
+                    "subscribers_now": {
+                        "type": "number",
+                        "description": "rollout block: subscribers today"
+                    },
+                    "target_subscribers": {
+                        "type": "number",
+                        "description": "subscribers to reach"
+                    },
+                    "new_per_period": {
+                        "type": "number",
+                        "description": "subscribers added per period; back-solved from the target when absent"
+                    },
+                    "channels": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "channels block: [{name, spend, conversions, revenue?}]; revenue derived from price when absent; margin from margin_pct or channel_margin_pct"
+                    },
+                    "channel_margin_pct": {
+                        "type": "number",
+                        "description": "margin to apply to channel revenue when it differs from the customer margin"
+                    },
+                    "decision_amount": {
+                        "type": "number",
+                        "description": "research block: money at stake in the decision"
+                    },
+                    "p_wrong": {
+                        "type": "number",
+                        "description": "probability (0-1) the decision is wrong without research"
+                    },
+                    "loss_if_wrong_share": {
+                        "type": "number",
+                        "description": "share (0-1) of decision_amount lost if wrong, default 1"
+                    },
+                    "research_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "[{name, cost, p_wrong_after}]"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "EUR by default"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -1209,6 +1400,10 @@ def dispatch(
             from rocky.calc import experiment_plan_tool
 
             return experiment_plan_tool({k: v for k, v in args.items() if k != "mode"})
+        if name == "customer_economics":
+            from rocky.customer_econ import customer_economics_tool
+
+            return customer_economics_tool(args)
         if name == "funnel_analyze":
             from rocky.funnel import funnel_analyze_tool
 

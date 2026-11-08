@@ -9,7 +9,8 @@ A recommendation with a figure in it is only worth what the figure is worth. The
 
 ## Never do the arithmetic yourself
 
-- Margin, contribution, break-even, "how many more do we need to sell", payback, CLV against CAC: call `unit_economics`. Quote its numbers; do not round them differently or re-derive them in prose.
+- Margin, contribution, break-even, "how many more do we need to sell", bundles, tiers, channel price build-up: call `unit_economics`. Quote its numbers; do not round them differently or re-derive them in prose.
+- Anything about one customer over time or the money spent to win them — CLV against CAC, payback, churn, subscription rollout, returns, a free or subsidised entry offer, channel ROI, whether research is worth buying: call `customer_economics`. It computes only the blocks whose inputs you gave and lists the rest under `missing`.
 - Sample size, how long a test runs, what counts as a win: call `experiment_plan`.
 - If a figure in your draft did not come from a tool result or a cited source, remove it or label it an estimate with the assumption that produced it.
 

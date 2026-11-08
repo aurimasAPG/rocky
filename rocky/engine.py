@@ -1317,7 +1317,8 @@ def _run_subtask(
             "role": "system",
             "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
-                "Margins, break-even, discounts, promotions and acquisition costs go through unit_economics; "
+                "Margins, break-even, discounts and promotions go through unit_economics; anything per customer over time — "
+                "CLV, CAC, payback, churn, subscriptions, returns, channel ROI — goes through customer_economics; "
                 "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
                 "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan; a finished test is read out with its mode evaluate, never by comparing two percentages by eye. "
                 "A CSV or XLSX of campaign, order or event data goes through funnel_analyze; never read its percentages by eye. "

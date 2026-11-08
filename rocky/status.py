@@ -46,6 +46,7 @@ _TOOL_VERB = {
     "image_generate": "drawing",
     "ad_board": "building ads",
     "unit_economics": "calculating",
+    "customer_economics": "calculating",
     "experiment_plan": "sizing the test",
     "funnel_analyze": "reading the funnel",
     "reach_overlap": "estimating reach",
