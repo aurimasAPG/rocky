@@ -154,11 +154,12 @@ def _skills() -> Check:
 def _models(catalog: dict | None = None) -> Check:
     """The worker Rocky will actually use, resolved against the live catalog when we have it."""
     from rocky.catalog import DEFAULT_WORKER_MODEL, _pinned_worker, parse_models
+    from rocky.extras import IMAGE_MODEL_CANDIDATES
     from rocky.config import preferred_worker
 
     pin = preferred_worker() or DEFAULT_WORKER_MODEL
     pinned = "ROCKY_WORKER" if preferred_worker() else "default"
-    image = os.environ.get("ROCKY_IMAGE_MODEL") or "google/gemini-3.1-flash-image (default)"
+    image = os.environ.get("ROCKY_IMAGE_MODEL") or f"{IMAGE_MODEL_CANDIDATES[0]} (default)"
     rows = (catalog or {}).get("data") or []
     if not rows:
         return Check("models", OK, f"worker {pin} ({pinned}, not checked — no catalog) · image {image}")

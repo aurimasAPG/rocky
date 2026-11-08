@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Max EUR for the run (default 1.00; resume keeps the old run's cap)",
     )
     parser.add_argument("--max-loops", type=int, default=None, dest="max_loops")
-    parser.add_argument("--model", default="", help="Worker model for this run (OpenRouter id), e.g. deepseek/deepseek-v4")
+    parser.add_argument("--model", default="", help="Worker model for this run (OpenRouter id), e.g. deepseek/deepseek-v4.1-flash")
     parser.add_argument("--lang", default="", help="Write the deliverable in this language (lt, en, …) instead of the goal's")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)

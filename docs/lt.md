@@ -108,7 +108,7 @@ rocky help
 | `-d`, `--dir` | dabartinis katalogas | Darbo katalogas. Failų įrankiai gali liesti tik failus jame. |
 | `--budget` | `1.00` | Šio paleidimo lubos **eurais**. `resume` be šio parametro palieka senojo paleidimo lubas. |
 | `--max-loops` | `4` | Ciklų planas → darbas → tikrinimas skaičius. |
-| `--model` | katalogo numatytasis | Šio paleidimo darbuotojo modelis („OpenRouter“ ID, pvz. `deepseek/deepseek-v4`). Tas pats kaip `ROCKY_WORKER`. |
+| `--model` | katalogo numatytasis | Šio paleidimo darbuotojo modelis („OpenRouter“ ID, pvz. `deepseek/deepseek-v4.1-flash`). Tas pats kaip `ROCKY_WORKER`. |
 | `--lang` | užduoties kalba | Galutinį failą rašyti šia kalba (`lt`, `en`, …), kad ir kokia kalba parašyta užduotis. Tas pats kaip `ROCKY_LANGUAGE`. |
 | `--no-server-tools` | išjungta | Nenaudoti „OpenRouter“ serverio interneto įrankių. |
 | `--host` / `--port` | `127.0.0.1` `8787` | Tik `serve`. |
@@ -309,7 +309,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ### Vaizdai
 
-`image_generate` nupiešia PNG „OpenRouter“ vaizdų modeliu ir įrašo į `deliverables/` (`prompt`, neprivalomi `path`, `reference_path` — esamas vaizdas redagavimui ar stiliui, `aspect_ratio` — `1:1`, `9:16`, `16:9` ir pan.). Numatytasis modelis `google/gemini-3.1-flash-image`; kitą prisegk per `ROCKY_IMAGE_MODEL` (pvz., `google/gemini-3-pro-image`, `openai/gpt-5-image`). Jei pirmasis modelis atsisako, bandomas kitas. Kiekvienas vaizdas įtraukiamas į paleidimo kvitą kaip bet kuris kitas kvietimas. `vision_analyze` leidžia darbuotojui patikrinti rezultatą pagal jo brief'ą.
+`image_generate` nupiešia PNG „OpenRouter“ vaizdų modeliu ir įrašo į `deliverables/` (`prompt`, neprivalomi `path`, `reference_path` — esamas vaizdas redagavimui ar stiliui, `aspect_ratio` — `1:1`, `9:16`, `16:9` ir pan.). Numatytasis modelis `google/gemini-nano-banana-2.1`; kitą prisegk per `ROCKY_IMAGE_MODEL` (pvz., `google/gemini-3-pro-image`, `openai/gpt-5.4-image-2`). Jei pirmasis modelis atsisako, bandomas kitas. Kiekvienas vaizdas įtraukiamas į paleidimo kvitą kaip bet kuris kitas kvietimas. `vision_analyze` leidžia darbuotojui patikrinti rezultatą pagal jo brief'ą.
 
 ### MCP serveriai
 

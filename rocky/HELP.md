@@ -106,7 +106,7 @@ rocky help
 | `-d`, `--dir` | current directory | Workspace folder. File tools may only touch files inside it. |
 | `--budget` | `1.00` | Max **EUR** for this run. |
 | `--max-loops` | `4` | Plan → work → verify cycles. |
-| `--model` | catalog default | Worker model for this run (an OpenRouter id such as `deepseek/deepseek-v4`). Same as `ROCKY_WORKER`. |
+| `--model` | catalog default | Worker model for this run (an OpenRouter id such as `deepseek/deepseek-v4.1-flash`). Same as `ROCKY_WORKER`. |
 | `--lang` | the goal's language | Write the deliverable in this language (`lt`, `en`, …) whatever the goal is written in. Same as `ROCKY_LANGUAGE`. |
 | `--no-server-tools` | off | Do not use OpenRouter server-side web tools. |
 | `--host` / `--port` | `127.0.0.1` `8787` | For `serve` only. |
@@ -305,7 +305,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ### Images
 
-`image_generate` draws a PNG with an OpenRouter image model and saves it under `deliverables/` (`prompt`, optional `path`, `reference_path` to edit or match an existing image, `aspect_ratio` such as `1:1`, `9:16`, `16:9`). Default model `google/gemini-3.1-flash-image`; pin another with `ROCKY_IMAGE_MODEL` (e.g. `google/gemini-3-pro-image`, `openai/gpt-5-image`). If the first model refuses, the next candidate is tried. Every image is billed into the run's receipt like any other call. `vision_analyze` lets the worker check the result against its brief.
+`image_generate` draws a PNG with an OpenRouter image model and saves it under `deliverables/` (`prompt`, optional `path`, `reference_path` to edit or match an existing image, `aspect_ratio` such as `1:1`, `9:16`, `16:9`). Default model `google/gemini-nano-banana-2.1`; pin another with `ROCKY_IMAGE_MODEL` (e.g. `google/gemini-3-pro-image`, `openai/gpt-5.4-image-2`). If the first model refuses, the next candidate is tried. Every image is billed into the run's receipt like any other call. `vision_analyze` lets the worker check the result against its brief.
 
 ### MCP servers
 

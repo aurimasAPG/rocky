@@ -108,11 +108,11 @@ class BrowserSession:
         return "browser closed"
 
 
-# Image models tried in order when ROCKY_IMAGE_MODEL is not set. First is the
-# cheap default; the others are fallbacks for a 400 / 404 on the first.
+# Image models tried in order when ROCKY_IMAGE_MODEL is not set. The others are
+# fallbacks for a 400 / 404 on the first.
 IMAGE_MODEL_CANDIDATES = (
+    "google/gemini-nano-banana-2.1",
     "google/gemini-3.1-flash-image",
-    "google/gemini-2.5-flash-image",
     "google/gemini-3-pro-image",
 )
 IMAGE_DIR = "deliverables"
@@ -254,4 +254,4 @@ def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools, spen
 def _vision_model() -> str:
     import os
 
-    return (os.environ.get("ROCKY_VISION_MODEL") or "google/gemini-2.5-flash").strip()
+    return (os.environ.get("ROCKY_VISION_MODEL") or "google/gemini-3.8-flash").strip()

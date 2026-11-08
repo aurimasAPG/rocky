@@ -34,7 +34,7 @@ def test_generate_image_writes_png_under_deliverables_and_bills(tmp_path):
     out = generate_image(llm, "a coral hero banner", "", ws, aspect_ratio="16:9", spend=billed.append)
     assert out.startswith("wrote deliverables/visual.png")
     assert (tmp_path / "deliverables" / "visual.png").read_bytes() == PNG
-    assert llm.calls[0]["model"] == "google/gemini-3.1-flash-image"
+    assert llm.calls[0]["model"] == "google/gemini-nano-banana-2.1"
     assert llm.calls[0]["aspect"] == "16:9"
     assert billed and billed[0].usage.usd == 0.03
     # second call with the same default name does not overwrite
@@ -46,8 +46,8 @@ def test_generate_image_falls_back_to_the_next_model(tmp_path):
     ws = WorkspaceTools(tmp_path)
     llm = FakeImageLLM(fail_first=True)
     out = generate_image(llm, "x", "deliverables/ad.png", ws)
-    assert "model google/gemini-2.5-flash-image" in out
-    assert [c["model"] for c in llm.calls][:2] == ["google/gemini-3.1-flash-image", "google/gemini-2.5-flash-image"]
+    assert "model google/gemini-3.1-flash-image" in out
+    assert [c["model"] for c in llm.calls][:2] == ["google/gemini-nano-banana-2.1", "google/gemini-3.1-flash-image"]
 
 
 def test_generate_image_reports_when_no_model_returns_an_image(tmp_path):
