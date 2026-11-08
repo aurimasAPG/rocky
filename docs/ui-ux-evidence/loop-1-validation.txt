@@ -1,0 +1,38 @@
+Rocky UI/UX loop 1 — 2026-11-08
+
+Change: a result-first delivery desk. Finished tasks expose their saved files,
+safe text previews, Copy text and Download above the diagnostic activity.
+The task brief collapses during work; questions and Stop remain accessible.
+
+Baseline: opened Rocky in Chrome and completed a real welcome-note task before
+changing code. The task passed, but its ordinary Markdown output was only shown
+as a filesystem path. CHANGELOG.md did not exist in the checkout or Git history.
+Earlier commits covered ad boards and the marketing playbook, not generic files.
+
+Live validation:
+- Baseline run 20261108-204647-d62f35 passed; EUR 0.035; welcome.md, 198 bytes.
+- Opened that completed task in the new UI; read its preview and copied it.
+- Downloaded welcome.md; byte comparison matched the generated workspace file.
+- Submitted a new four-item document-review checklist through the new UI.
+- Run 20261108-205510-db34fa passed; EUR 0.038; review-checklist.txt, 722 bytes.
+- Observed working state, collapsed task form, cleared old result, visible Stop,
+  then the new task's completed file preview.
+- Reviewed the result at 1280 x 900 and 390 x 844 CSS pixels in Chrome.
+- Screenshots: loop-1-desktop.png and loop-1-mobile.png (device pixel ratio 2).
+- Browser console showed no application-script errors; existing favicon 404 and
+  browser-extension diagnostics were present.
+
+Automated validation (Python 3.13.12):
+- python -m pytest: 455 passed, 2 dependency deprecation warnings.
+- Includes artifact authentication/path containment, hidden files, symlinks,
+  missing files, text size bounds and attachment headers.
+- Includes 20 dependency-free Node behavior checks for run switching, async
+  previews, copy/download, retry, answer, stop, history, ad fixes and playbook.
+- node --check rocky/static/app.js and rocky/static/delivery.js passed.
+- git diff --check passed.
+
+Scope: files are the run's declared outputs as they currently exist in the
+workspace, not historical snapshots. The UI explains that later tasks can change
+them. Rich ad-board behavior is retained. Version visibility and GitHub update
+notifications/install flow remain requirements in docs/ui-ux-plan.md; this loop
+implements the generic result handoff.
