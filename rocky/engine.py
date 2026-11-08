@@ -1322,6 +1322,7 @@ def _run_subtask(
                 "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan. "
                 "A CSV or XLSX of campaign, order or event data goes through funnel_analyze; never read its percentages by eye. "
                 "A channel comparison, media budget or combined reach goes through reach_overlap; never add reaches up yourself. "
+                "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +

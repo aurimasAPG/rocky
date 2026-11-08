@@ -671,6 +671,68 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "page_inspect",
+            "description": "Compare an ad, email or post with the page it links to, element by element: promise (H1, title, first screen), price, call to action (buttons and forms), audience words, offer words and language. Run it for every ad or email that links to a page, after the copy is written and before handing over, instead of judging message match by eye. Give the ad fields and exactly one page source: html, a workspace path, or a url. Each finding (block / warn / info) quotes the exact ad copy and the exact page element behind it; fix blocks before the ad runs. A url that could not be fetched lands under missing, so give the HTML or path then.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ad": {
+                        "type": "object",
+                        "description": "the ad or email as written; headline or primary_text is required",
+                        "properties": {
+                            "headline": {
+                                "type": "string"
+                            },
+                            "primary_text": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "cta": {
+                                "type": "string",
+                                "description": "button text, e.g. Registruotis, Sign up"
+                            },
+                            "audience": {
+                                "type": "string",
+                                "description": "who the ad speaks to, in words the page should also use"
+                            },
+                            "price": {
+                                "type": "string",
+                                "description": "the price the ad names, e.g. €49 or 1 200,50 €; found in the copy if omitted"
+                            },
+                            "offer": {
+                                "type": "string",
+                                "description": "the offer the ad makes, e.g. nemokama konsultacija, free audit"
+                            },
+                            "language": {
+                                "type": "string",
+                                "description": "lt or en; detected from the copy if omitted"
+                            }
+                        }
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "the destination page address; fetched by Rocky"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "a saved copy of the page in the workspace, e.g. pages/landing.html"
+                    },
+                    "html": {
+                        "type": "string",
+                        "description": "the page HTML itself"
+                    }
+                },
+                "required": [
+                    "ad"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -1053,6 +1115,11 @@ def dispatch(
             from rocky.reach import reach_overlap_tool
 
             return reach_overlap_tool(args)
+        if name == "page_inspect":
+            from rocky.pageinspect import page_inspect_tool
+
+            fetch_html = getattr(searcher, "fetch_html", None) if searcher is not None else None
+            return page_inspect_tool(tools, args, fetch_html=fetch_html)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 

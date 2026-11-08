@@ -301,7 +301,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, `page_inspect`, plus any **MCP** tools you configure (below).
 
 ### Numbers
 
@@ -312,6 +312,10 @@ Ask Rocky "We sell 100 units at €100, variable cost €60. If we cut the price
 `experiment_plan` sizes an A/B test instead of letting a worker guess "run it for two weeks": from a `baseline_rate` (percent), the `minimum_effect` worth detecting (relative by default, or absolute percentage points) and `weekly_traffic` it returns the sample per variant, the total, the number of whole weeks, and a decision rule (fixed sample, no early stopping, the lift and p-value that count as a win). Several challengers split alpha across comparisons. Give it `max_weeks` and it says what lift is detectable in the time you have. Without traffic the duration is reported as unknown and the worker asks for it.
 
 `reach_overlap` stops a worker adding channel reaches up as if nobody saw two channels: from the `audience`, each channel's `reach` (people, or `reach_unit: pct`) and whatever pairwise `overlaps` are known, it returns the combined reach as a lower and an upper bound, a point estimate only under a stated model (`assumption: independent` for random duplication, or the overlaps you supplied), and the incremental reach of each channel in a greedy order by reach per cost. Unknown pairs are listed under `missing`, `bounds_width_pct` says how wide the gap is, and `narrows_most` names the single overlap worth asking for, so the worker asks you with `clarify` or labels the assumption instead of inventing a figure. Give `cost` per channel and it adds cost per thousand reached and a `budget` check; give `frequency` and it adds impressions, GRPs and the average frequency range.
+
+### Ad against its landing page
+
+`page_inspect` checks that the page an ad or email links to keeps what the ad says, by code rather than by a worker's impression. Give it the ad (`headline`, `primary_text`, `cta`, `price`, `audience`, `offer`, `language`) and the page as a `url`, a workspace `path` or raw `html`; it pulls out the title, H1s, first-screen text, buttons, prices, forms and language. It then reports findings with the exact ad copy and the exact page element behind each: a price in the ad that the page does not show is a **block**, a page with no button or form is a block, and a promise the H1 does not restate, a CTA no button repeats, audience or offer words missing from the page, a language switch or a thin page are warnings. Prices are normalised, so `1 200,50 €` and `€1,200.50` match, and Lithuanian endings are tolerated when words are compared. The ads recipe runs it for every ad before handing over; a page Rocky could not fetch goes under `missing`, never into a guess.
 
 ### Your own data
 

@@ -305,7 +305,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, `page_inspect`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
 
 ### Skaičiai
 
@@ -316,6 +316,10 @@ Paklausk Rocky: „Parduodame 100 vnt. po 100 €, kintamoji savikaina 60 €. J
 `experiment_plan` apskaičiuoja A/B testo dydį, užuot leidęs darbuotojui spėti „paleiskime dviem savaitėms“: iš `baseline_rate` (procentais), `minimum_effect` — mažiausio verto aptikti pokyčio (numatytai santykinio, arba absoliutaus procentiniais punktais) ir `weekly_traffic` grąžina imtį vienam variantui, bendrą imtį, pilnų savaičių skaičių ir sprendimo taisyklę (iš anksto fiksuota imtis, jokio ankstyvo stabdymo, koks pokytis ir p reikšmė laikomi laimėjimu). Keli variantai prieš kontrolę dalijasi alfa. Nurodžius `max_weeks`, pasako, kokį pokytį įmanoma aptikti per turimą laiką. Be srauto duomenų trukmė pateikiama kaip nežinoma, ir darbuotojas jos paklausia.
 
 `reach_overlap` neleidžia darbuotojui sudėti kanalų pasiekiamumo taip, lyg niekas nematytų dviejų kanalų: iš `audience`, kiekvieno kanalo `reach` (žmonėmis arba su `reach_unit: pct`) ir žinomų porinių `overlaps` grąžina bendrą pasiekiamumą kaip apatinę ir viršutinę ribą, taškinį įvertį tik pagal įvardytą modelį (`assumption: independent` – atsitiktinis dubliavimasis, arba tavo pateiktos sankirtos) ir kiekvieno kanalo prieauginį pasiekiamumą godžia tvarka pagal pasiekiamumą už išleistą eurą. Nežinomos poros išvardijamos lauke `missing`, `bounds_width_pct` parodo, koks platus neapibrėžtumas, o `narrows_most` įvardija vienintelę sankirtą, kurios verta paklausti, tad darbuotojas paklausia tavęs per `clarify` arba aiškiai įvardija prielaidą, užuot išsigalvojęs skaičių. Nurodžius kanalų `cost`, pridedama kaina už tūkstantį pasiektų žmonių ir `budget` patikra; nurodžius `frequency` – parodymai, GRP ir vidutinio dažnio intervalas.
+
+### Reklama prieš jos nusileidimo puslapį
+
+`page_inspect` patikrina, ar puslapis, į kurį veda reklama ar el. laiškas, laikosi to, ką reklama žada, – kodu, o ne darbuotojo įspūdžiu. Nurodyk reklamą (`headline`, `primary_text`, `cta`, `price`, `audience`, `offer`, `language`) ir puslapį kaip `url`, darbo katalogo `path` arba patį `html`; įrankis ištraukia pavadinimą, H1 antraštes, pirmojo ekrano tekstą, mygtukus, kainas, formas ir kalbą. Tada grąžina išvadas su tikslia reklamos kopija ir tiksliu puslapio elementu prie kiekvienos: reklamoje nurodyta kaina, kurios puslapis nerodo, yra **blokas**, puslapis be jokio mygtuko ar formos – blokas, o H1 nepakartotas pažadas, raginimas, kurio nekartoja nė vienas mygtukas, puslapyje trūkstami auditorijos ar pasiūlymo žodžiai, pasikeitusi kalba ar per plonas puslapis – įspėjimai. Kainos sunormuojamos, todėl `1 200,50 €` ir `€1,200.50` sutampa, o lyginant žodžius toleruojamos lietuviškos galūnės. Reklamų receptas paleidžia jį kiekvienai reklamai prieš perduodant darbą; puslapis, kurio Rocky nepavyko parsisiųsti, patenka į `missing`, o ne į spėjimą.
 
 ### Tavo paties duomenys
 

@@ -49,6 +49,7 @@ _TOOL_VERB = {
     "experiment_plan": "sizing the test",
     "funnel_analyze": "reading the funnel",
     "reach_overlap": "estimating reach",
+    "page_inspect": "checking the landing page",
     "clarify": "asking you",
 }
 

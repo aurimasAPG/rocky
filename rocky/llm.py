@@ -470,6 +470,14 @@ class WebTools:
             lines.append(f"- {title}\n  {href}")
         return "\n".join(lines) if lines else "no results"
 
+    def fetch_html(self, url: str) -> str:
+        """The page as served, for tools that need its structure. Raises on failure."""
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("url must start with http:// or https://")
+        response = self._http.get(url)
+        response.raise_for_status()
+        return response.text[:600_000]
+
     def fetch(self, url: str) -> str:
         if not url.startswith(("http://", "https://")):
             return "url must start with http:// or https://"

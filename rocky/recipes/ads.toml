@@ -43,7 +43,9 @@ each about an outcome the product already delivers that its segment struggles to
 Call ad_board with brand, url, ads (primary_text, headline, description, cta, angle, audience, test_role, segment, mix), growth (kind, reach), table_stakes and claims. No ad leads on a table stake. \
 Fill mix for each ad from the facts: product, price, place, with product being what the Match line gives for that ad's segment. If the buyer could not experience the ad's promise with that offer, change the ad. \
 Put every number in the copy into claims with its URL from runs/notes/facts.md, or write the copy without digits. \
-When ad_board lists problems, fix them and call it again with the whole pack. Do not write the page yourself."""
+When ad_board lists problems, fix them and call it again with the whole pack. Do not write the page yourself. \
+Then run page_inspect for each ad against the url the ads link to (headline, primary_text, cta, price, audience, offer); \
+a block (price the page does not show, no button or form) means the ad or the landing page must change before handing over — say which in the ad's angle and call ad_board again."""
 
 [[steps]]
 id = 3
