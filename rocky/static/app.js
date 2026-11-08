@@ -88,7 +88,7 @@ function setRunning(on) {
 }
 
 function showAsk(ask) {
-  $("ask-wrap").classList.remove("hidden");
+  $("ask-form").classList.remove("hidden");
   $("ask-question").textContent = ask.question || "";
   const opts = ask.options || [];
   $("ask-options").textContent = opts.length ? opts.join("  ·  ") : "";
@@ -97,7 +97,7 @@ function showAsk(ask) {
 }
 
 function hideAsk() {
-  $("ask-wrap").classList.add("hidden");
+  $("ask-form").classList.add("hidden");
 }
 
 function handle(event) {
