@@ -301,7 +301,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, `page_inspect`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, `page_inspect`, `claim_check`, plus any **MCP** tools you configure (below).
 
 ### Numbers
 
@@ -316,6 +316,10 @@ Ask Rocky "We sell 100 units at €100, variable cost €60. If we cut the price
 ### Ad against its landing page
 
 `page_inspect` checks that the page an ad or email links to keeps what the ad says, by code rather than by a worker's impression. Give it the ad (`headline`, `primary_text`, `cta`, `price`, `audience`, `offer`, `language`) and the page as a `url`, a workspace `path` or raw `html`; it pulls out the title, H1s, first-screen text, buttons, prices, forms and language. It then reports findings with the exact ad copy and the exact page element behind each: a price in the ad that the page does not show is a **block**, a page with no button or form is a block, and a promise the H1 does not restate, a CTA no button repeats, audience or offer words missing from the page, a language switch or a thin page are warnings. Prices are normalised, so `1 200,50 €` and `€1,200.50` match, and Lithuanian endings are tolerated when words are compared. The ads recipe runs it for every ad before handing over; a page Rocky could not fetch goes under `missing`, never into a guess.
+
+### Claims against sources
+
+`claim_check` matches every measurable claim in a draft to the passage that supports it, so neither the worker nor the verifier has to take a figure on trust. It pulls out each sentence that states a number, a percentage, a price, a date, a ranking ("first", "largest", "pirmas", "didžiausias") or a credential ("certified", "partner", "award"), then looks for it in `runs/notes/facts.md` and any other workspace files or URLs given under `sources`. Numbers are normalised first, so `12 400`, `12,400` and `12400` are the same figure, `2,5 %` equals `2.5%`, and `200+` matches `200`. Each claim comes back as `supported` with the source, its line or character range and the passage, as `number_differs` when the source says 180 where the draft says 200 (both figures reported for a human to settle), or as `unsupported`. Nothing is marked supported without a passage to show for it. The marketing recipe runs it on the copy against the research, and the verifier has it as a read-only tool, so an unsupported claim becomes an issue rather than a published sentence.
 
 ### Your own data
 

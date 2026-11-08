@@ -1323,6 +1323,7 @@ def _run_subtask(
                 "A CSV or XLSX of campaign, order or event data goes through funnel_analyze; never read its percentages by eye. "
                 "A channel comparison, media budget or combined reach goes through reach_overlap; never add reaches up yourself. "
                 "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
+                "Before you hand over a draft that states numbers, rankings or credentials, run claim_check on it; fix or remove what comes back unsupported. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +
@@ -1592,7 +1593,9 @@ def _verify(
                 "score is the share of the goal delivered: 1.0 every criterion met; 0.7–0.9 usable with notes; "
                 "0.4–0.6 a major part missing or wrong; below 0.3 only when nothing usable exists. A complete "
                 "package with one wrong claim is 0.6–0.8, never 0. "
-                "You have read-only tools: read_file, list_dir, grep, and office_read for .pptx/.xlsx/.docx/.pdf. "
+                "You have read-only tools: read_file, list_dir, grep, office_read for .pptx/.xlsx/.docx/.pdf, "
+                "and claim_check, which matches every number, ranking and credential in a draft to the sources on disk. "
+                "Run claim_check on the deliverable when it states figures; an unsupported or differing claim is an issue. "
                 "Open the deliverable yourself when the excerpt is not enough — never trust the worker summary alone. "
                 "When you have seen enough, stop calling tools and return JSON only. "
                 "Follow-ups may complete prior work named in MEMORY or RECENT RUNS.",

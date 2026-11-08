@@ -53,7 +53,8 @@ depends_on = [2]
 requires = ["copy", "copywrit", "headline", "ad text", "tekst"]
 writes = ["runs/notes/copy.md"]
 detail = """skill_view copywriting. If the goal is ads, also skill_view meta-ads-copy or google-ads-copy. \
-Write runs/notes/copy.md from runs/notes/voc.md phrases (headlines, body, CTAs). No invented proof."""
+Write runs/notes/copy.md from runs/notes/voc.md phrases (headlines, body, CTAs). No invented proof. \
+Then claim_check with draft_path runs/notes/copy.md and sources runs/notes/research.md; fix or drop every claim that is not supported."""
 
 [[steps]]
 id = 4

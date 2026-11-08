@@ -733,6 +733,50 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "claim_check",
+            "description": "Check every measurable claim in a draft against the sources. Run it on any draft that states numbers, percentages, prices, dates, rankings ('first', 'largest', 'No. 1', 'pirmas', 'didžiausias') or credentials ('certified', 'partner', 'award') before handing the draft over; the verifier runs it too, so an unsupported or differing claim will be found. Each claim comes back with the best source passage, its location (file line or char range) and a status: supported, number_differs (same subject, other figure — fix the draft or the fact) or unsupported (find a source, add it to runs/notes/facts.md with its URL, or remove the claim). runs/notes/facts.md is read automatically when it exists; add other workspace files or URLs under sources. Never call a figure supported yourself: quote this tool's result.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "draft": {
+                        "type": "string",
+                        "description": "the draft text; or give draft_path"
+                    },
+                    "draft_path": {
+                        "type": "string",
+                        "description": "workspace file (.md, .txt, .html) holding the draft"
+                    },
+                    "sources": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "workspace files (.md .txt .html .json .csv) and/or http(s) URLs to check against; runs/notes/facts.md is added automatically"
+                    },
+                    "facts_path": {
+                        "type": "string",
+                        "description": "facts file to add, default runs/notes/facts.md"
+                    },
+                    "include_facts": {
+                        "type": "boolean",
+                        "description": "false to check only the given sources, default true"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ],
+                        "description": "how an ambiguous separator like 12,400 is read; detected from the draft when omitted"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -953,7 +997,7 @@ READ_TOOL_SPECS = [
 ]
 
 # What the verifier may touch: read-only, plus Office/PDF extraction so it can open a deck.
-VERIFY_TOOL_NAMES = frozenset({"read_file", "list_dir", "grep", "office_read"})
+VERIFY_TOOL_NAMES = frozenset({"read_file", "list_dir", "grep", "office_read", "claim_check"})
 VERIFY_TOOL_SPECS = [
     spec for spec in CLIENT_TOOL_SPECS if spec["function"]["name"] in VERIFY_TOOL_NAMES
 ]
@@ -964,6 +1008,20 @@ def worker_tools(include_server: bool = True) -> list[dict]:
     if include_server:
         tools.extend(SERVER_TOOLS)
     return tools
+
+
+def _text_fetcher(searcher):
+    """A fetch(url) -> text callable for claim_check, or None when this role has no web."""
+    if searcher is None or not hasattr(searcher, "fetch"):
+        return None
+
+    def fetch(url: str) -> str:
+        text = searcher.fetch(url)
+        if text.startswith(("fetch failed", "url must start")):
+            raise ValueError(text)
+        return text
+
+    return fetch
 
 
 def dispatch(
@@ -1115,6 +1173,10 @@ def dispatch(
             from rocky.reach import reach_overlap_tool
 
             return reach_overlap_tool(args)
+        if name == "claim_check":
+            from rocky.claims import claim_check_tool
+
+            return claim_check_tool(tools, args, fetch=_text_fetcher(searcher))
         if name == "page_inspect":
             from rocky.pageinspect import page_inspect_tool
 

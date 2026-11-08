@@ -305,7 +305,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, `page_inspect`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `experiment_plan`, `funnel_analyze`, `reach_overlap`, `page_inspect`, `claim_check`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
 
 ### Skaičiai
 
@@ -320,6 +320,10 @@ Paklausk Rocky: „Parduodame 100 vnt. po 100 €, kintamoji savikaina 60 €. J
 ### Reklama prieš jos nusileidimo puslapį
 
 `page_inspect` patikrina, ar puslapis, į kurį veda reklama ar el. laiškas, laikosi to, ką reklama žada, – kodu, o ne darbuotojo įspūdžiu. Nurodyk reklamą (`headline`, `primary_text`, `cta`, `price`, `audience`, `offer`, `language`) ir puslapį kaip `url`, darbo katalogo `path` arba patį `html`; įrankis ištraukia pavadinimą, H1 antraštes, pirmojo ekrano tekstą, mygtukus, kainas, formas ir kalbą. Tada grąžina išvadas su tikslia reklamos kopija ir tiksliu puslapio elementu prie kiekvienos: reklamoje nurodyta kaina, kurios puslapis nerodo, yra **blokas**, puslapis be jokio mygtuko ar formos – blokas, o H1 nepakartotas pažadas, raginimas, kurio nekartoja nė vienas mygtukas, puslapyje trūkstami auditorijos ar pasiūlymo žodžiai, pasikeitusi kalba ar per plonas puslapis – įspėjimai. Kainos sunormuojamos, todėl `1 200,50 €` ir `€1,200.50` sutampa, o lyginant žodžius toleruojamos lietuviškos galūnės. Reklamų receptas paleidžia jį kiekvienai reklamai prieš perduodant darbą; puslapis, kurio Rocky nepavyko parsisiųsti, patenka į `missing`, o ne į spėjimą.
+
+### Teiginiai prieš šaltinius
+
+`claim_check` kiekvieną išmatuojamą juodraščio teiginį sugretina su jį pagrindžiančia šaltinio ištrauka, kad nei darbuotojui, nei tikrintojui nereikėtų skaičiumi tikėti žodžiu. Įrankis išrenka kiekvieną sakinį, kuriame nurodytas skaičius, procentas, kaina, data, reitingas („pirmas“, „didžiausias“, „first“, „largest“) ar kvalifikacija („sertifikuota“, „partneris“, „apdovanojimas“), ir ieško jo faile `runs/notes/facts.md` bei kituose darbo katalogo failuose ar URL adresuose, pateiktuose per `sources`. Skaičiai pirmiausia suvienodinami, todėl `12 400`, `12,400` ir `12400` yra tas pats skaičius, `2,5 %` sutampa su `2.5%`, o `200+` atitinka `200`. Kiekvienas teiginys grįžta kaip `supported` su šaltiniu, jo eilute ar simbolių intervalu ir ištrauka, kaip `number_differs`, kai šaltinis nurodo 180 ten, kur juodraštis sako 200 (abu skaičiai pateikiami žmogui nuspręsti), arba kaip `unsupported`. Nė vienas teiginys nepažymimas kaip pagrįstas be jį patvirtinančios ištraukos. Rinkodaros receptas paleidžia jį tekstui prieš tyrimą, o tikrintojas jį turi kaip skaitymo įrankį, tad nepagrįstas teiginys tampa pastaba, o ne paskelbtu sakiniu.
 
 ### Tavo paties duomenys
 
