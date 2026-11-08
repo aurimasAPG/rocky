@@ -365,7 +365,9 @@ Office/PDF (`.xlsx` `.docx` `.pptx` `.pdf`): the worker must `skill_view` the ma
 
 ## 14. Skills
 
-Bundled: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`, `marketing-strategy`.
+Bundled: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`, `marketing-strategy`, `marketing-numbers`, `customer-research`, `pr-response`.
+
+`marketing-strategy` holds the judgment rules from the playbook that code cannot settle (positioning, portfolio, pricing transitions, service behaviour, channel conflict, production feasibility, and more), each with its source pages; the recipes load it when a goal matches the situation. `marketing-numbers` says which calculator produces each figure. `customer-research` tells a worker whom to interview for a purchase (operator, maintainer, budget owner, nonconsumers, trade buyers), the exact questions to ask in Lithuanian and English, and how to record workarounds, use context and survey blocks so a role with no evidence is marked missing rather than invented. `pr-response` covers public replies to criticism in the original thread with a named spokesperson and sourced facts, press visits with independent Q&A and disclosed costs, staff social-media guidelines, and contributor or community programmes designed around why people take part.
 
 Rocky also loads a **research + marketing allowlist** from `~/.claude/skills` (copywriting, voc-to-copy, meta-ads-copy, …) plus the Lithuanian language skills `lietuviu-kalbos-rasyba` and `turtinga-lietuviu-kalba` when they exist there; a worker writing Lithuanian copy is told to open the spelling skill first. Personal skills stay out. Extra folders:
 

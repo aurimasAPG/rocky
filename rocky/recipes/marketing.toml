@@ -33,7 +33,18 @@ web_search + web_fetch primary sources. Write runs/notes/research.md with URL, c
 Separate fact / inference / unknown. Do not invent statistics. \
 If the goal compares product lines or asks where to invest, skill_view marketing-strategy and apply its growth-share rule. \
 If the goal asks for positioning or a comparison with competitors, skill_view marketing-strategy and apply its perceptual-map rule. \
-If the goal involves a price, discount, promotion, margin, acquisition cost or a test, skill_view marketing-numbers and get every figure from unit_economics or experiment_plan."""
+If the goal involves a price, discount, promotion, margin, acquisition cost or a test, skill_view marketing-numbers and get every figure from unit_economics or experiment_plan. \
+If the goal raises a price, also skill_view marketing-strategy and compare three transition paths with unit_economics and an affected-customers table. \
+skill_view marketing-strategy and apply the named rule when the goal matches: only-online business with only search, shopping or retargeting channels (introduction-vs-conversion rule, a `Spend split:` line in facts); \
+a proposed new feature or product (`Internal solution:` line first); an emotional or humorous tone tested against a feature-led one (`## Mechanism test`, two cells, two scored outcomes); \
+preview, try-on, virtual fitting or a configurator (plan the test with conversion and a resolution metric; walk the configurator and write runs/notes/feasibility.md); \
+acceptance in one setting and rejection in another (`## Setting contrast` with a `Difference:` line); a trend, boom or adoption wave (`## Second-order opportunities`, a source URL or `hypothesis` on every row); \
+partners, dealers, distributors, pharmacies or resellers in a dispute (`## Channel conflict` before recommending). \
+skill_view customer-research when the goal matches: a spec, landing copy or brief for equipment used on site (`## Use context` with observed/reported/assumed tags); \
+ideas, differentiation, what to borrow or kitos sritys (`## Analogous markets`, one source per field); experts or people to interview (runs/notes/experts.md as a referral chain with a URL per row); \
+most sales offline (the till survey and an `Offline influence:` line, never an online-only ROAS); awareness or recall measurement (žinomumas, apklausa: runs/notes/survey.md with its four separate blocks); \
+a perceptual map the marketer can confirm with buyers (the interview that confirms the map). \
+skill_view pr-response when the goal asks users to share mods, templates or plugins (`## Contributor incentives` before any incentive)."""
 
 [[steps]]
 id = 2
@@ -44,7 +55,12 @@ writes = ["runs/notes/voc.md"]
 detail = """skill_view voc-to-copy. If product-marketing-context is listed, skill_view it too. \
 Mine customer language from runs/notes/research.md plus public reviews, Reddit, G2, forums via web_search. \
 Write runs/notes/voc.md: pains, desires, objections, outcomes, phrase bank with sources. \
-Do not invent quotes."""
+Do not invent quotes. \
+skill_view customer-research when the goal matches: a business buyer (`Role: operator`, `Role: maintainer`, `Role: budget owner` sections); hacks, mods, DIY or workarounds (ask for photos first, `## Workarounds`); \
+a trade buyer, distributor or retailer (runs/notes/expert_review.md with questions about their customers); a user survey or interview about simplification or drop-off (runs/notes/removal_survey.md with the subtractive question); \
+an entry price, cheaper tier or starter plan (`## Nonconsumers` and `## Current buyers' objections`). \
+skill_view marketing-strategy when the goal mentions a journey, touchpoints, an email flow or after-sales (tag each quote with its stage, write runs/notes/journey.md) \
+or custom, bespoke, cut-to-size or configurable offers (`modification_spend:` and `fit_wtp:` lines)."""
 
 [[steps]]
 id = 3
@@ -54,7 +70,14 @@ requires = ["copy", "copywrit", "headline", "ad text", "tekst"]
 writes = ["runs/notes/copy.md"]
 detail = """skill_view copywriting. If the goal is ads, also skill_view meta-ads-copy or google-ads-copy. \
 Write runs/notes/copy.md from runs/notes/voc.md phrases (headlines, body, CTAs). No invented proof. \
-Then claim_check with draft_path runs/notes/copy.md and sources runs/notes/research.md; fix or drop every claim that is not supported."""
+Then claim_check with draft_path runs/notes/copy.md and sources runs/notes/research.md; fix or drop every claim that is not supported. \
+skill_view marketing-strategy when the goal matches: service standards, staff coaching or mystery shopping (behaviour table with a manager mirror, `## Managers first`); complaints, handoff or customer service (deliverables/handoff.md with a named owner per channel); \
+choosing or judging a product name (bare-name comprehension script, any ranking labelled hipotezė); a booking, checkout or sign-up flow, prototype or wireframes (deliverables/prototype.html plus walkthrough.md); \
+a how-to or demonstration video (`Search phrase:` and `Completion check:` lines); a prospect's objection (runs/notes/objection.md, no concession while resolved: no); \
+a partner, dealer, agency or developer programme (every support item gets an obstacle and a ship signal). \
+skill_view pr-response when the goal matches: a staff social-media or participation guide (three allowed topics, the affiliation sentence, confidential categories, `## Repeticija`); \
+public criticism or a thread (answer every point with a sourced fact, sign with a named spokesperson, run claim_check in reply mode); journalists or a press visit (deliverables/press-visit.md with `What you will see`, `Independent Q&A`, `Costs covered`); \
+contributors, UGC, beta testers or a community (the motives table with evidence or `assumption`)."""
 
 [[steps]]
 id = 4
@@ -65,7 +88,8 @@ writes = ["deliverables/campaign.pptx", "deliverables/variants.xlsx"]
 detail = """skill_view pptx then skill_view xlsx. \
 Build deliverables/campaign.pptx (one idea per slide from the copy) and \
 deliverables/variants.xlsx (headlines, CTAs, VOC phrases, source URLs). \
-Never write_file those binaries — use python-pptx and openpyxl via bash. office_read to QA."""
+Never write_file those binaries — use python-pptx and openpyxl via bash. office_read to QA. \
+If any deliverable is print, packaging, a display, merch or an event build (spauda, pakuotė, stovas, lankstinukas), skill_view marketing-strategy and write runs/notes/production.md before the deck promises a finish."""
 
 [[steps]]
 id = 5

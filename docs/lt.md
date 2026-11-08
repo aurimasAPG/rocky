@@ -369,7 +369,9 @@ Jei darbo kataloge yra `ROCKY.md`, `AGENTS.md` arba `CLAUDE.md` (pirmas rastas, 
 
 ## 14. Įgūdžiai
 
-Įmontuoti: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`, `marketing-strategy`.
+Įmontuoti: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`, `marketing-strategy`, `marketing-numbers`, `customer-research`, `pr-response`.
+
+`marketing-strategy` laiko vadovėlio sprendimo taisykles, kurių kodas negali išspręsti (pozicionavimas, portfelis, kainos kėlimo perėjimas, aptarnavimo elgsena, kanalų konfliktas, gamybos įgyvendinamumas ir kt.), kiekvieną su šaltinio puslapiais; receptai ją įkelia, kai tikslas atitinka situaciją. `marketing-numbers` pasako, kuris skaičiuotuvas pateikia kiekvieną skaičių. `customer-research` nurodo, ką apklausti dėl pirkinio (operatorių, prižiūrėtoją, biudžeto savininką, nevartotojus, prekybos pirkėjus), kokius klausimus užduoti lietuviškai ir angliškai ir kaip fiksuoti klientų perdirbimus, naudojimo aplinką ir apklausos blokus, kad vaidmuo be įrodymų būtų pažymėtas kaip trūkstamas, o ne išgalvotas. `pr-response` apima viešus atsakymus į kritiką toje pačioje gijoje su įvardytu atstovu ir šaltiniais pagrįstais faktais, žurnalistų vizitus su nepriklausomais klausimais ir atskleistomis išlaidomis, darbuotojų bendravimo socialiniuose tinkluose gaires ir bendruomenės ar talkininkų programas, sukurtas pagal tai, kodėl žmonės dalyvauja.
 
 Rocky iš `~/.claude/skills` dar įkelia **tyrimų + rinkodaros** leidžiamųjų sąrašą (copywriting, voc-to-copy, meta-ads-copy, …) ir lietuvių kalbos įgūdžius `lietuviu-kalbos-rasyba` bei `turtinga-lietuviu-kalba`, jei jie ten yra; lietuvišką tekstą rašančiam darbuotojui liepiama pirmiausia atsiversti rašybos įgūdį. Asmeniniai įgūdžiai lieka už borto. Papildomi katalogai:
 
