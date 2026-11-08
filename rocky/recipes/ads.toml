@@ -23,9 +23,9 @@ title = "Facts"
 depends_on = []
 requires = ["fact", "fakt", "research", "tyrim"]
 writes = ["runs/notes/facts.md"]
-detail = """Read the site the goal names with web_fetch: home, services or pricing, about, one case page. \
+detail = """skill_view marketing-strategy. Read the site the goal names with web_fetch: home, services or pricing, about, one case page. \
 Use at most ten tool calls in all and write as soon as you have enough. \
-Write runs/notes/facts.md for: {goal}. What is sold, to whom, the offer, prices, where and how buyers get it (delivery, outlets, booking), proof numbers, tone, brand colours as hex: \
+Write runs/notes/facts.md for: {goal}. Start it with a line `Job: ` saying what the customer is trying to get done. Then what is sold, to whom, the offer, prices, where and how buyers get it (delivery, outlets, booking), proof numbers, tone, brand colours as hex: \
 one line per fact, with the URL it came from. If the goal asks about competitors, add two or three with URLs. \
 Mark what you could not confirm. No invented numbers, quotes or reviews."""
 
@@ -35,7 +35,7 @@ title = "Ads"
 depends_on = [1]
 requires = ["ad_board"]
 writes = ["deliverables/ads.html", "runs/notes/ads.json"]
-detail = """skill_view meta-ads-copy if it is listed. Using only runs/notes/facts.md, write three ads with different angles \
+detail = """skill_view meta-ads-copy if it is listed. Using only runs/notes/facts.md, write three ads with different angles built on the Job line \
 (or the number the goal names) for: {goal}. \
 Call ad_board with brand, url, ads (primary_text, headline, description, cta, angle, audience, mix) and claims. \
 Fill mix for each ad from the facts: product, price, place. If the buyer could not experience the ad's promise with that offer, change the ad. \

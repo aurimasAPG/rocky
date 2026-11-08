@@ -337,7 +337,7 @@ Jei darbo kataloge yra `ROCKY.md`, `AGENTS.md` arba `CLAUDE.md` (pirmas rastas, 
 
 ## 14. Įgūdžiai
 
-Įmontuoti: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`.
+Įmontuoti: `xlsx`, `docx`, `pptx`, `pdf`, `deep-research`, `marketing-pipeline`, `marketing-strategy`.
 
 Rocky iš `~/.claude/skills` dar įkelia **tyrimų + rinkodaros** leidžiamųjų sąrašą (copywriting, voc-to-copy, meta-ads-copy, …) ir lietuvių kalbos įgūdžius `lietuviu-kalbos-rasyba` bei `turtinga-lietuviu-kalba`, jei jie ten yra; lietuvišką tekstą rašančiam darbuotojui liepiama pirmiausia atsiversti rašybos įgūdį. Asmeniniai įgūdžiai lieka už borto. Papildomi katalogai:
 
