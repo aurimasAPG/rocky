@@ -65,6 +65,7 @@ _FIELD_NAMES = {
 }
 _MESSAGES = {
     "en": {
+        "check_failed": "A check could not run ({value}). The other findings still hold.",
         "no_ads": "There are no ads.",
         "bad_url": "The website address must start with http:// or https://.",
         "missing_field": "{Field} is missing.",
@@ -82,6 +83,7 @@ _MESSAGES = {
         "no_test": "To compare messages, mark one ad as the control (the current pitch) and at least one as a challenger.",
     },
     "lt": {
+        "check_failed": "Vienos patikros nepavyko atlikti ({value}). Kitos išvados galioja.",
         "no_ads": "Nėra nė vienos reklamos.",
         "bad_url": "Svetainės adresas turi prasidėti http:// arba https://.",
         "missing_field": "Trūksta: {field}.",
@@ -157,9 +159,26 @@ class Check:
 
 def message(check: Check, language: str = "en") -> str:
     field = _FIELD_NAMES[language].get(check.field, check.field)
-    return _MESSAGES[language][check.code].format(
-        field=field, Field=field.capitalize(), value=check.value, n=check.n, limit=check.limit
+    template = _MESSAGES[language].get(check.code)
+    if template is None:
+        from rocky import adchecks
+
+        template = adchecks.messages(language).get(check.code) or "{code}: {value}"
+    return template.format(
+        code=check.code, field=field, Field=field.capitalize(), value=check.value, n=check.n, limit=check.limit
     )
+
+
+def _raw(value: Any, limit: int = 6000) -> Any:
+    """An extension field as the worker sent it (str, number, list or object), size-capped."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value) if value[:1] in "[{" else value
+        except ValueError:
+            pass
+    if isinstance(value, (dict, list)):
+        return value if len(json.dumps(value, ensure_ascii=False)) <= limit else None
+    return _text(value, limit) if isinstance(value, (str, int, float)) else None
 
 
 def _text(value: Any, limit: int = 3000) -> str:
@@ -186,8 +205,12 @@ def _object(value: Any) -> dict:
 
 
 def normalize(args: dict) -> dict:
+    from rocky import adchecks
+
     fields = (*COPY_FIELDS, "cta", "angle", "audience", "image")
-    return {
+    extra_ad = adchecks.ad_fields()
+    pack = {
+        **{name: _raw(args.get(name)) for name in adchecks.pack_fields() if args.get(name) not in (None, "")},
         "brand": _text(args.get("brand"), 120),
         "url": _text(args.get("url"), 500),
         "ads": [
@@ -196,6 +219,7 @@ def normalize(args: dict) -> dict:
                 "mix": {name: _text(_object(ad.get("mix")).get(name), 300) for name in MIX_FIELDS},
                 "segment": {name: _text(_object(ad.get("segment")).get(name), 300) for name in SEGMENT_FIELDS},
                 "test_role": role if (role := _text(ad.get("test_role")).lower()) in TEST_ROLES else "",
+                **{name: _raw(ad.get(name)) for name in extra_ad if ad.get(name) not in (None, "")},
             }
             for ad in _dicts(args.get("ads"))[:MAX_ADS]
         ],
@@ -218,6 +242,7 @@ def normalize(args: dict) -> dict:
             if _text(stake.get("outcome"))
         ],
     }
+    return pack
 
 
 def _is_url(value: str) -> bool:
@@ -282,6 +307,9 @@ def check_pack(pack: dict, facts: str | None, images: dict[int, str]) -> list[Ch
                 checks.append(Check("warn", "segment_gap", ad=n, field=name))
         if n not in images:
             checks.append(Check("warn", "no_image", ad=n))
+    from rocky import adchecks
+
+    checks.extend(adchecks.run(pack, facts, images))
     return checks
 
 

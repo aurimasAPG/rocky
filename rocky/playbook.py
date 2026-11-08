@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-ELEMENTS_PATH = Path(__file__).resolve().parent / "playbook" / "elements.toml"
+ELEMENTS_DIR = Path(__file__).resolve().parent / "playbook"
+ELEMENTS_PATH = ELEMENTS_DIR / "elements.toml"  # the first file; elements-<topic>.toml files add to it
 # A fix from the page is one small follow-up run, capped so the price on the button is a true limit.
 FIX_CAP_EUR = 0.5
 
@@ -35,9 +36,23 @@ class Element:
         return code not in self.manual
 
 
+def _element_files() -> list[Path]:
+    """elements.toml first, then every elements-<topic>.toml, so a topic module ships its own records."""
+    extra = sorted(p for p in ELEMENTS_DIR.glob("elements-*.toml") if p.is_file())
+    return [ELEMENTS_PATH, *extra] if ELEMENTS_PATH.is_file() else extra
+
+
 @lru_cache(maxsize=1)
 def elements() -> tuple[Element, ...]:
-    raw = tomllib.loads(ELEMENTS_PATH.read_text(encoding="utf-8"))
+    raw: dict = {"element": []}
+    seen: set[int] = set()
+    for path in _element_files():
+        for row in tomllib.loads(path.read_text(encoding="utf-8")).get("element") or []:
+            number = int(row.get("number") or 0)
+            if number and number in seen:
+                continue  # the first file wins; a topic file cannot redefine a core element
+            seen.add(number)
+            raw["element"].append(row)
     return tuple(
         Element(
             number=int(row["number"]),

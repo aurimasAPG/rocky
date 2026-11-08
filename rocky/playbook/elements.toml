@@ -189,3 +189,16 @@ question.en = "Does every ad have a visual?"
 question.lt = "Ar kiekviena reklama turi vizualą?"
 why.en = "An ad needs a visual to run in the feed. Without one it is only copy."
 why.lt = "Kad reklama rodytųsi sraute, jai reikia vizualo. Be jo tai tik tekstas."
+
+[[element]]
+number = 0
+title = "Every check ran"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["check_failed"]
+manual = ["check_failed"]
+question.en = "Did every check run?"
+question.lt = "Ar visos patikros įvyko?"
+why.en = "A check that crashed on this pack has not looked at the ads. The other findings stand; this one says what to report to the maintainers."
+why.lt = "Patikra, kuri šiame pakete nulūžo, reklamų neperžiūrėjo. Kitos išvados galioja; ši nurodo, ką pranešti prižiūrėtojams."

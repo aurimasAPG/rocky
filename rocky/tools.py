@@ -1003,8 +1003,27 @@ VERIFY_TOOL_SPECS = [
 ]
 
 
+def _extended_ad_board_spec(spec: dict) -> dict:
+    """The ad_board schema plus every field the adchecks modules declare."""
+    import copy
+
+    from rocky import adchecks
+
+    additions = adchecks.schema()
+    if not additions["ad"] and not additions["pack"]:
+        return spec
+    spec = copy.deepcopy(spec)
+    props = spec["function"]["parameters"]["properties"]
+    props["ads"]["items"]["properties"].update(additions["ad"])
+    props.update(additions["pack"])
+    return spec
+
+
 def worker_tools(include_server: bool = True) -> list[dict]:
-    tools = list(CLIENT_TOOL_SPECS)
+    tools = [
+        _extended_ad_board_spec(spec) if spec.get("function", {}).get("name") == "ad_board" else spec
+        for spec in CLIENT_TOOL_SPECS
+    ]
     if include_server:
         tools.extend(SERVER_TOOLS)
     return tools
