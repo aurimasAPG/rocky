@@ -373,6 +373,8 @@ It now also compares groups: with `group_by` (or `cohort_by` / `periods`, which 
 
 ### Images
 
+`vision_analyze` with a `brief` (style photo / illustration / chart, subject, the audience the people shown must resemble, `must_include`, `must_not`) checks a generated or supplied visual against it and returns `brief_check: pass` or `fail` with the mismatches, so a sunset couple for an audience of women over fifty is caught before the ad ships; the recipes regenerate once on a fail and draw charts with a script, never an image model.
+
 `image_generate` draws a PNG with an OpenRouter image model and saves it under `deliverables/` (`prompt`, optional `path`, `reference_path` to edit or match an existing image, `aspect_ratio` such as `1:1`, `9:16`, `16:9`). Default model `google/gemini-nano-banana-2.1`; pin another with `ROCKY_IMAGE_MODEL` (e.g. `google/gemini-3-pro-image`, `openai/gpt-5.4-image-2`). If the first model refuses, the next candidate is tried. Every image is billed into the run's receipt like any other call. `vision_analyze` lets the worker check the result against its brief.
 
 ### MCP servers

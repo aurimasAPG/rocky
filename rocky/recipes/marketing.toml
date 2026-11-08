@@ -119,5 +119,5 @@ detail = """Write deliverables/visual-brief.md from runs/notes/copy.md: one bloc
 format (1:1 feed, 9:16 story, 16:9 banner), the single message it carries, subject and composition, \
 brand colours as hex, text overlay (headline ≤ 6 words), what must NOT appear. \
 Then image_generate each block into deliverables/visual-1.png, visual-2.png … (2–3 visuals, aspect_ratio per format). \
-vision_analyze each result against its brief; regenerate once if the text or colours are off. \
+vision_analyze each result with `brief` (style, subject, audience, must_include, must_not) and read brief_check; regenerate once if it fails or the text or colours are off. A chart is drawn by a script, never by an image model. \
 No stock-photo clichés, no invented logos or awards."""

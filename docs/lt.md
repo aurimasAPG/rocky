@@ -377,6 +377,8 @@ Dabar jis lygina ir grupes: su `group_by` (arba `cohort_by` / `periods`, kurie g
 
 ### Vaizdai
 
+`vision_analyze` su `brief` (stilius – nuotrauka / iliustracija / diagrama, objektas, auditorija, į kurią turi būti panašūs parodyti žmonės, `must_include`, `must_not`) patikrina sugeneruotą ar pateiktą vaizdą pagal užduotį ir grąžina `brief_check: pass` arba `fail` su neatitikimais, todėl saulėlydžio pora vyresnių nei penkiasdešimties moterų auditorijai pagaunama dar prieš reklamai išeinant; receptai po nesėkmės vaizdą generuoja iš naujo vieną kartą, o diagramas piešia skriptu, ne vaizdų modeliu.
+
 `image_generate` nupiešia PNG „OpenRouter“ vaizdų modeliu ir įrašo į `deliverables/` (`prompt`, neprivalomi `path`, `reference_path` — esamas vaizdas redagavimui ar stiliui, `aspect_ratio` — `1:1`, `9:16`, `16:9` ir pan.). Numatytasis modelis `google/gemini-nano-banana-2.1`; kitą prisegk per `ROCKY_IMAGE_MODEL` (pvz., `google/gemini-3-pro-image`, `openai/gpt-5.4-image-2`). Jei pirmasis modelis atsisako, bandomas kitas. Kiekvienas vaizdas įtraukiamas į paleidimo kvitą kaip bet kuris kitas kvietimas. `vision_analyze` leidžia darbuotojui patikrinti rezultatą pagal jo brief'ą.
 
 ### MCP serveriai

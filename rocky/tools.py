@@ -409,13 +409,24 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "vision_analyze",
-            "description": "Analyze an image from a workspace path or http(s) URL.",
+            "description": "Analyze an image from a workspace path or http(s) URL. With brief it checks the image against the creative brief and returns brief_check pass/fail with the mismatches (style, subject, people vs the audience, must_include, must_not); a fail means regenerate once with the mismatches fixed. Charts are drawn by a script, never checked as art.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {"type": "string"},
                     "url": {"type": "string"},
                     "prompt": {"type": "string"},
+                    "brief": {
+                        "type": "object",
+                        "description": "the creative brief the image must match",
+                        "properties": {
+                            "style": {"type": "string", "enum": ["photo", "illustration", "chart", "other"]},
+                            "subject": {"type": "string"},
+                            "audience": {"type": "string", "description": "who the people shown must look like, e.g. women 50+ with a friend"},
+                            "must_include": {"type": "array", "items": {"type": "string"}},
+                            "must_not": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
                 },
             },
         },
@@ -6538,6 +6549,7 @@ def dispatch(
                 str(args.get("prompt") or ""),
                 tools,
                 spend=spend,
+                brief=args.get("brief") if isinstance(args.get("brief"), dict) else None,
             )
         if name == "image_generate":
             if llm is None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import mimetypes
 import threading
 from rocky.tools import ToolError, WorkspaceTools
@@ -211,10 +212,56 @@ def _ext_for(mime: str) -> str:
     return {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}.get(mime, ".png")
 
 
-def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools, spend=None) -> str:
+def _brief_question(brief: dict, prompt: str) -> str:
+    """Turn a creative brief into a check the vision model answers as JSON."""
+    lines = [
+        "Check this image against the creative brief below. Answer with JSON only: "
+        '{"verdict": "pass" or "fail", "style_seen": "...", "subject_seen": "...", '
+        '"people_seen": "...", "mismatches": ["one line per brief item the image breaks"], "notes": "..."}. '
+        "A mismatch is anything the brief requires and the image lacks, anything it forbids and the image shows, "
+        "a style other than the one asked for, or people who do not look like the audience named."
+    ]
+    for key, label in (("style", "Style"), ("subject", "Subject"), ("audience", "People shown must look like this audience")):
+        value = brief.get(key)
+        if value:
+            lines.append(f"{label}: {value}")
+    for key, label in (("must_include", "Must include"), ("must_not", "Must not show")):
+        items = brief.get(key)
+        if isinstance(items, str):
+            items = [items]
+        if items:
+            lines.append(f"{label}: " + "; ".join(str(x) for x in items if str(x).strip()))
+    if prompt:
+        lines.append(prompt)
+    return "\n".join(lines)
+
+
+def _brief_verdict(text: str) -> dict:
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return {"verdict": "unparsed", "mismatches": []}
+    try:
+        data = json.loads(text[start : end + 1])
+    except ValueError:
+        return {"verdict": "unparsed", "mismatches": []}
+    verdict = str(data.get("verdict") or "").strip().lower()
+    mismatches = data.get("mismatches") or []
+    if not isinstance(mismatches, list):
+        mismatches = [str(mismatches)]
+    if verdict not in ("pass", "fail"):
+        verdict = "fail" if mismatches else "unparsed"
+    return {"verdict": verdict, "mismatches": [str(m) for m in mismatches if str(m).strip()], "people_seen": data.get("people_seen"), "style_seen": data.get("style_seen")}
+
+
+def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools, spend=None, brief: dict | None = None) -> str:
     if not source:
         raise ToolError("vision_analyze needs path or url")
-    question = prompt or "Describe this image. Note text, layout, and anything relevant to the task."
+    if brief is not None and not isinstance(brief, dict):
+        raise ToolError("brief must be an object with style, subject, audience, must_include and must_not")
+    if brief:
+        question = _brief_question(brief, prompt)
+    else:
+        question = prompt or "Describe this image. Note text, layout, and anything relevant to the task."
     image_part: dict
     if source.startswith(("http://", "https://")):
         image_part = {"type": "image_url", "image_url": {"url": source}}
@@ -249,6 +296,14 @@ def analyze_image(llm, source: str, prompt: str, workspace: WorkspaceTools, spen
         except Exception:  # noqa: BLE001
             pass
     text = completion.content or "(empty vision response)"
+    if brief:
+        check = _brief_verdict(text)
+        tail = f"\nbrief_check: {check['verdict']}"
+        if check["mismatches"]:
+            tail += "\nmismatches:\n" + "\n".join(f"- {m}" for m in check["mismatches"])
+        if check["verdict"] == "fail":
+            tail += "\nRegenerate once with the mismatches fixed, or record visual_mismatch in facts; a chart belongs to a script, not an image model."
+        return f"model {model}\n{text}{tail}"
     return f"model {model}\n{text}"
 
 

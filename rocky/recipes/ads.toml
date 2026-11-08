@@ -84,5 +84,5 @@ writes = ["deliverables/visual-1.png"]
 detail = """One square image per ad: image_generate with aspect_ratio 1:1 and path deliverables/visual-1.png for ad 1, \
 deliverables/visual-2.png for ad 2, and so on. Read the ads in runs/notes/ads.json and the brand colours in runs/notes/facts.md. \
 One clear subject that carries the ad's angle. No text in the image, no invented logos or awards. \
-vision_analyze each one once and regenerate it once only if it is wrong. They appear on the page by themselves. \
+vision_analyze each one once with the ad's `brief` (style, subject, the ad's audience, must_include, must_not) and regenerate it once only if brief_check fails. They appear on the page by themselves. \
 After each visual, skill_view web-testing and run the blind recall („Vienu sakiniu: kas siūloma ir kodėl pirkti?“) with vision_analyze; regenerate on `visual obscures`."""
