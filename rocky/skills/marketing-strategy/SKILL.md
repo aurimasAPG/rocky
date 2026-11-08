@@ -1,6 +1,6 @@
 ---
 name: marketing-strategy
-description: Market definition and positioning rules. Use before writing ads, campaigns or a positioning statement: the job the customer wants done and segments by unmet need.
+description: Market, segment and portfolio rules. Use before ads, campaigns or positioning, and when choosing which product lines get investment.
 ---
 
 # Rocky · Market strategy and positioning
@@ -55,3 +55,13 @@ A company with several products should not push the same one at everybody. For e
 - A product that matches no segment gets no ad. Say so in the facts instead of forcing one.
 
 Source: Jobs to Be Done, pp. 113–115.
+
+## Question investment choices with the growth-share matrix
+
+When a goal compares product lines or asks where money should go, place each line on two axes: how fast its market grows, and its share relative to its largest competitor.
+
+- High share in a growing market needs cash to hold its place. High share in a slow market pays for the others. Low share in a growing market needs a decision to back it or leave. Low share in a slow market needs a reason to stay.
+- Then test the proposal against the position: does this line's cash need support the investment or withdrawal being proposed? Say so plainly when it does not.
+- Share and growth are rarely public for a small company. Use sourced figures where they exist. Otherwise label each position as an estimate, give its range, and name the number that would change the answer.
+
+Source: Principles of Marketing, pp. 71–73.

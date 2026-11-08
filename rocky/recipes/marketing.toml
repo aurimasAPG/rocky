@@ -30,7 +30,8 @@ writes = ["runs/notes/research.md"]
 detail = """skill_view deep-research (and research-prompt if listed). \
 Investigate the market, competitors, and claims for: {goal}. \
 web_search + web_fetch primary sources. Write runs/notes/research.md with URL, claim, why it matters. \
-Separate fact / inference / unknown. Do not invent statistics."""
+Separate fact / inference / unknown. Do not invent statistics. \
+If the goal compares product lines or asks where to invest, skill_view marketing-strategy and apply its growth-share rule."""
 
 [[steps]]
 id = 2

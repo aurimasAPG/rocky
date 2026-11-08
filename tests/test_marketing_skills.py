@@ -53,3 +53,20 @@ def test_the_portfolio_rule_is_in_the_skill_with_its_source():
     assert "Match an existing portfolio to segments" in text
     assert "Jobs to Be Done, pp. 113–115" in text
 
+
+def test_a_worker_choosing_where_to_invest_can_find_the_skill():
+    row = next(r for r in catalog_for_prompt() if r["name"] == "marketing-strategy")
+    assert "investment" in row["description"]
+
+
+def test_marketing_research_applies_the_growth_share_rule_when_investment_is_the_question():
+    research = load_recipes()["marketing"].render_steps("goal")[0]["detail"]
+    assert "asks where to invest" in research and "skill_view marketing-strategy" in research
+
+
+def test_the_growth_share_rule_labels_estimates_and_cites_its_source():
+    text = view_skill("marketing-strategy")
+    assert "Question investment choices with the growth-share matrix" in text
+    assert "label each position as an estimate" in text
+    assert "Principles of Marketing, pp. 71–73" in text
+
