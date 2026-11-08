@@ -52,7 +52,9 @@ def test_the_list_is_read_with_topics_and_citations_without_links(workspace):
 def test_without_the_list_it_offers_what_rocky_already_applies(tmp_path, monkeypatch):
     monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
     monkeypatch.delenv("ROCKY_PLAYBOOK", raising=False)
-    assert [e.number for e in library(tmp_path)] == list(range(1, 11))
+    numbers = [e.number for e in library(tmp_path)]
+    # The built-in elements grew with the 500-list topic modules; the first ten stay first.
+    assert numbers[:10] == list(range(1, 11)) and len(set(numbers)) == len(numbers) >= 10
 
 
 def test_a_situation_in_english_finds_the_entry(workspace):
