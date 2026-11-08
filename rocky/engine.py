@@ -1327,6 +1327,8 @@ def _run_subtask(
                 "A channel comparison, media budget or combined reach goes through reach_overlap; never add reaches up yourself. "
                 "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
                 "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
+                "Survey or interview questions go through survey_check before they reach the deliverable; outcome statements and "
+                "importance/satisfaction scores through outcome_scores; a concept test or criteria survey is designed with research_plan. "
                 "Before you hand over a draft that states numbers, rankings or credentials, run claim_check on it; fix or remove what comes back unsupported. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "

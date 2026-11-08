@@ -60,6 +60,8 @@ Do not invent quotes. \
 skill_view customer-research when the goal matches: a business buyer (`Role: operator`, `Role: maintainer`, `Role: budget owner` sections); hacks, mods, DIY or workarounds (ask for photos first, `## Workarounds`); \
 a trade buyer, distributor or retailer (runs/notes/expert_review.md with questions about their customers); a user survey or interview about simplification or drop-off (runs/notes/removal_survey.md with the subtractive question); \
 an entry price, cheaper tier or starter plan (`## Nonconsumers` and `## Current buyers' objections`). \
+Write customer outcomes as direction + metric + object + situation and run outcome_scores on them; when the goal asks for a survey, \
+write the questions as JSON, run survey_check, fix every block, and put the checked questionnaire in voc.md; a concept test or criteria survey is designed with research_plan. \
 skill_view marketing-strategy when the goal mentions a journey, touchpoints, an email flow or after-sales (tag each quote with its stage, write runs/notes/journey.md) \
 or custom, bespoke, cut-to-size or configurable offers (`modification_spend:` and `fit_wtp:` lines)."""
 

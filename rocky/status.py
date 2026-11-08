@@ -54,6 +54,9 @@ _TOOL_VERB = {
     "reach_overlap": "estimating reach",
     "page_inspect": "checking the landing page",
     "seo_inspect": "checking search",
+    "survey_check": "checking the questionnaire",
+    "outcome_scores": "scoring outcomes",
+    "research_plan": "designing the study",
     "claim_check": "checking claims",
     "clarify": "asking you",
 }

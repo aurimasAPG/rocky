@@ -1644,6 +1644,442 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "survey_check",
+            "description": "Audit a questionnaire by code before anyone is asked a question. Call it whenever a worker drafts survey, poll, interview-guide or awareness-study questions, or a blind vs branded comparison protocol, and before writing the deliverable; also call it on the client's existing survey when the goal is to review one. Write the questions as JSON first (this tool never invents them). It flags double_barrelled, leading, vague_quantifier, no_escape_option, scale_mismatch, jargon, motive_question, uncorroborated, recall_event, single_where_multi, open_field_short, multi_no_primary, unrouted_experience_question, dead_end, familiarity_blocks_missing (an awareness survey must ask unaided recall, aided familiarity, ad recall and source of first contact separately), order_not_randomised and arm_not_blinded. Returns findings with level block|warn|info, routing paths with counts, counts by code, estimated_minutes, a five-person pilot_plan and clean=true only when nothing blocks or warns. Fix every block, then re-run.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "description": "the questionnaire in order; required unless only a protocol is checked",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "text": {
+                                    "type": "string",
+                                    "description": "the question as the respondent reads it, Lithuanian or English"
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "single",
+                                        "multi",
+                                        "scale",
+                                        "open",
+                                        "number"
+                                    ]
+                                },
+                                "options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "scale": {
+                                    "type": "object",
+                                    "properties": {
+                                        "min": {
+                                            "type": "number"
+                                        },
+                                        "max": {
+                                            "type": "number"
+                                        },
+                                        "labels": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "ask_if": {
+                                    "type": "string",
+                                    "description": "routing condition on an earlier question or the screener, e.g. 'screener = Taip', 'q3 in [A, B]'"
+                                },
+                                "requires_experience": {
+                                    "type": "boolean"
+                                },
+                                "exclusive": {
+                                    "type": "boolean"
+                                },
+                                "main_choice_followup": {
+                                    "type": "string"
+                                },
+                                "corroborated_by": {
+                                    "type": "string",
+                                    "description": "for why/attitude questions: id of the behaviour question that backs it"
+                                },
+                                "max_len": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "text",
+                                "type"
+                            ]
+                        }
+                    },
+                    "screener": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "question": {
+                                "type": "string"
+                            },
+                            "options": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ]
+                    },
+                    "audience": {
+                        "type": "string"
+                    },
+                    "jargon": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "protocol": {
+                        "type": "object",
+                        "description": "blind comparison design: arms with label, blinded, samples and order randomised|counterbalanced|fixed, plus n_per_arm and metric",
+                        "properties": {
+                            "arms": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object"
+                                }
+                            },
+                            "n_per_arm": {
+                                "type": "integer"
+                            },
+                            "metric": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "questions"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "outcome_scores",
+            "description": "Validate Jobs-to-be-Done outcome statements and compute opportunity scores, or check a job map. Call it whenever the worker writes customer outcomes from VOC (each must be direction + metric + object + situation; generic words like 'geresnis', 'patikimas', 'better', 'fast' and solution words like 'app', 'funkcija', 'feature' are rejected), whenever importance/satisfaction data exists, or when the goal asks for a job map or customer journey. Scores: opportunity = importance + max(importance − satisfaction, 0); class underserved (≥ threshold_underserved, default 12 on a 10-point scale), appropriately served, or overserved (satisfaction > importance). With satisfaction per brand it returns gap_vs_best_competitor and comparable (only when n ≥ 30 for both brands); overserved outcomes with cost_per_unit are listed under excess as a saving to test. Mode job_map reports missing phases out of the eight, phase order, steps repeated/skipped/out_of_order today and steps with no evidence_url. Quote the score, class and n; never estimate a missing satisfaction.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "outcomes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "direction": {
+                                    "type": "string",
+                                    "enum": [
+                                        "minimize",
+                                        "increase"
+                                    ]
+                                },
+                                "metric": {
+                                    "type": "string",
+                                    "enum": [
+                                        "time",
+                                        "likelihood",
+                                        "number",
+                                        "cost",
+                                        "other"
+                                    ]
+                                },
+                                "object": {
+                                    "type": "string"
+                                },
+                                "situation": {
+                                    "type": "string"
+                                },
+                                "importance": {
+                                    "type": "number"
+                                },
+                                "satisfaction": {
+                                    "description": "0..scale_max, or {brand: score}"
+                                },
+                                "n": {
+                                    "description": "respondents, a number or {brand: n}"
+                                },
+                                "cost_per_unit": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "direction",
+                                "metric",
+                                "object"
+                            ]
+                        }
+                    },
+                    "scale_max": {
+                        "type": "number"
+                    },
+                    "focus_brand": {
+                        "type": "string"
+                    },
+                    "threshold_underserved": {
+                        "type": "number"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "outcomes",
+                            "job_map"
+                        ]
+                    },
+                    "job": {
+                        "type": "string"
+                    },
+                    "executor": {
+                        "type": "string"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "phase": {
+                                    "type": "string",
+                                    "enum": [
+                                        "define",
+                                        "locate",
+                                        "prepare",
+                                        "confirm",
+                                        "execute",
+                                        "monitor",
+                                        "modify",
+                                        "conclude"
+                                    ]
+                                },
+                                "title": {
+                                    "type": "string"
+                                },
+                                "outcomes": {
+                                    "type": "array"
+                                },
+                                "today": {
+                                    "type": "string",
+                                    "enum": [
+                                        "ok",
+                                        "repeated",
+                                        "skipped",
+                                        "out_of_order",
+                                        "unknown"
+                                    ]
+                                },
+                                "evidence_url": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "phase",
+                                "title"
+                            ]
+                        }
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "research_plan",
+            "description": "Design a concept test or a buying-criteria survey the marketer can field; it never runs research. Call it when a lead-user or new idea must be validated with typical buyers (kind concept_test: at least two concepts with price and is_lead_user) or when focus-group or review criteria are to be checked in a survey before they become headlines (kind survey: criteria with source and n_mentions, a screener and the product). concept_test returns the quota per concept, sample sufficiency through experiment_plan from a stated top-two-box baseline (default 30 %) and the caller's minimum_effect, an instrument of open benefit, open use and 1–5 intent questions, and a decision rule with min_comprehension 0.7 and top_two_box_min 0.4 labelled as defaults; findings single_concept, lead_user_only, sample_too_small, no_follow_up. survey returns one anchored frequency question per criterion plus an open question, routed by the screener, a quota of at least 100 qualified respondents, and single_voice_criterion for anything one person said. Both run survey_check on the instrument and return its findings under instrument_check.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "concept_test",
+                            "survey"
+                        ]
+                    },
+                    "population": {
+                        "type": "object",
+                        "properties": {
+                            "description": {
+                                "type": "string"
+                            },
+                            "size": {
+                                "type": "integer"
+                            },
+                            "reach": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "sample_n": {
+                        "type": "integer"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ]
+                    },
+                    "concepts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "price": {
+                                    "type": "number"
+                                },
+                                "is_lead_user": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ]
+                        }
+                    },
+                    "minimum_effect": {
+                        "type": "number"
+                    },
+                    "effect_kind": {
+                        "type": "string",
+                        "enum": [
+                            "absolute",
+                            "relative"
+                        ]
+                    },
+                    "baseline_top_two_box_pct": {
+                        "type": "number"
+                    },
+                    "measures": {
+                        "type": "object",
+                        "properties": {
+                            "preference": {
+                                "type": "string",
+                                "enum": [
+                                    "rank",
+                                    "choose_one"
+                                ]
+                            },
+                            "design": {
+                                "type": "string",
+                                "enum": [
+                                    "monadic",
+                                    "sequential"
+                                ]
+                            }
+                        }
+                    },
+                    "follow_up": {
+                        "type": "object",
+                        "properties": {
+                            "launch_date": {
+                                "type": "string"
+                            },
+                            "metric": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "min_comprehension": {
+                        "type": "number"
+                    },
+                    "top_two_box_min": {
+                        "type": "number"
+                    },
+                    "horizon": {
+                        "type": "string"
+                    },
+                    "criteria": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string"
+                                },
+                                "source": {
+                                    "type": "string"
+                                },
+                                "n_mentions": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": [
+                                "text"
+                            ]
+                        }
+                    },
+                    "screener": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string"
+                            },
+                            "options": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "qualify": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "product": {
+                        "type": "string"
+                    },
+                    "questions": {
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "population",
+                    "sample_n"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -2076,6 +2512,10 @@ def dispatch(
             from rocky.reach import reach_overlap_tool
 
             return reach_overlap_tool(args)
+        if name in {"survey_check", "outcome_scores", "research_plan"}:
+            from rocky import research
+
+            return getattr(research, f"{name}_tool")(args)
         if name == "seo_inspect":
             from rocky.seo import seo_inspect_tool
 
