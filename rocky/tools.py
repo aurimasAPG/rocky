@@ -770,11 +770,29 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "claim_check",
-            "description": "Check every measurable claim in a draft against the sources. Run it on any draft that states numbers, percentages, prices, dates, rankings ('first', 'largest', 'No. 1', 'pirmas', 'didžiausias') or credentials ('certified', 'partner', 'award') before handing the draft over; the verifier runs it too, so an unsupported or differing claim will be found. Each claim comes back with the best source passage, its location (file line or char range) and a status: supported, number_differs (same subject, other figure — fix the draft or the fact) or unsupported (find a source, add it to runs/notes/facts.md with its URL, or remove the claim). runs/notes/facts.md is read automatically when it exists; add other workspace files or URLs under sources. Never call a figure supported yourself: quote this tool's result.",
+            "description": "Check every measurable claim in a draft against the sources: numbers, prices, dates, rankings, credentials. Each claim returns the best passage, its location and a status: supported, number_differs or unsupported. runs/notes/facts.md is read automatically; add files or URLs under sources (HTML table rows and image alt text count as passages). Options: check_scope flags a passage whose qualifier (only, period, place, test condition) the draft dropped (supported_scope_narrower, misleading_inference); quote_sources verifies „quotes“ verbatim in interview notes and the name beside them; own_domains labels each source own/third_party and flags attribution_missing; mode reply checks a thread answer point by point plus spokesperson and thread URL; mode price_anchor checks a struck-through price against evidence; rumor, self_consistency, max_minutes. Always returns fact_sheet, corrections and findings. Quote the result; never call a figure supported yourself.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "draft": {
+                    "mode": {"type": "string", "enum": ["check", "reply", "price_anchor"], "description": "check (default); reply = a thread answer checked point by point; price_anchor = a struck-through reference price checked against evidence"},
+                    "check_scope": {"type": "boolean", "description": "true: a supported claim whose passage holds a qualifier the draft dropped (tik/only, a period, a place, a population, a test condition) becomes supported_scope_narrower with conditions; a draft that generalises (visi, every, always) gets the finding misleading_inference. Default false"},
+                    "quote_sources": {"type": "array", "items": {"type": "string"}, "description": "interview notes/transcripts (workspace files or URLs). Sentences inside „…“ \"…\" «…» of 6+ words become claims of kind quote: supported (verbatim), altered or unsupported; a name beside the quote must appear near the passage"},
+                    "own_domains": {"type": "array", "items": {"type": "string"}, "description": "the brand's own domains. Each supported claim gets source_domain and party (own | third_party | unknown) and the finding attribution_missing when the sentence does not name the source"},
+                    "thread_url": {"type": "string", "description": "mode reply: the thread the reply must stay in"},
+                    "criticism_points": {"type": "array", "items": {"type": "string"}, "description": "mode reply: the accusations quoted from the thread; each needs a fact present in reply_text sharing 2 content words (else point_unanswered)"},
+                    "facts": {"type": "array", "items": {"type": "object", "properties": {"text": {"type": "string"}, "source": {"type": "string"}}}, "description": "mode reply: the facts the reply rests on; each source (file or URL) is added to sources"},
+                    "spokesperson": {"type": "object", "properties": {"name": {"type": "string"}, "role": {"type": "string"}}, "description": "mode reply: a named person with a role; empty, generic (komanda, team, support) or a placeholder gives no_spokesperson"},
+                    "reply_text": {"type": "string", "description": "mode reply: the reply to post (used as the draft). A URL other than thread_url or a cited source gives thread_mismatch"},
+                    "offer_price": {"type": "string", "description": "mode price_anchor: the price charged, e.g. '149 €'"},
+                    "reference_price": {"type": "string", "description": "mode price_anchor: the struck-through/compared price; must appear in the evidence (else anchor_unsupported) and exceed the offer"},
+                    "reference_kind": {"type": "string", "enum": ["list_price", "competitor", "previous_price", "rrp"], "description": "mode price_anchor: what the reference is; the draft's words (buvo/was, RRP, pas konkurentus, įprasta kaina) must agree (else anchor_misdescribed)"},
+                    "evidence": {"type": "string", "description": "mode price_anchor: workspace file or URL that shows the reference price"},
+                    "charged_identical": {"type": "boolean", "description": "mode price_anchor: was the reference price actually charged for the identical offer; false gives anchor_never_charged"},
+                    "rumor": {"type": "string", "description": "the rumour text; its figures are paired with the draft's correcting figure and its source"},
+                    "self_consistency": {"type": "boolean", "description": "true: figures in the draft that disagree about the same subject are listed under conflicts. Default false"},
+                    "max_minutes": {"type": "number", "description": "speaking length target; returns length {words, minutes, over_by_words} and the finding too_long"},
+                    "wpm": {"type": "number", "description": "words per minute for max_minutes, default 130"},
+                                        "draft": {
                         "type": "string",
                         "description": "the draft text; or give draft_path"
                     },
