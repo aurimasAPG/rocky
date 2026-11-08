@@ -2140,6 +2140,64 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "brief",
+            "description": "The workspace brief: audience, offer, price, margin, volume, channels, KPI, budget, constraints, market, competitors, deadline, language — the inputs the marketer has and did not type. Call action=get BEFORE asking the user anything: if the brief has the field, use it; if a kind of work lists it under missing_for, ask for that and nothing else. When you learn a field (from the user, a file or a page), call action=set with source and evidence (URL or workspace file) — a worker-set field without evidence is recorded as an assumption and shown as such to every role. When your deliverable recommends spending, call action=decision with the internal strength/weakness, the external opportunity/threat, the investment and what evidence would change the mind. Tools default missing arguments from the brief; action=block returns what every role already sees.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "get",
+                            "set",
+                            "decision",
+                            "clear",
+                            "block"
+                        ]
+                    },
+                    "fields": {
+                        "type": "object",
+                        "description": "set: field → value. Allowed: brand, url, product, audience, audience_size, offer, price (number or {amount, currency}), currency, variable_cost, margin_pct, units_per_period, period, channel, channels[], kpi {name, baseline?, target?, unit?}, budget {amount, currency?, period?}, language (lt|en), constraints[], market, competitors[], deadline (YYYY-MM-DD), source_notes. clear: list of names (nothing = everything)."
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "user",
+                            "worker",
+                            "file"
+                        ],
+                        "description": "set: who the value comes from; default worker"
+                    },
+                    "evidence": {
+                        "type": "string",
+                        "description": "set: URL or workspace file that shows the value; without it a worker's value is an assumption"
+                    },
+                    "internal": {
+                        "type": "object",
+                        "description": "decision: {kind: strength|weakness, text, source}"
+                    },
+                    "external": {
+                        "type": "object",
+                        "description": "decision: {kind: opportunity|threat, text, source}"
+                    },
+                    "investment": {
+                        "type": "object",
+                        "description": "decision: {what, amount?, currency?}"
+                    },
+                    "would_change_mind": {
+                        "type": "string",
+                        "description": "decision: the evidence that would reverse it"
+                    }
+                },
+                "required": [
+                    "action"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "memory",
             "description": (
                 "Add, replace, or remove a durable memory entry. "
@@ -2332,6 +2390,22 @@ def worker_tools(include_server: bool = True) -> list[dict]:
     return tools
 
 
+def _with_brief_defaults(tools, name: str, args: dict) -> dict:
+    """Arguments a tool needs that the worker left out but the workspace brief holds."""
+    try:
+        from rocky.brief import TOOL_DEFAULTS, defaults_for
+    except ImportError:  # pragma: no cover
+        return args
+    if name not in TOOL_DEFAULTS or tools is None:
+        return args
+    try:
+        defaults = defaults_for(tools.root, name)
+    except Exception:  # noqa: BLE001 — a broken brief must not stop a tool call
+        return args
+    filled = {k: v for k, v in defaults.items() if args.get(k) in (None, "")}
+    return {**filled, **args} if filled else args
+
+
 def _text_fetcher(searcher):
     """A fetch(url) -> text callable for claim_check, or None when this role has no web."""
     if searcher is None or not hasattr(searcher, "fetch"):
@@ -2361,7 +2435,12 @@ def dispatch(
         args = parse_json_object(arguments) if arguments.strip() else {}
     else:
         args = arguments or {}
+    args = _with_brief_defaults(tools, name, args)
     try:
+        if name == "brief":
+            from rocky.brief import brief_tool
+
+            return brief_tool(tools, args)
         if name.startswith("mcp__"):
             if mcp is None:
                 raise ToolError("no MCP servers configured (.rocky/mcp.json)")

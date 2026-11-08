@@ -305,7 +305,11 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `seo_inspect`, `claim_check`, `survey_check`, `outcome_scores`, `research_plan`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `brief`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `seo_inspect`, `claim_check`, `survey_check`, `outcome_scores`, `research_plan`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+
+### Užduoties aprašas
+
+`brief` saugo vieną struktūruotą užduoties aprašą kiekvienam darbo katalogui faile `.rocky/brief.json`: prekės ženklą, URL, produktą, auditoriją, pasiūlymą, kainą ir savikainą, apimtį, kanalus, KPI, biudžetą, kalbą, apribojimus, rinką, konkurentus ir terminą. Kiekvienas vaidmuo jį mato kaip BRIEF bloką savo prompt'e, todėl darbuotojas pirmiausia jį perskaito ir klausia tavęs tik to, ką jo darbo rūšiai (reklamos, kainodara, testas, medija, tyrimas) išvardija `missing_for`. Prie kiekvieno lauko įrašoma, kas jį nustatė ir kokiu įrodymu; darbuotojo be URL ar failo spėta reikšmė žymima kaip *prielaida*, kol jos nepatvirtinsi arba nebus pridėtas įrodymas. `unit_economics`, `experiment_plan`, `reach_overlap`, `ad_board` ir `page_inspect` trūkstamus argumentus užpildo iš aprašo. Kai rezultatas rekomenduoja išlaidas, darbuotojas įrašo sprendimą – vieną vidinę stiprybę ar silpnybę, vieną išorinę galimybę ar grėsmę, investiciją ir tai, kas priverstų persigalvoti, – o aprašas pažymi kiekvieną trūkstamą ar bendro pobūdžio dalį. `clear` ištrina laukus arba visą aprašą.
 
 ### Skaičiai
 

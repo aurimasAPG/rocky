@@ -301,7 +301,11 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `seo_inspect`, `claim_check`, `survey_check`, `outcome_scores`, `research_plan`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `brief`, `runs_search`, `recipe`, `ad_board`, `unit_economics`, `customer_economics`, `experiment_plan`, `funnel_analyze`, `table_analyze`, `repeat_buying`, `reach_overlap`, `page_inspect`, `seo_inspect`, `claim_check`, `survey_check`, `outcome_scores`, `research_plan`, plus any **MCP** tools you configure (below).
+
+### The brief
+
+`brief` keeps one structured brief per workspace in `.rocky/brief.json`: brand, URL, product, audience, offer, price and cost, volume, channels, KPI, budget, language, constraints, market, competitors and deadline. Every role sees it as a BRIEF block in its prompt, so a worker reads it before asking you anything and only asks for what `missing_for` lists for its kind of work (ads, pricing, test, media, research). Each field records who set it and on what evidence; a value a worker inferred without a URL or file is marked *assumed* until you confirm it or evidence is attached. `unit_economics`, `experiment_plan`, `reach_overlap`, `ad_board` and `page_inspect` fill arguments the worker left out from the brief. When a deliverable recommends spending, the worker records a decision — one internal strength or weakness, one external opportunity or threat, the investment and what would change its mind — and the brief flags any part that is missing or generic. `clear` removes fields or the whole brief.
 
 ### Numbers
 

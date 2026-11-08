@@ -37,6 +37,7 @@ _TOOL_VERB = {
     "bash": "running",
     "todo": "tracking",
     "memory": "remembering",
+    "brief": "reading the brief",
     "runs_search": "recalling",
     "recipe": "recipes",
     "skill_view": "loading skill",

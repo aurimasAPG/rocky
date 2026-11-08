@@ -273,6 +273,14 @@ def orchestrate(
     workspace_path = Path(workspace).expanduser().resolve()
     workspace_path.mkdir(parents=True, exist_ok=True)
     memory_snapshot = freeze_memory(workspace_path)
+    try:
+        from rocky.brief import brief_block
+
+        brief_text = brief_block(workspace_path)
+    except Exception:  # noqa: BLE001 — a broken brief file must not stop the run
+        brief_text = ""
+    if brief_text:
+        memory_snapshot = memory_snapshot + "\n\n" + brief_text
     tools = WorkspaceTools(workspace_path)
     searcher = WebTools()
     browser = BrowserSession()
@@ -1338,7 +1346,9 @@ def _run_subtask(
                 "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
                 "Use todo to track steps. Use vision_analyze to look at images, image_generate to make them "
                 "(ad visuals, hero images — PNG into deliverables/; write a one-line brief per image first). "
-                "Use clarify only when you cannot proceed without the human. "
+                "Use clarify only when you cannot proceed without the human — and before that call brief (action=get): "
+                "use the field if the brief has it, ask only for what missing_for lists. Record a field you learn with brief set "
+                "(with evidence) and a spending recommendation with brief decision. "
                 "If the subtask names a skill, skill_view it first "
                 "(deep-research, marketing-pipeline, voc-to-copy, copywriting, pptx, xlsx, …). "
                 "For .xlsx .docx .pptx .pdf: skills_list then skill_view, then bash with openpyxl/python-docx/python-pptx/pypdf/reportlab — "
