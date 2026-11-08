@@ -53,6 +53,7 @@ _TOOL_VERB = {
     "repeat_buying": "counting repeat buyers",
     "table_analyze": "reading the table",
     "reach_overlap": "estimating reach",
+    "media_plan": "planning the media",
     "page_inspect": "checking the landing page",
     "seo_inspect": "checking search",
     "survey_check": "checking the questionnaire",

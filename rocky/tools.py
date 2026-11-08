@@ -963,7 +963,7 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "reach_overlap",
-            "description": "Combined and incremental reach of a media plan across channels, with bounds instead of reaches added up as if nobody saw two channels. Use it whenever a brief compares channels, allocates a media budget, or quotes a combined reach or cost per person reached. Give the audience and each channel's reach in people (or reach_unit=pct); list the pairwise overlaps you know under overlaps. Unknown pairs are returned under missing with lower and upper bounds, no point estimate unless assumption=independent, and narrows_most names the one overlap to ask for (use clarify or state the assumption).",
+            "description": "Combined and incremental reach of a media plan across channels, with bounds instead of reaches added up as if nobody saw two channels. Use it whenever a brief compares channels, allocates a media budget, or quotes a combined reach or cost per person reached. Give the audience and each channel's reach in people (or reach_unit=pct); list the pairwise overlaps you know under overlaps. Unknown pairs are returned under missing with lower and upper bounds, no point estimate unless assumption=independent, and narrows_most names the one overlap to ask for (use clarify or state the assumption). Tag channels with source (paid / owned / earned) and give required_reach to see whether unpaid reach can carry the target; role for the brand/activation split; addressable_pct for cost per thousand buyers, not readers; category_buyers for reach against the category; frequency_distribution + cap for a frequency-cap scenario; measure to keep views and people apart.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -995,6 +995,108 @@ CLIENT_TOOL_SPECS = [
                                 "frequency": {
                                     "type": "number",
                                     "description": "average exposures per reached person, for impressions and GRPs"
+                                },
+                                "source": {
+                                    "type": "string",
+                                    "enum": [
+                                        "paid",
+                                        "owned",
+                                        "earned"
+                                    ],
+                                    "description": "who delivered this reach: paid media, own channels (pages, newsletter) or earned (shares, press); with required_reach gives by_source and whether unpaid reach can carry the target"
+                                },
+                                "role": {
+                                    "type": "string",
+                                    "enum": [
+                                        "brand",
+                                        "activation",
+                                        "both"
+                                    ],
+                                    "description": "job of the channel's spend; with cost gives the brand/activation split against the 60/40 comparison point"
+                                },
+                                "role_brand_pct": {
+                                    "type": "number",
+                                    "description": "for role=both: share of this channel's cost that is brand (default 50)"
+                                },
+                                "impressions": {
+                                    "type": "number",
+                                    "description": "total impressions in the period; alternative to frequency"
+                                },
+                                "addressable_pct": {
+                                    "type": "number",
+                                    "description": "percent (0–100) of this channel's reached people who can actually buy; gives addressable_reach and cpm_addressable and re-ranks channels by cost per buyer"
+                                },
+                                "addressable_source": {
+                                    "type": "string",
+                                    "description": "where addressable_pct comes from"
+                                },
+                                "existing_customer_share": {
+                                    "type": "number",
+                                    "description": "share 0–1 of this channel's reach who already buy from you; gives future_buyer_reach"
+                                },
+                                "frequency_distribution": {
+                                    "type": "array",
+                                    "description": "platform frequency breakdown; with cap gives cap_scenario (an average frequency alone is refused)",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "exposures": {
+                                                "type": "string",
+                                                "description": "a number, a range like 3-5, or an open bucket like 6+"
+                                            },
+                                            "people": {
+                                                "type": "number"
+                                            }
+                                        },
+                                        "required": [
+                                            "exposures",
+                                            "people"
+                                        ]
+                                    }
+                                },
+                                "cap": {
+                                    "type": "integer",
+                                    "description": "frequency cap to test, e.g. 3"
+                                },
+                                "cpm_unexposed_factor": {
+                                    "type": "number",
+                                    "description": "ratio of the CPM for not-yet-reached people to the current CPM; sets the lower bound of extra reach from a cap"
+                                },
+                                "measure": {
+                                    "type": "object",
+                                    "description": "what this channel's figure measures; a channel not measured in people is excluded from the combined reach and named under comparability.not_comparable",
+                                    "properties": {
+                                        "metric": {
+                                            "type": "string",
+                                            "enum": [
+                                                "people",
+                                                "views",
+                                                "impressions",
+                                                "gross_contacts"
+                                            ]
+                                        },
+                                        "base": {
+                                            "type": "string"
+                                        },
+                                        "period": {
+                                            "type": "string",
+                                            "enum": [
+                                                "day",
+                                                "week",
+                                                "month",
+                                                "campaign"
+                                            ]
+                                        },
+                                        "devices": {
+                                            "type": "string"
+                                        },
+                                        "source": {
+                                            "type": "string"
+                                        },
+                                        "viewability": {
+                                            "type": "string"
+                                        }
+                                    }
                                 }
                             },
                             "required": [
@@ -1047,6 +1149,18 @@ CLIENT_TOOL_SPECS = [
                     "budget": {
                         "type": "number",
                         "description": "media budget per period, checked against channel costs"
+                    },
+                    "required_reach": {
+                        "type": "number",
+                        "description": "people the next flight must reach; compared with the owned + earned upper bound → unpaid_sustains_required yes / no / unknown"
+                    },
+                    "category_buyers": {
+                        "type": "number",
+                        "description": "all potential buyers of the category (the real denominator); gives category_reach as a share of them"
+                    },
+                    "category_source": {
+                        "type": "string",
+                        "description": "where the category-buyer count comes from"
                     }
                 },
                 "required": [
@@ -2450,6 +2564,566 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "media_plan",
+            "description": "Media-budget arithmetic in one tool with a mode; call it instead of computing in prose. ledger: budget lines → shares per channel on a media-only and an all-in basis, brand/activation split with other teams' always-on spend reconciled. sov: spend + market share → share of voice, share of market, excess share of voice in points, spend per share point, spend for a target ESOV. budget: activities with unit costs and expected results → total, coverage of the objective, cost per result, headroom or shortfall, cut candidates, split against a sourced B2B (46/54) or B2C (60/40) benchmark; adjustments applied once. offers: proposals priced as served CPM, viewable CPM, CPC, CPL or CPA → one denominator; unnamed payment events are not ranked. volume: periods with population, penetration, purchases per buyer, units per purchase → computed volume, reconciliation, change split into penetration / frequency / basket effects. calendar: year + always_on + occasions (date or key: kaledos, motinos_diena, black_friday, velykos, naujieji, mokslo_metai, jonines, valentino, kovo_8, tevo_diena, vasario_16, kovo_11, helovinas, velines) → 52-week table, totals, overlaps, short leads, budget cap. channel_fit: platform, segment, content_job, evidence with source_url, posts and hours → verdict fit / stretch / unfit / unknown with capacity check. classify: spend rows with creative_text → brand / activation / mixed by the creative's own markers, never by channel. Every mode returns missing, warnings and a summary sentence to quote as is.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "ledger",
+                            "sov",
+                            "budget",
+                            "offers",
+                            "volume",
+                            "calendar",
+                            "channel_fit",
+                            "classify"
+                        ]
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "currency label, default €"
+                    },
+                    "period": {
+                        "type": "string",
+                        "description": "ledger / sov: period label"
+                    },
+                    "lines": {
+                        "type": "array",
+                        "description": "ledger: budget lines",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string"
+                                },
+                                "channel": {
+                                    "type": "string"
+                                },
+                                "cost_type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "media",
+                                        "production",
+                                        "fees",
+                                        "tech",
+                                        "other"
+                                    ]
+                                },
+                                "team": {
+                                    "type": "string"
+                                },
+                                "amount": {
+                                    "type": "number"
+                                },
+                                "role": {
+                                    "type": "string",
+                                    "enum": [
+                                        "brand",
+                                        "activation"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "label",
+                                "channel",
+                                "amount"
+                            ]
+                        }
+                    },
+                    "always_on": {
+                        "description": "ledger: other teams' always-on blocks [{label, team, channel, monthly_amount, months | amount, role?}]; calendar: {weekly_budget, posts_per_week, content_types?}"
+                    },
+                    "quoted_shares": {
+                        "type": "array",
+                        "description": "ledger: shares someone quoted, to check against both bases",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "channel": {
+                                    "type": "string"
+                                },
+                                "pct": {
+                                    "type": "number"
+                                },
+                                "basis": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "mentioned_spend": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "ledger: spend names the brief mentions — flagged activation_uncounted when no line carries them"
+                    },
+                    "brands": {
+                        "type": "array",
+                        "description": "sov: one object per brand, exactly one with is_own",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "share_of_market_pct": {
+                                    "type": "number"
+                                },
+                                "media_spend": {
+                                    "type": "number"
+                                },
+                                "is_own": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "media_spend"
+                            ]
+                        }
+                    },
+                    "brand_spend": {
+                        "type": "number",
+                        "description": "sov: own spend, alternative to brands"
+                    },
+                    "competitor_spends": {
+                        "type": "object",
+                        "description": "sov: {competitor name: spend}",
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    },
+                    "category_total_spend": {
+                        "type": "number",
+                        "description": "sov: whole-category media spend"
+                    },
+                    "market_share_pct": {
+                        "type": "number",
+                        "description": "sov: own market share (with brand_spend)"
+                    },
+                    "share_basis": {
+                        "type": "string",
+                        "enum": [
+                            "value",
+                            "volume"
+                        ]
+                    },
+                    "planned_spend": {
+                        "type": "number",
+                        "description": "sov: spend under consideration"
+                    },
+                    "target_esov_points": {
+                        "type": "number",
+                        "description": "sov: ESOV to reach → spend_for_target_esov"
+                    },
+                    "series": {
+                        "type": "array",
+                        "description": "sov: periods for ESOV vs next-period share change",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "period": {
+                                    "type": "string"
+                                },
+                                "brand_spend": {
+                                    "type": "number"
+                                },
+                                "category_total_spend": {
+                                    "type": "number"
+                                },
+                                "market_share_pct": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "brand_spend",
+                                "category_total_spend",
+                                "market_share_pct"
+                            ]
+                        }
+                    },
+                    "budget_total": {
+                        "type": "number",
+                        "description": "budget: the cap"
+                    },
+                    "market": {
+                        "type": "string",
+                        "enum": [
+                            "b2b",
+                            "b2c"
+                        ],
+                        "description": "budget: picks the default benchmark (46/54 or 60/40)"
+                    },
+                    "benchmark_brand_pct": {
+                        "type": "number",
+                        "description": "budget: sector benchmark brand share if you have a better one; give benchmark_source and sector"
+                    },
+                    "benchmark_source": {
+                        "type": "string"
+                    },
+                    "sector": {
+                        "type": "string"
+                    },
+                    "activities": {
+                        "type": "array",
+                        "description": "budget: planned activities",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                        "brand",
+                                        "activation"
+                                    ]
+                                },
+                                "unit": {
+                                    "type": "string"
+                                },
+                                "unit_cost": {
+                                    "type": "number"
+                                },
+                                "units": {
+                                    "type": "number"
+                                },
+                                "cost": {
+                                    "type": "number",
+                                    "description": "alternative to unit_cost × units"
+                                },
+                                "expected_result": {
+                                    "type": "number"
+                                },
+                                "result_unit": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ]
+                        }
+                    },
+                    "objective": {
+                        "type": "object",
+                        "description": "budget: {metric, target}",
+                        "properties": {
+                            "metric": {
+                                "type": "string"
+                            },
+                            "target": {
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "sector_traits": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "budget: traits the benchmark sector already has; adjustments naming them are dropped"
+                    },
+                    "adjustments": {
+                        "type": "array",
+                        "description": "budget: proposed moves from the benchmark, each applied once",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "feature": {
+                                    "type": "string"
+                                },
+                                "direction": {
+                                    "type": "string",
+                                    "enum": [
+                                        "brand",
+                                        "activation"
+                                    ]
+                                },
+                                "points": {
+                                    "type": "number"
+                                },
+                                "reason": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "feature",
+                                "direction",
+                                "points"
+                            ]
+                        }
+                    },
+                    "max_total_points": {
+                        "type": "number",
+                        "description": "budget: cap on the net adjustment (default 20)"
+                    },
+                    "offers": {
+                        "type": "array",
+                        "description": "offers: media proposals",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "price": {
+                                    "type": "number"
+                                },
+                                "price_basis": {
+                                    "type": "string",
+                                    "enum": [
+                                        "cpm_served",
+                                        "cpm_viewable",
+                                        "cpc",
+                                        "cpl",
+                                        "cpa"
+                                    ]
+                                },
+                                "quantity": {
+                                    "type": "number",
+                                    "description": "impressions (for CPM bases), clicks or events the price buys"
+                                },
+                                "viewability_pct": {
+                                    "type": "number"
+                                },
+                                "ctr_pct": {
+                                    "type": "number"
+                                },
+                                "conversion_pct": {
+                                    "type": "number"
+                                },
+                                "payment_event": {
+                                    "type": "string",
+                                    "description": "required for cpl / cpa: the contract's words for what is paid for"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "price",
+                                "price_basis"
+                            ]
+                        }
+                    },
+                    "target_event": {
+                        "type": "string",
+                        "description": "offers: the event you actually want to pay for"
+                    },
+                    "step_rates": {
+                        "type": "array",
+                        "description": "offers: conversion steps between events",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from": {
+                                    "type": "string"
+                                },
+                                "to": {
+                                    "type": "string"
+                                },
+                                "rate_pct": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "from",
+                                "to",
+                                "rate_pct"
+                            ]
+                        }
+                    },
+                    "compare_on": {
+                        "type": "string",
+                        "enum": [
+                            "vcpm",
+                            "cpm_served",
+                            "cpc",
+                            "cpl",
+                            "cpa",
+                            "cost_per_target_event"
+                        ],
+                        "description": "offers: force the ranking basis"
+                    },
+                    "periods": {
+                        "type": "array",
+                        "description": "volume: two or more periods (or markets)",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string"
+                                },
+                                "population": {
+                                    "type": "number"
+                                },
+                                "penetration_pct": {
+                                    "type": "number"
+                                },
+                                "buyers": {
+                                    "type": "number"
+                                },
+                                "purchases_per_buyer": {
+                                    "type": "number"
+                                },
+                                "units_per_purchase": {
+                                    "type": "number"
+                                },
+                                "reported_volume": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    },
+                    "unit": {
+                        "type": "string",
+                        "description": "volume: unit label"
+                    },
+                    "year": {
+                        "type": "integer",
+                        "description": "calendar: the year"
+                    },
+                    "occasions": {
+                        "type": "array",
+                        "description": "calendar: flights",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "date": {
+                                    "type": "string",
+                                    "description": "YYYY-MM-DD or MM-DD"
+                                },
+                                "key": {
+                                    "type": "string",
+                                    "description": "known occasion key instead of a date"
+                                },
+                                "lead_days": {
+                                    "type": "integer"
+                                },
+                                "duration_days": {
+                                    "type": "integer"
+                                },
+                                "burst_budget": {
+                                    "type": "number"
+                                },
+                                "posts": {
+                                    "type": "number"
+                                },
+                                "channels": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ]
+                        }
+                    },
+                    "total_budget": {
+                        "type": "number",
+                        "description": "calendar: the cap"
+                    },
+                    "team_posts_per_week_max": {
+                        "type": "number"
+                    },
+                    "platform": {
+                        "type": "string",
+                        "description": "channel_fit: the platform under consideration"
+                    },
+                    "segment": {
+                        "type": "string"
+                    },
+                    "content_job": {
+                        "type": "string",
+                        "description": "channel_fit: what the audience uses the platform for"
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "description": "channel_fit: usage evidence with URLs",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string"
+                                },
+                                "source_url": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "text"
+                            ]
+                        }
+                    },
+                    "target_posts_per_week": {
+                        "type": "number"
+                    },
+                    "hours_per_post": {
+                        "type": "number"
+                    },
+                    "team_hours_per_week": {
+                        "type": "number"
+                    },
+                    "existing_platforms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "posts_per_week": {
+                                    "type": "number"
+                                },
+                                "hours_per_week": {
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    },
+                    "rows": {
+                        "type": "array",
+                        "description": "classify: spend rows with the creative text",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "campaign": {
+                                    "type": "string"
+                                },
+                                "channel": {
+                                    "type": "string"
+                                },
+                                "spend": {
+                                    "type": "number"
+                                },
+                                "creative_text": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "campaign",
+                                "spend"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "mode"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -2959,6 +3633,10 @@ def dispatch(
             from rocky.panel import repeat_buying_tool
 
             return repeat_buying_tool(tools, args)
+        if name == "media_plan":
+            from rocky.media import media_plan_tool
+
+            return media_plan_tool(args)
         if name == "reach_overlap":
             from rocky.reach import reach_overlap_tool
 
