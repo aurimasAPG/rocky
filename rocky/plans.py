@@ -51,6 +51,10 @@ deterministic and works for Lithuanian and English.
 from __future__ import annotations
 
 import base64
+import calendar as _calendar
+import csv
+import html as _html
+import io
 import json
 import re
 from datetime import date, datetime, timedelta
@@ -489,6 +493,95 @@ def _content_calendar(tools: WorkspaceTools | None, args: dict) -> dict[str, Any
     }
     head = f"{len(items)} items over {len(by_week)} week{'s' if len(by_week) != 1 else ''}"
     return _finish("content_calendar", out, findings, missing, head)
+
+
+CAL_LABELS = {
+    "en": {"title": "Content calendar", "list": "Every item", "date": "Date", "item": "Item", "channel": "Channel", "owner": "Owner", "stage": "Stage", "format": "Format", "findings": "Findings", "undated": "No date yet", "empty_weeks": "Weeks with nothing planned", "launch": "Launch window", "maintain": "Evergreen pieces to review", "expire": "Timely pieces past their date", "none": "none", "missing": "Not checked", "owner_missing": "no owner"},
+    "lt": {"title": "Turinio kalendorius", "list": "Visi įrašai", "date": "Data", "item": "Įrašas", "channel": "Kanalas", "owner": "Atsakingas", "stage": "Etapas", "format": "Formatas", "findings": "Radiniai", "undated": "Dar be datos", "empty_weeks": "Savaitės be nieko", "launch": "Starto langas", "maintain": "Amžinieji įrašai peržiūrai", "expire": "Laikini įrašai, kurių data praėjo", "none": "nėra", "missing": "Nepatikrinta", "owner_missing": "be atsakingo"},
+}
+CAL_CSS = (
+    "body{font:15px/1.45 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;padding:24px;color:#1a1a1a;background:#fafafa}"
+    "h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 8px}.summary{color:#444;margin-bottom:16px}"
+    ".counts span{display:inline-block;margin-right:12px;padding:2px 8px;border-radius:10px;font-size:13px;background:#eee}"
+    ".counts .block{background:#fde2e1;color:#8a1c16}.counts .warn{background:#fff1cc;color:#7a5200}.counts .info{background:#e3eefc;color:#1d4e89}"
+    ".month{margin-top:20px}.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.grid .dow{font-size:12px;color:#666;text-align:center}"
+    ".day{min-height:72px;background:#fff;border:1px solid #e4e4e4;border-radius:6px;padding:4px;font-size:12px}.day.pad{background:transparent;border:0}"
+    ".day .n{color:#888}.chip{display:block;margin-top:3px;padding:2px 5px;border-radius:5px;background:#eef3f8;border-left:3px solid #8aa;font-size:11px;line-height:1.3}"
+    ".chip.block{background:#fde2e1;border-left-color:#c62828}.chip.warn{background:#fff1cc;border-left-color:#d49a00}.chip.info{border-left-color:#1d4e89}"
+    "table{border-collapse:collapse;width:100%;background:#fff}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top;font-size:13px}th{background:#f3f3f3}"
+    ".badge{display:inline-block;margin:1px 4px 1px 0;padding:1px 6px;border-radius:8px;font-size:11px;background:#eee}.badge.block{background:#fde2e1;color:#8a1c16}.badge.warn{background:#fff1cc;color:#7a5200}.badge.info{background:#e3eefc;color:#1d4e89}"
+    ".muted{color:#888}"
+)
+
+
+def _worst(levels: list[str]) -> str:
+    for level in ("block", "warn", "info"):
+        if level in levels:
+            return level
+    return ""
+
+
+def calendar_page(out: dict[str, Any]) -> str:
+    """Render a content_calendar result as one HTML page: month grids plus a list with finding badges."""
+    e = _html.escape
+    L = CAL_LABELS.get(out.get("language") or "en", CAL_LABELS["en"])
+    items = out.get("items") or []
+    findings = out.get("findings") or []
+    per_item: dict[str, list[dict[str, Any]]] = {}
+    for it in items:
+        per_item[it["id"]] = [f for f in findings if str(f.get("where") or "") in (it["id"], it.get("where"))]
+    by_day: dict[str, list[dict[str, Any]]] = {}
+    for it in items:
+        if it.get("publish_date"):
+            by_day.setdefault(it["publish_date"], []).append(it)
+    months = sorted({d[:7] for d in by_day})
+    parts = [f"<!doctype html><html lang=\"{e(out.get('language') or 'en')}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{L['title']}</title><style>{CAL_CSS}</style></head><body>"]
+    parts.append(f"<h1>{L['title']}</h1><p class=\"summary\">{e(str(out.get('summary') or ''))}</p>")
+    counts = (out.get("counts") or {}).get("by_level") or {}
+    parts.append("<p class=\"counts\">" + "".join(f"<span class=\"{lvl}\">{lvl} {counts.get(lvl, 0)}</span>" for lvl in ("block", "warn", "info")) + "</p>")
+    dows = ("Pr", "An", "Tr", "Kt", "Pn", "Št", "Sk") if L is CAL_LABELS["lt"] else ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+    for ym in months:
+        year, month = int(ym[:4]), int(ym[5:7])
+        parts.append(f"<div class=\"month\"><h2>{_calendar.month_name[month]} {year}</h2><div class=\"grid\">" + "".join(f"<div class=\"dow\">{d}</div>" for d in dows))
+        first_dow, ndays = _calendar.monthrange(year, month)
+        parts.extend("<div class=\"day pad\"></div>" for _ in range(first_dow))
+        for day in range(1, ndays + 1):
+            iso = f"{year:04d}-{month:02d}-{day:02d}"
+            chips = []
+            for it in by_day.get(iso, []):
+                level = _worst([f["level"] for f in per_item.get(it["id"], [])])
+                owner = e(it.get("owner") or L["owner_missing"])
+                chips.append(f"<span class=\"chip {level}\" title=\"{owner}\">{e(it.get('title') or it['id'])}<br><span class=\"muted\">{e(it.get('channel') or '')}</span></span>")
+            parts.append(f"<div class=\"day\"><span class=\"n\">{day}</span>{''.join(chips)}</div>")
+        parts.append("</div></div>")
+    parts.append(f"<h2>{L['list']}</h2><table><tr><th>{L['date']}</th><th>{L['item']}</th><th>{L['channel']}</th><th>{L['owner']}</th><th>{L['stage']}</th><th>{L['format']}</th><th>{L['findings']}</th></tr>")
+    for it in sorted(items, key=lambda i: (i.get("publish_date") is None, i.get("publish_date") or "")):
+        badges = "".join(f"<span class=\"badge {f['level']}\" title=\"{e(str(f.get('note') or ''))}\">{e(f['code'])}</span>" for f in per_item.get(it["id"], []))
+        parts.append(
+            f"<tr><td>{e(it.get('publish_date') or L['undated'])}</td><td>{e(it.get('title') or it['id'])}</td><td>{e(it.get('channel') or '')}</td>"
+            f"<td>{e(it.get('owner') or '') or '<span class=muted>' + L['owner_missing'] + '</span>'}</td><td>{e(it.get('stage') or '')}</td><td>{e(it.get('format') or '')}</td><td>{badges or '<span class=muted>' + L['none'] + '</span>'}</td></tr>"
+        )
+    parts.append("</table>")
+    for key, label in (("weeks_empty", L["empty_weeks"]), ("launch_window", L["launch"]), ("maintain", L["maintain"]), ("expire", L["expire"])):
+        values = out.get(key) or []
+        parts.append(f"<h2>{label}</h2><p>{e(', '.join(str(v) for v in values)) if values else '<span class=muted>' + L['none'] + '</span>'}</p>")
+    if out.get("missing"):
+        parts.append(f"<h2>{L['missing']}</h2><ul>" + "".join(f"<li>{e(str(m))}</li>" for m in out["missing"]) + "</ul>")
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def calendar_csv(out: dict[str, Any]) -> str:
+    """One row per item with its finding codes, for the marketer's own spreadsheet."""
+    per_item: dict[str, list[str]] = {}
+    for it in out.get("items") or []:
+        per_item[it["id"]] = [f["code"] for f in out.get("findings") or [] if str(f.get("where") or "") in (it["id"], it.get("where"))]
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["id", "publish_date", "title", "channel", "owner", "stage", "format", "lifespan", "goal", "review_date", "findings"])
+    for it in sorted(out.get("items") or [], key=lambda i: (i.get("publish_date") is None, i.get("publish_date") or "")):
+        w.writerow([it.get("id"), it.get("publish_date") or "", it.get("title") or "", it.get("channel") or "", it.get("owner") or "", it.get("stage") or "", it.get("format") or "", it.get("lifespan") or "", it.get("goal") or "", it.get("review_date") or it.get("review_date_proposed") or "", " ".join(per_item.get(it["id"], []))])
+    return buf.getvalue()
 
 
 # --- pr_board ----------------------------------------------------------------------------------------
@@ -1424,7 +1517,16 @@ def plan_check(tools: WorkspaceTools | None, args: dict, llm: Any = None) -> dic
     if kind not in KINDS:
         raise ToolError(f"kind must be one of {', '.join(KINDS)}")
     if kind == "content_calendar":
-        return _content_calendar(tools, args)
+        out = _content_calendar(tools, args)
+        if tools is not None and args.get("render", True) is not False:
+            page = _text(args.get("page")) or "deliverables/calendar.html"
+            sheet = page[:-5] + ".csv" if page.endswith(".html") else page + ".csv"
+            tools.write_file(page, calendar_page(out))
+            tools.write_file(sheet, calendar_csv(out))
+            out["deliverable"] = page
+            out["csv"] = sheet
+            out["summary"] += f" Page: {page}."
+        return out
     if kind == "pr_board":
         return _pr_board(tools, args)
     if kind == "demo_board":

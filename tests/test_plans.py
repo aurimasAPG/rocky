@@ -535,3 +535,28 @@ def test_dispatch_routes_plan_check_with_the_client(tmp_path):
     no_llm = _json.loads(dispatch(WorkspaceTools(tmp_path), "plan_check", {"kind": "retell", "statements": [{"id": "s1", "text": "Gauk pinigus už darbą laiku", "must_survive": ["pinigus", "laiku"]}]}))
     assert any(m.startswith("llm") for m in no_llm["missing"])
     assert "plan_check" in [t["function"]["name"] for t in worker_tools(False)]
+
+
+
+def test_content_calendar_writes_a_page_and_csv(ws):
+    items = [
+        {"title": "Launch post", "publish_date": "2027-01-14", "channel": "LinkedIn", "owner": "TBD", "format": "post", "stage": "awareness"},
+        {"title": "Guide to co-working", "publish_date": "2027-02-10", "channel": "blog", "format": "article", "owner": "Eglė", "stage": "evaluation", "lifespan": "evergreen", "goal": "Which space fits a team of five?"},
+        {"title": "No date yet", "channel": "blog", "format": "article", "owner": "Eglė", "stage": "decision"},
+    ]
+    out = plan_check(ws, {"kind": "content_calendar", "items": items, "today": "2026-11-08", "language": "en"})
+    assert out["deliverable"] == "deliverables/calendar.html" and out["csv"] == "deliverables/calendar.csv"
+    assert out["summary"].endswith("Page: deliverables/calendar.html.")
+    page = ws.resolve("deliverables/calendar.html").read_text(encoding="utf-8")
+    assert "<title>Content calendar</title>" in page and "January 2027" in page and "February 2027" in page
+    assert "Launch post" in page and "owner_missing" in page and "No date yet" in page and "chip block" in page
+    rows = ws.resolve("deliverables/calendar.csv").read_text(encoding="utf-8").splitlines()
+    assert rows[0].startswith("id,publish_date,title") and len(rows) == 4
+    assert "owner_missing" in rows[1] and rows[-1].startswith("item-3,,No date yet")
+    quiet = plan_check(ws, {"kind": "content_calendar", "items": items, "today": "2026-11-08", "render": False, "page": "deliverables/other.html"})
+    assert "deliverable" not in quiet and not ws.resolve("deliverables/other.html").exists()
+    lt = plan_check(None, {"kind": "content_calendar", "items": [{"title": "Įrašas", "publish_date": "2027-03-02", "channel": "blog", "owner": "Rasa", "stage": "awareness"}], "today": "2026-11-08", "language": "lt"})
+    assert "deliverable" not in lt
+    from rocky.plans import calendar_page
+
+    assert "Turinio kalendorius" in calendar_page(lt)
