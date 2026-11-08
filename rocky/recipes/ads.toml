@@ -26,7 +26,7 @@ writes = ["runs/notes/facts.md"]
 detail = """skill_view marketing-strategy. Read the site the goal names with web_fetch: home, services or pricing, about, one case page. \
 Use at most ten tool calls in all and write as soon as you have enough. \
 Write runs/notes/facts.md for: {goal}. Start it with a line `Job: ` saying what the customer is trying to get done, a line `Pitch: ` quoting the main message the site uses today, then two or three `Segment: ` lines, each an outcome a group struggles to reach and the circumstance that identifies them. Then what is sold, to whom, the offer, prices, where and how buyers get it (delivery, outlets, booking), proof numbers, tone, brand colours as hex: \
-one line per fact, with the URL it came from. If the goal asks about competitors, add two or three with URLs. \
+one line per fact, with the URL it came from. Add two or three `Table stake: ` lines: an outcome customers expect from anyone in this category and already get from competitors, its minimum acceptable level, and whether this brand meets it (met, unmet or unknown). If the goal asks about competitors, add two or three with URLs. \
 Mark what you could not confirm. No invented numbers, quotes or reviews."""
 
 [[steps]]
@@ -39,7 +39,7 @@ detail = """skill_view meta-ads-copy if it is listed. Using only runs/notes/fact
 Give each ad one Segment line from the facts and state that struggle and circumstance in its audience. \
 With more than one ad, ad 1 is the control: the Pitch line turned into an ad, test_role control. The others are challengers, test_role challenger: \
 each about an outcome the product already delivers that its segment struggles to reach, with no promise the product would have to change to keep. \
-Call ad_board with brand, url, ads (primary_text, headline, description, cta, angle, audience, test_role, mix) and claims. \
+Call ad_board with brand, url, ads (primary_text, headline, description, cta, angle, audience, test_role, mix), table_stakes and claims. No ad leads on a table stake. \
 Fill mix for each ad from the facts: product, price, place. If the buyer could not experience the ad's promise with that offer, change the ad. \
 Put every number in the copy into claims with its URL from runs/notes/facts.md, or write the copy without digits. \
 When ad_board lists problems, fix them and call it again with the whole pack. Do not write the page yourself."""

@@ -41,3 +41,9 @@ def test_the_repositioning_rule_is_in_the_skill_with_its_source():
     assert "Test repositioning before changing the product" in text
     assert "Jobs to Be Done, pp. 99–101" in text
 
+
+def test_the_table_stakes_rule_is_in_the_skill_with_its_source():
+    text = view_skill("marketing-strategy")
+    assert "Protect category table stakes" in text
+    assert "Jobs to Be Done, pp. 105–106" in text
+

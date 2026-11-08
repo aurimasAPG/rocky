@@ -35,3 +35,13 @@ A new message costs far less than a new product, so try it first. Find an outcom
 - Quote today's pitch in `runs/notes/facts.md` as `Pitch: …`, so the control is the real message and not a weaker rewrite.
 
 Source: Jobs to Be Done, pp. 99–101.
+
+## Protect category table stakes
+
+Some outcomes matter to customers and every serious competitor already delivers them: delivery on time, a working checkout, a reply within a day. Doing them earns no preference, and missing one loses the sale, whatever the ad says.
+
+- Write two or three `Table stake: …` lines in `runs/notes/facts.md`, each with the outcome, the minimum acceptable level, and whether this brand meets it. Write `unknown` when the sources do not say.
+- Pass them to `ad_board` as `table_stakes`. A missed minimum is flagged at the top of the page, because it should be fixed before money goes on ads.
+- No ad leads on a table stake. Differentiate on something competitors do not already deliver.
+
+Source: Jobs to Be Done, pp. 105–106.

@@ -42,6 +42,7 @@ def _pack(**ad):
             }
         ],
         "claims": [],
+        "table_stakes": [{"outcome": "Atsakymas į užklausą", "minimum": "Per vieną darbo dieną", "status": "met"}],
     }
 
 
@@ -120,6 +121,46 @@ def test_no_ads_blocks():
     pack = _pack()
     pack["ads"] = []
     assert _codes(_check(pack, images={}), "block") == ["no_ads"]
+
+
+def _stakes(*statuses):
+    pack = _pack()
+    pack["table_stakes"] = [{"outcome": f"Rezultatas {s}", "minimum": "Minimumas", "status": s} for s in statuses]
+    return pack
+
+
+def test_an_unmet_table_stake_warns_and_names_the_outcome():
+    checks = _check(_stakes("met", "unmet"))
+    assert _codes(checks, "block") == [] and _codes(checks, "warn") == ["stake_unmet"]
+    assert checks[0].value == "Rezultatas unmet"
+
+
+def test_met_and_unknown_table_stakes_do_not_warn():
+    assert _check(_stakes("met", "unknown")) == []
+
+
+def test_listing_no_table_stakes_warns():
+    pack = _pack()
+    pack["table_stakes"] = []
+    assert _codes(_check(pack), "warn") == ["no_stakes"]
+
+
+def test_an_unknown_stake_status_counts_as_unknown():
+    assert normalize(_stakes("maybe"))["table_stakes"][0]["status"] == "unknown"
+
+
+def test_a_missed_minimum_is_flagged_at_the_top_and_listed_before_the_evidence():
+    pack = normalize(_stakes("unmet"))
+    page = render(pack, check_pack(pack, None, {1: "x"}), {1: "x"})
+    assert '<ul class="alerts"><li>„Rezultatas unmet“' in page
+    assert page.index("Prieš leidžiant biudžetą") < page.index("Įrodymai")
+    assert '<td class="unmet">Nepasiekta</td>' in page
+
+
+def test_the_recipe_collects_table_stakes_and_keeps_ads_off_them():
+    steps = {step["title"]: step["detail"] for step in load_recipes()["ads"].render_steps("goal")}
+    assert "`Table stake: `" in steps["Facts"] and "minimum acceptable level" in steps["Facts"]
+    assert "table_stakes" in steps["Ads"] and "No ad leads on a table stake" in steps["Ads"]
 
 
 def _two_ads(*roles):

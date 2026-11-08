@@ -571,6 +571,19 @@ CLIENT_TOOL_SPECS = [
                             "required": ["primary_text", "headline", "cta"],
                         },
                     },
+                    "table_stakes": {
+                        "type": "array",
+                        "description": "what buyers expect from anyone in this category",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "outcome": {"type": "string"},
+                                "minimum": {"type": "string", "description": "the lowest acceptable level"},
+                                "status": {"type": "string", "enum": ["met", "unmet", "unknown"]},
+                            },
+                            "required": ["outcome", "minimum", "status"],
+                        },
+                    },
                     "claims": {
                         "type": "array",
                         "items": {

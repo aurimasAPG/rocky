@@ -32,6 +32,8 @@ COPY_FIELDS = ("primary_text", "headline", "description")
 MIX_FIELDS = ("product", "price", "place")
 # A set of ads is a test: the current pitch against messages about outcomes already delivered (Jobs to Be Done, pp. 99–101).
 TEST_ROLES = ("control", "challenger")
+# What buyers expect from anyone in the category, checked before money goes on differentiation (Jobs to Be Done, pp. 105–106).
+STAKE_STATUSES = ("met", "unmet", "unknown")
 # What the feed shows before it cuts the text.
 FEED_LIMITS = {"primary_text": 125, "headline": 40, "description": 30}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
@@ -63,6 +65,8 @@ _MESSAGES = {
         "promise": "Absolute promise “{value}”: make sure you can prove it.",
         "no_image": "No visual yet.",
         "mix_missing": "The promise needs an offer behind it: add {field}.",
+        "stake_unmet": "“{value}” is below the minimum buyers expect. Fix it before spending on ads.",
+        "no_stakes": "Table stakes are not listed: say what buyers expect from anyone in this category.",
         "no_test": "To compare messages, mark one ad as the control (the current pitch) and at least one as a challenger.",
     },
     "lt": {
@@ -76,6 +80,8 @@ _MESSAGES = {
         "promise": "Absoliutus pažadas „{value}“: patikrinkite, ar galite jį įrodyti.",
         "no_image": "Vizualas dar nesukurtas.",
         "mix_missing": "Pažadą turi palaikyti pasiūlymas: nurodykite, {field}.",
+        "stake_unmet": "„{value}“: nepasiektas minimumas, kurio pirkėjai tikisi. Pirma sutvarkykite tai, tik tada leiskite biudžetą.",
+        "no_stakes": "Nenurodyta, ko pirkėjai tikisi iš bet kurio šios srities pardavėjo.",
         "no_test": "Kad galėtumėte palyginti žinutes, pažymėkite vieną reklamą kaip kontrolinę (dabartinė žinutė) ir bent vieną kaip naują.",
     },
 }
@@ -89,6 +95,10 @@ _LABELS = {
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
         "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
         "role_control": "Control: current pitch", "role_challenger": "Challenger",
+        "stakes": "Before you spend",
+        "stakes_note": "What buyers expect from anyone in this category. If you miss a minimum, fix that before paying for ads.",
+        "stake_outcome": "Expected", "stake_minimum": "Minimum", "stake_status": "Status",
+        "stake_met": "Met", "stake_unmet": "Not met", "stake_unknown": "Unknown",
     },
     "lt": {
         "slug": "Rocky · reklamų lenta", "ads": "Reklamų", "ready": "Paruošta", "fix": "Reikia pataisyti",
@@ -100,6 +110,10 @@ _LABELS = {
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
         "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
         "role_control": "Kontrolinė: dabartinė žinutė", "role_challenger": "Nauja žinutė",
+        "stakes": "Prieš leidžiant biudžetą",
+        "stakes_note": "Ko pirkėjai tikisi iš bet kurio šios srities pardavėjo. Jei minimumo nepasiekiate, pirma sutvarkykite tai, o ne reklamą.",
+        "stake_outcome": "Ko tikimasi", "stake_minimum": "Minimumas", "stake_status": "Būsena",
+        "stake_met": "Pasiekta", "stake_unmet": "Nepasiekta", "stake_unknown": "Nežinoma",
     },
 }
 
@@ -163,6 +177,15 @@ def normalize(args: dict) -> dict:
             for claim in _dicts(args.get("claims"))
             if _text(claim.get("text"))
         ],
+        "table_stakes": [
+            {
+                "outcome": _text(stake.get("outcome"), 200),
+                "minimum": _text(stake.get("minimum"), 200),
+                "status": status if (status := _text(stake.get("status")).lower()) in STAKE_STATUSES else "unknown",
+            }
+            for stake in _dicts(args.get("table_stakes"))
+            if _text(stake.get("outcome"))
+        ],
     }
 
 
@@ -191,6 +214,12 @@ def check_pack(pack: dict, facts: str | None, images: dict[int, str]) -> list[Ch
             checks.append(Check("block", "source_unknown", value=claim["text"]))
         else:
             sourced.update(_NUMBER.findall(claim["text"]))
+    stakes = pack.get("table_stakes") or []
+    if not stakes:
+        checks.append(Check("warn", "no_stakes"))
+    for stake in stakes:
+        if stake["status"] == "unmet":
+            checks.append(Check("warn", "stake_unmet", value=stake["outcome"]))
     roles = [ad.get("test_role") for ad in pack["ads"]]
     if len(roles) > 1 and (roles.count("control") != 1 or "challenger" not in roles):
         checks.append(Check("warn", "no_test", ad=1))
@@ -422,7 +451,7 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
     blocked = {c.ad for c in checks if c.level == "block" and c.ad}
     fix = len(blocked)
     ready_count = sum(1 for n in range(1, len(pack["ads"]) + 1) if n not in blocked and n in images)
-    alerts = "".join(f"<li>{e(message(c, language))}</li>" for c in checks if c.level == "block" and not c.ad)
+    alerts = "".join(f"<li>{e(message(c, language))}</li>" for c in checks if not c.ad)
     alerts = f'<ul class="alerts">{alerts}</ul>' if alerts else ""
     site = (
         f'<a href="{e(pack["url"], quote=True)}" target="_blank" rel="noopener">{e(_bare_url(pack["url"]))}</a>'
@@ -444,6 +473,18 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
         + "</td></tr>"
         for claim in pack["claims"]
     )
+    stake_rows = "".join(
+        f'<tr><td>{e(stake["outcome"])}</td><td>{e(stake["minimum"])}</td>'
+        f'<td class="{stake["status"]}">{e(labels["stake_" + stake["status"]])}</td></tr>'
+        for stake in pack.get("table_stakes") or []
+    )
+    stakes = (
+        f'<section class="evidence stakes"><h2>{e(labels["stakes"])}</h2><p>{e(labels["stakes_note"])}</p>'
+        f'<table><thead><tr><th>{e(labels["stake_outcome"])}</th><th>{e(labels["stake_minimum"])}</th>'
+        f'<th>{e(labels["stake_status"])}</th></tr></thead><tbody>{stake_rows}</tbody></table></section>'
+        if stake_rows
+        else ""
+    )
     evidence = (
         f'<table><thead><tr><th>{e(labels["claim"])}</th><th>{e(labels["source"])}</th></tr></thead><tbody>{rows}</tbody></table>'
         if rows
@@ -460,7 +501,7 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
         f'<dl class="tally"><div><dt>{e(labels["ads"])}</dt><dd>{len(pack["ads"])}</dd></div>'
         f'<div><dt>{e(labels["ready"])}</dt><dd>{ready_count}</dd></div>'
         f'<div class="{"bad" if fix else ""}"><dt>{e(labels["fix"])}</dt><dd>{fix}</dd></div></dl>{alerts}</header>'
-        f'<main>{proofs}</main>'
+        f'<main>{proofs}</main>{stakes}'
         f'<section class="evidence"><h2>{e(labels["evidence"])}</h2><p>{e(labels["evidence_note"])}</p>{evidence}</section>'
         f"<script>{_SCRIPT}</script></body></html>"
     )
@@ -535,6 +576,7 @@ th{text-align:left;padding:0 16px 8px 0}
 td{border-top:1px solid var(--rule);padding:10px 16px 10px 0;vertical-align:top;overflow-wrap:anywhere}
 td a,.mast>a{color:inherit;text-underline-offset:3px}
 td:last-child{font:13.5px/1.45 var(--mono);width:42%}
+.stakes td:last-child{width:auto;white-space:nowrap}.stakes td.met{color:var(--go)}.stakes td.unmet{color:var(--stop)}.stakes td.unknown{color:var(--hold)}
 @media (max-width:760px){.mast{grid-template-columns:1fr}.tally{grid-column:1;grid-row:auto;margin-top:20px}.proof{grid-template-columns:minmax(0,1fr)}td:last-child{width:auto}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media print{body{background:#fff;padding:0}.copies{display:none}.proof{break-inside:avoid;animation:none}}
