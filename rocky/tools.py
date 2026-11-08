@@ -538,7 +538,7 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "funnel_analyze",
-            "description": "Read the user's own campaign, order or event data (CSV or XLSX in the workspace) and compute the funnel: counts per stage, conversion from the previous stage and from the first, the step that loses the most, the date window actually covered, per-group funnels and the worst group. Call it whenever a brief asks where a funnel leaks, which step to fix, how conversion differs by channel or cohort, or whenever a data file with stage counts is in the workspace — never summarise such a file in prose or compute the percentages yourself. Wide files (one column per stage) take stages; long files (one row per event or per stage) take stage_column with count_column or id_column. The result lists blank cells, bad numbers, unreadable dates and empty windows under missing: report them, do not fill them in.",
+            "description": "Read the user's own campaign, order or event data (CSV or XLSX in the workspace) and compute the funnel: stage counts, conversion from the previous and first stage, the largest loss, the window covered, per-group funnels and the worst group. With group_by it also runs two-proportion z-tests between groups (compare_groups; cost_per_group for cost per converted), lag tables between two dates, time slots (bucket_by), stages derived from column rules and a paid-stage gap. Modes buyer_classes, offers, trend, recruits and categories answer promotion substitution, timed-offer dependence, cost of a new buyer over a launch, new-to-brand share and category shares from the same files. Call it whenever a data file is in the workspace; never compute its percentages yourself. Blank cells, bad numbers, unreadable dates and empty windows are listed under missing: report them, do not fill them in.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -585,8 +585,19 @@ CLIENT_TOOL_SPECS = [
                         "description": "long layout: stage names in funnel order; default is order of first appearance"
                     },
                     "group_by": {
-                        "type": "string",
-                        "description": "column such as channel, campaign or cohort: adds one funnel per value and names the worst group (groups with at least 30 at the first stage)"
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "maxItems": 2
+                            }
+                        ],
+                        "description": "column such as channel, campaign or cohort: one funnel per value, the worst group, and (up to 6 groups) a two-proportion comparison; two columns give a teller × listener matrix"
                     },
                     "date_column": {
                         "type": "string",
@@ -599,6 +610,347 @@ CLIENT_TOOL_SPECS = [
                     "date_to": {
                         "type": "string",
                         "description": "ISO date YYYY-MM-DD, inclusive"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "funnel",
+                            "buyer_classes",
+                            "offers",
+                            "trend",
+                            "recruits",
+                            "categories"
+                        ],
+                        "description": "funnel (default) or a separate reading of the same file: buyer_classes (promotion units by prior buying frequency), offers (timed discounts per period), trend (cost of a new buyer per launch period), recruits (buyers of a new product who are new to the brand), categories (counts and shares of a category column)"
+                    },
+                    "compare_groups": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "2–6 group_by values to test against the first one; default: all groups when there are at most 6"
+                    },
+                    "compare_stage": {
+                        "type": "string",
+                        "description": "stage whose rate is compared and priced; default the last stage"
+                    },
+                    "min_n": {
+                        "type": "integer",
+                        "description": "first-stage count below which a group's verdict is insufficient_data (default 100)"
+                    },
+                    "cost_per_group": {
+                        "type": "object",
+                        "description": "{group: amount} or {group: {media, fixed, fulfilment_per_unit, fee_per_unit}}; net cost = media + fixed + units×fulfilment − units×fee, units = first-stage count",
+                        "additionalProperties": True
+                    },
+                    "cost_column": {
+                        "type": "string",
+                        "description": "numeric column summed per group as media cost (alternative to cost_per_group)"
+                    },
+                    "attention_column": {
+                        "type": "string",
+                        "description": "impressions/views/mentions column: adds attention share per group and flags publicity_without_sales / quiet_contributor"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "label for cost figures, default EUR"
+                    },
+                    "metrics": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "numeric columns to summarise per group (mean, median, n); groups whose median differs by more than 50 % from the rest are listed under unequal"
+                    },
+                    "share_of": {
+                        "type": "object",
+                        "properties": {
+                            "numerator": {
+                                "type": "string"
+                            },
+                            "denominator": {
+                                "type": "string"
+                            }
+                        },
+                        "description": "e.g. brand spend over category spend: share of wallet per group and a selection_bias verdict"
+                    },
+                    "lag_from": {
+                        "type": "string",
+                        "description": "date column the lag starts from (e.g. sent_date); use with lag_to"
+                    },
+                    "lag_to": {
+                        "type": "string",
+                        "description": "date column the lag ends at (e.g. redeemed_date): buckets 0 / 1–3 / 4–7 / 8+ days, median, share after day 0, per group when group_by is set"
+                    },
+                    "maturity_days": {
+                        "type": "integer",
+                        "description": "with lag_from/lag_to: count rows at equal age; groups younger than this are excluded from the comparison verdict"
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "description": "ISO date for age and maturity calculations; default the latest date in the file"
+                    },
+                    "bucket_by": {
+                        "type": "object",
+                        "properties": {
+                            "column": {
+                                "type": "string"
+                            },
+                            "unit": {
+                                "type": "string",
+                                "enum": [
+                                    "hour",
+                                    "weekday",
+                                    "hour_weekday"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "column"
+                        ],
+                        "description": "derive time slots from a timestamp column: stage counts, fulfilled share and the fewest slots covering cover_share of the last stage"
+                    },
+                    "cover_share": {
+                        "type": "number",
+                        "description": "share of the last stage the best_slots must cover (default 0.9)"
+                    },
+                    "derived_stages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "column": {
+                                    "type": "string"
+                                },
+                                "rule": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "column"
+                            ]
+                        },
+                        "description": "wide layout from a per-user table: each stage counts rows where the rule holds — not_blank (default), blank, gt:N, gte:N, lt:N, lte:N, eq:X, in:a|b, after:<column>+<N>d, within:<column>+<N>d"
+                    },
+                    "filter": {
+                        "type": "object",
+                        "properties": {
+                            "column": {
+                                "type": "string"
+                            },
+                            "values": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "exclude_values": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "required": [
+                            "column"
+                        ],
+                        "description": "keep only rows whose column is in values and not in exclude_values"
+                    },
+                    "cohort_by": {
+                        "type": "object",
+                        "properties": {
+                            "column": {
+                                "type": "string"
+                            },
+                            "boundaries": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "required": [
+                            "column",
+                            "boundaries"
+                        ],
+                        "description": "derive the group from a date column split at ISO boundaries; replaces group_by"
+                    },
+                    "periods": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string"
+                                },
+                                "from": {
+                                    "type": "string"
+                                },
+                                "to": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "from",
+                                "to"
+                            ]
+                        },
+                        "description": "labelled, non-overlapping date spans on date_column used as groups; replaces group_by"
+                    },
+                    "target_segment": {
+                        "type": "string",
+                        "description": "with a two-column group_by: value of the second column whose share of all first-stage units is reported as share_to_target_pct"
+                    },
+                    "paid_at_stage": {
+                        "type": "string",
+                        "description": "stage a commission or payment is based on: reports units paid for that never reached the last stage and incentive_gap when the paid stage comes before the largest loss"
+                    },
+                    "returns_column": {
+                        "type": "string",
+                        "description": "with paid_at_stage: returned units, summed and shown as a share of paid units"
+                    },
+                    "promo_start": {
+                        "type": "string",
+                        "description": "buyer_classes: ISO start of the promotion"
+                    },
+                    "promo_end": {
+                        "type": "string",
+                        "description": "buyer_classes: ISO end of the promotion"
+                    },
+                    "pre_start": {
+                        "type": "string",
+                        "description": "buyer_classes: ISO start of the pre-period"
+                    },
+                    "pre_end": {
+                        "type": "string",
+                        "description": "buyer_classes: ISO end of the pre-period"
+                    },
+                    "pre_weeks": {
+                        "type": "integer",
+                        "description": "buyer_classes: pre-period length in weeks ending the day before promo_start"
+                    },
+                    "quantity_column": {
+                        "type": "string",
+                        "description": "buyer_classes/recruits: units per row; rows count 1 when absent"
+                    },
+                    "promo_flag_column": {
+                        "type": "string",
+                        "description": "buyer_classes: only rows flagged in this column count as promo purchases inside the window"
+                    },
+                    "class_cutoffs": {
+                        "type": "object",
+                        "properties": {
+                            "light_max": {
+                                "type": "integer"
+                            },
+                            "heavy_min": {
+                                "type": "integer"
+                            }
+                        },
+                        "description": "buyer_classes: pre-period purchases per class (default light ≤ 1, heavy ≥ 3)"
+                    },
+                    "revenue_column": {
+                        "type": "string",
+                        "description": "offers: revenue or price paid per order"
+                    },
+                    "discount_column": {
+                        "type": "string",
+                        "description": "offers: yes/no flag or discount percent per order"
+                    },
+                    "customer_column": {
+                        "type": "string",
+                        "description": "offers: customer id, for the share who only ever buy on discount"
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": [
+                            "week",
+                            "month",
+                            "quarter"
+                        ],
+                        "description": "offers/trend: calendar period to aggregate date_column into (default month)"
+                    },
+                    "period_column": {
+                        "type": "string",
+                        "description": "trend: column naming the period when the file has one row per period"
+                    },
+                    "spend_column": {
+                        "type": "string",
+                        "description": "trend: activation spend per row"
+                    },
+                    "new_column": {
+                        "type": "string",
+                        "description": "trend: new buyers (or inquiries) per row"
+                    },
+                    "repeat_column": {
+                        "type": "string",
+                        "description": "trend: repeat buyers per row"
+                    },
+                    "brand_spend_column": {
+                        "type": "string",
+                        "description": "trend: brand spend per row, for brand share of spend"
+                    },
+                    "baseline_periods": {
+                        "type": "integer",
+                        "description": "trend: number of first periods pooled as the baseline (default 3)"
+                    },
+                    "product_column": {
+                        "type": "string",
+                        "description": "recruits: SKU or product name per row"
+                    },
+                    "new_products": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "recruits: the new product(s) whose buyers are classified"
+                    },
+                    "launch_date": {
+                        "type": "string",
+                        "description": "recruits: ISO launch date; default the first new-product purchase"
+                    },
+                    "min_history_days": {
+                        "type": "integer",
+                        "description": "recruits: days of data needed before launch_date, else the split is refused (default 90)"
+                    },
+                    "price_column": {
+                        "type": "string",
+                        "description": "recruits: price per row, for average order value per group"
+                    },
+                    "cycle_days": {
+                        "type": "integer",
+                        "description": "recruits: replenishment interval; adds buyers past one cycle and their matured repeat rate"
+                    },
+                    "column": {
+                        "type": "string",
+                        "description": "categories: the category column to count"
+                    },
+                    "categories": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "categories: allowed values; others are listed under unmapped_values"
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "description": "categories: groups to list (default 10)"
+                    },
+                    "pareto_share": {
+                        "type": "number",
+                        "description": "categories: share the pareto_groups must cover (default 0.8)"
+                    },
+                    "min_rows": {
+                        "type": "integer",
+                        "description": "categories: below this many rows a sample-too-small warning is added (default 20)"
+                    },
+                    "weight_column": {
+                        "type": "string",
+                        "description": "categories: numeric column to sum instead of counting rows"
                     }
                 },
                 "required": [
