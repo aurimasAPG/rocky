@@ -1204,6 +1204,228 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "table_analyze",
+            "description": "Read the user's own spreadsheet (CSV or XLSX in the workspace) as data and answer one question about it with real numbers: survey and respondent audits, service-quality gaps by branch or channel, complaint themes, search-term brand splits, press benchmarks across periods, before/after checks, lead-time distributions, sampling coverage. Use it for any spreadsheet question that is not a funnel (funnels go to funnel_analyze) or a transaction panel (repeat_buying), and never compute a count, share, mean, difference or percentage from a file by eye or with your own arithmetic. Pick op: describe, group (count/sum/mean/median/share/distinct by columns or week:/month: of a date column, with gap best−worst), crosstab (cells, row %, chi-square when every expected cell ≥ 5), before_after (means around split_date, Welch t, optional normalize_by), period_compare (latest vs previous and vs year ago), proportion_diff (two groups: difference in pp, Wald 95 % CI, z-test; without group_column: one proportion with Wilson CI), intervals (days between two date columns), coverage (list shares vs population_shares), text_themes (regex themes with samples), search_terms_split (branded vs non-branded spend, CPA, ROAS from a Google Ads export). Every result reports the dates actually covered, rows used, groups below min_rows as thin (never ranked), blanks and bad cells under missing, the method behind any statistic, and a one-sentence summary to quote as is.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "enum": [
+                            "describe",
+                            "group",
+                            "crosstab",
+                            "before_after",
+                            "period_compare",
+                            "proportion_diff",
+                            "intervals",
+                            "coverage",
+                            "text_themes",
+                            "search_terms_split"
+                        ],
+                        "description": "what to compute"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "CSV or XLSX file relative to the workspace"
+                    },
+                    "sheet": {
+                        "type": "string",
+                        "description": "XLSX sheet name; first sheet by default"
+                    },
+                    "header_row": {
+                        "type": "integer",
+                        "description": "row number (from 1) holding the column names when the file has lines above the header; detected automatically otherwise"
+                    },
+                    "date_column": {
+                        "type": "string",
+                        "description": "date column for the window, before_after and week:/month: buckets; rows with unreadable dates are left out and reported"
+                    },
+                    "date_from": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD, inclusive"
+                    },
+                    "date_to": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD, inclusive"
+                    },
+                    "filter": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "column": {
+                                    "type": "string"
+                                },
+                                "op": {
+                                    "type": "string",
+                                    "enum": [
+                                        "==",
+                                        "!=",
+                                        "contains",
+                                        ">",
+                                        "<",
+                                        ">=",
+                                        "<=",
+                                        "in"
+                                    ]
+                                },
+                                "value": {}
+                            },
+                            "required": [
+                                "column",
+                                "value"
+                            ]
+                        },
+                        "description": "row filters applied after the date window; text compares case-insensitively, numbers numerically; 'in' takes a list"
+                    },
+                    "min_rows": {
+                        "type": "integer",
+                        "description": "groups and cells with fewer rows are reported as thin and never ranked (default 30)"
+                    },
+                    "by": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "group/coverage/text_themes/before_after: grouping column(s), or week:<date column> / month:<date column> / year:<date column> / weekday:<date column>"
+                    },
+                    "metric": {
+                        "type": "string",
+                        "description": "group/before_after: numeric column to aggregate"
+                    },
+                    "agg": {
+                        "type": "string",
+                        "enum": [
+                            "count",
+                            "sum",
+                            "mean",
+                            "median",
+                            "share",
+                            "distinct"
+                        ],
+                        "description": "group: aggregation (default count, or sum when metric is given); period_compare: sum or mean"
+                    },
+                    "distinct_by": {
+                        "type": "string",
+                        "description": "group with agg distinct: id column whose unique values are counted"
+                    },
+                    "top": {
+                        "type": "integer",
+                        "description": "group: how many groups to list (default 20)"
+                    },
+                    "population_shares": {
+                        "type": "object",
+                        "description": "coverage, or group with agg mean: {group: fraction} of the real population; gives ratio/status per group or a weighted mean"
+                    },
+                    "rows": {
+                        "type": "string",
+                        "description": "crosstab: row column (≤ 20 levels)"
+                    },
+                    "cols": {
+                        "type": "string",
+                        "description": "crosstab: column column (≤ 20 levels)"
+                    },
+                    "split_date": {
+                        "type": "string",
+                        "description": "before_after: YYYY-MM-DD; rows before it are before, on or after it are after"
+                    },
+                    "normalize_by": {
+                        "type": "string",
+                        "description": "before_after: divide metric by this column per row, e.g. m2 or shipments"
+                    },
+                    "period_column": {
+                        "type": "string",
+                        "description": "period_compare: quarter/month/date column (2025-Q1, Q1 2025, 2026-03, 2026-03-01) or month:<date column>"
+                    },
+                    "metrics": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "period_compare: numeric columns to compare"
+                    },
+                    "sample_column": {
+                        "type": "string",
+                        "description": "period_compare: column with the sample size behind each period, e.g. merchants"
+                    },
+                    "group_column": {
+                        "type": "string",
+                        "description": "proportion_diff: column with exactly two groups (or name them with group_a/group_b); omit for a single proportion"
+                    },
+                    "group_a": {
+                        "type": "string",
+                        "description": "proportion_diff: reference group (control)"
+                    },
+                    "group_b": {
+                        "type": "string",
+                        "description": "proportion_diff: compared group; diff = p_b − p_a"
+                    },
+                    "outcome_column": {
+                        "type": "string",
+                        "description": "proportion_diff: column holding the outcome"
+                    },
+                    "positive_values": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "proportion_diff: values counted as positive (default yes/true/1/taip)"
+                    },
+                    "invited": {
+                        "type": "integer",
+                        "description": "proportion_diff without group_column: how many were invited, for the response rate"
+                    },
+                    "start_column": {
+                        "type": "string",
+                        "description": "intervals: start date column"
+                    },
+                    "end_column": {
+                        "type": "string",
+                        "description": "intervals: end date column"
+                    },
+                    "text_column": {
+                        "type": "string",
+                        "description": "text_themes: free-text column"
+                    },
+                    "patterns": {
+                        "type": "object",
+                        "description": "text_themes: {theme: regex}, matched case-insensitively"
+                    },
+                    "term_column": {
+                        "type": "string",
+                        "description": "search_terms_split: search term column; detected from Google Ads headers by default"
+                    },
+                    "brand_terms": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "search_terms_split: brand name and spellings, matched as case-insensitive substrings"
+                    },
+                    "cost_column": {
+                        "type": "string",
+                        "description": "search_terms_split: override for the cost column"
+                    },
+                    "conversions_column": {
+                        "type": "string",
+                        "description": "search_terms_split: override for the conversions column"
+                    },
+                    "value_column": {
+                        "type": "string",
+                        "description": "search_terms_split: override for the conversion value column"
+                    }
+                },
+                "required": [
+                    "op",
+                    "path"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -1624,6 +1846,10 @@ def dispatch(
             from rocky.funnel import funnel_analyze_tool
 
             return funnel_analyze_tool(tools, args)
+        if name == "table_analyze":
+            from rocky.table import table_analyze_tool
+
+            return table_analyze_tool(tools, args)
         if name == "repeat_buying":
             from rocky.panel import repeat_buying_tool
 
