@@ -1,6 +1,6 @@
 ---
 name: marketing-strategy
-description: Market definition and positioning rules. Use before writing ads, campaigns or a positioning statement, starting from the job the customer wants done.
+description: Market definition and positioning rules. Use before writing ads, campaigns or a positioning statement: the job the customer wants done and segments by unmet need.
 ---
 
 # Rocky · Market strategy and positioning
@@ -16,3 +16,13 @@ Before any ad, write one line saying what the customer is trying to get done, in
 - Put it first in `runs/notes/facts.md` as `Job: …`, and build every ad's angle on it.
 
 Source: Jobs to Be Done, pp. 54–56.
+
+## Segment by patterns of unmet needs
+
+Age, job title and company size describe people. They do not say why anyone would buy. Group buyers by the outcome they struggle to reach, then name the circumstance that explains it and that someone could spot from outside: "runs a shop whose ad costs rose this quarter", not "managers aged 30–50".
+
+- Write two or three `Segment: …` lines in `runs/notes/facts.md`, each with the struggle and the circumstance.
+- Base them on what the site and its sources show. Mark a segment as a guess when nothing confirms it.
+- Give each ad one segment. Its `audience` field states the struggle and the circumstance, so the marketer can turn it into targeting.
+
+Source: Jobs to Be Done, pp. 97–98.

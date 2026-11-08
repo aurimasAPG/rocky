@@ -22,3 +22,16 @@ def test_the_job_rule_is_in_the_skill_with_its_source():
     text = view_skill("marketing-strategy")
     assert "Define the market around a durable job" in text
     assert "Jobs to Be Done, pp. 54–56" in text
+
+
+def test_ads_are_aimed_at_segments_defined_by_unmet_needs():
+    steps = _steps()
+    assert "`Segment: ` lines" in steps["Facts"] and "struggles to reach" in steps["Facts"]
+    assert "one Segment line" in steps["Ads"] and "in its audience" in steps["Ads"]
+
+
+def test_the_segment_rule_is_in_the_skill_with_its_source():
+    text = view_skill("marketing-strategy")
+    assert "Segment by patterns of unmet needs" in text
+    assert "Jobs to Be Done, pp. 97–98" in text
+
