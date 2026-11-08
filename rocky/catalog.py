@@ -39,6 +39,8 @@ COMPLEXITY_FLOOR = {
 
 # Cheap multilingual workhorse (Lithuanian + tools). Overridable via ROCKY_WORKER.
 DEFAULT_WORKER_MODEL = "google/gemini-3.8-flash"
+# Planner whenever the catalog has it; otherwise the strongest current model.
+DEFAULT_PLANNER_MODEL = "anthropic/claude-opus-5.5"
 # Automatic picks ignore models released this long before the newest of their own family.
 # Capability leans on price, and new generations are often cheaper than the ones they replace.
 CURRENT_WINDOW_DAYS = 90
@@ -282,8 +284,10 @@ def pick_cast(
     assess = assess_pool[0]
 
     plan_pool = sorted(current, key=lambda m: capability(m, PLAN_FAMILIES), reverse=True)
-    planner = plan_pool[0]
-    critic = next((m for m in plan_pool if m.id != planner.id), planner)
+    planner = next((m for m in tool if m.id == DEFAULT_PLANNER_MODEL), plan_pool[0])
+    # Not dearer than the planner, or a cheaper planner would only move the cost to this role.
+    others = [m for m in plan_pool if m.id != planner.id]
+    critic = next((m for m in others if m.blended_per_million <= planner.blended_per_million), None) or next(iter(others), planner)
 
     work_families = _work_families(domain)
     eligible = eligible_workers(tool, complexity, domain)
@@ -312,7 +316,7 @@ def pick_cast(
         reasons={
             "assess": f"cheapest structured/tool model ({assess.blended_per_million:.3f}/M blended)",
             "critic": f"critiques the brief before work is split ({critic.family})",
-            "planner": f"highest planning capability in {planner.family}",
+            "planner": f"default planner in {planner.family}" if planner.id == DEFAULT_PLANNER_MODEL else f"highest planning capability in {planner.family}",
             "worker": worker_reason,
             "verifier": f"strong model in {verifier.family}, not {planner.family}, under ${VERIFY_MAX_PRICE.get(complexity, 8.0):.0f}/M ({verifier.blended_per_million:.2f}/M)",
         },

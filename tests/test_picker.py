@@ -277,3 +277,17 @@ def test_parse_models_reads_release_and_retirement():
     row = {"id": "a/b", "created": NOW, "expiration_date": "2026-12-01", "pricing": {"prompt": "0", "completion": "0"}}
     model = parse_models({"data": [row]})[0]
     assert model.created == NOW and model.retiring is True
+
+
+def test_the_default_planner_beats_a_dearer_model():
+    top = _m("anthropic/top-tier", 10e-6, 50e-6, params=STRONG, created=NOW)
+    opus = _m("anthropic/claude-opus-5.5", 4e-6, 20e-6, params=STRONG, created=NOW)
+    cast = pick_cast(_generations(top, opus), complexity="hard", domain="writing")
+    assert cast.planner == opus.id
+
+
+def test_the_critic_is_not_dearer_than_the_planner():
+    top = _m("anthropic/top-tier", 10e-6, 50e-6, params=STRONG, created=NOW)
+    opus = _m("anthropic/claude-opus-5.5", 4e-6, 20e-6, params=STRONG, created=NOW)
+    cast = pick_cast(_generations(top, opus), complexity="hard", domain="writing")
+    assert cast.critic != top.id and cast.critic != opus.id
