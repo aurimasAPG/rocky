@@ -199,6 +199,7 @@ def generate_image(
     target = workspace.resolve(rel)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(raw)
+    workspace._note_written(target)
     extra = ""
     if len(result.images) > 1:
         extra = f" (+{len(result.images) - 1} more returned, first saved)"

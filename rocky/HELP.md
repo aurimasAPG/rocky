@@ -301,7 +301,7 @@ The planner and every worker get this rule in their prompt; a bare deliverable n
 
 ## 13. Tools the worker can call
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, plus any **MCP** tools you configure (below).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, plus any **MCP** tools you configure (below).
 
 ### Images
 
@@ -341,19 +341,21 @@ Rocky also loads a **research + marketing allowlist** from `~/.claude/skills` (c
 export ROCKY_SKILLS=/path/to/more/skills
 ```
 
-Ads / copy / campaign goals are planned as **research → VOC → copy → pptx + xlsx → visuals** — that is the bundled `marketing` recipe. The visuals step writes `deliverables/visual-brief.md` (one block per creative: format, message, composition, brand hex colours, text overlay) and then `image_generate`s each block into `deliverables/visual-1.png`, `visual-2.png`, …
+Facebook, Instagram and Meta ad goals follow the bundled `ads` recipe: **facts → ads → visuals**, no deck and no spreadsheet. The steps are fixed, so the planner is only called on a replan. The result is `deliverables/ads.html`, one self-contained page (`rocky open` opens it): each ad as it looks in the feed, cut where the feed cuts it, with copy buttons, a download for the visual, and a stamp saying whether it is ready. Workers publish through the `ad_board` tool and code checks every call: a number in the copy needs a `claims` entry whose source URL is in `runs/notes/facts.md`, otherwise the ad is stamped for fixing and the worker is told exactly what to change. Copy longer than the feed shows and absolute promises are warnings for you to decide on. The page is written as soon as the copy exists and rebuilt when the visuals arrive, so a run that dies later still hands over the ads; if the verifier never ran and the automatic checks are clean, the run ends as `passed_with_notes`.
+
+Other marketing goals, and any ad goal that names a deck or a sheet (`pptx`, `xlsx`, `deck`), are planned as **research → VOC → copy → pptx + xlsx → visuals** — that is the bundled `marketing` recipe. The visuals step writes `deliverables/visual-brief.md` (one block per creative: format, message, composition, brand hex colours, text overlay) and then `image_generate`s each block into `deliverables/visual-1.png`, `visual-2.png`, …
 
 ### Recipes
 
 A recipe is a plan skeleton Rocky enforces when a goal matches: ordered steps, `depends_on`, the deliverable path, and keyword hints. Files are TOML:
 
-- bundled: `rocky/recipes/*.toml` (`marketing` today — research, VOC, copy, deck + sheet, visuals)
+- bundled: `rocky/recipes/*.toml` (`ads` — facts, ads, visuals on one page; `marketing` — research, VOC, copy, deck + sheet, visuals)
 - shared: folders in `ROCKY_RECIPES=/path/a,/path/b`
 - this workspace: `<workspace>/.rocky/recipes/*.toml` (wins on the same name)
 
 Each step can declare `writes = ["runs/notes/research.md"]` — files it must leave on disk. When a worker stops without them, Rocky nudges it (twice at most, `nudge` event); if they still do not exist the step is reported to the verifier as **INCOMPLETE** so later steps and the verdict cannot pretend the work happened. The planner's own steps get a `writes` list too.
 
-Match order: `recipe:<name>` anywhere in the goal → assessed domain → hint words. If the planner already covers every required stage the plan is kept; otherwise the recipe steps replace it. Workers can `recipe list / view / save` — a saved recipe is used from the **next** run, so review it. See `rocky/recipes/marketing.toml` for the format.
+Match order: `recipe:<name>` anywhere in the goal → a recipe matched by words alone (`ads`) → assessed domain → hint words. If the planner already covers every required stage the plan is kept; otherwise the recipe steps replace it. Workers can `recipe list / view / save` — a saved recipe is used from the **next** run, so review it. See `rocky/recipes/marketing.toml` for the format.
 
 ---
 

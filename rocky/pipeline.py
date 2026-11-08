@@ -11,7 +11,7 @@ from rocky.recipes import Recipe, find_recipe, load_recipes
 
 def is_marketing(goal: str, assessment: dict | None = None) -> bool:
     recipe = find_recipe(goal, assessment)
-    return recipe is not None and recipe.name == "marketing"
+    return recipe is not None and recipe.name in {"marketing", "ads"}
 
 
 def canonical_marketing_steps(goal: str) -> list[dict]:

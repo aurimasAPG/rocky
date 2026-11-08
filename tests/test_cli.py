@@ -192,7 +192,7 @@ def test_lithuanian_guide_keeps_parity_with_help():
         "rocky resume", "rocky doctor", "rocky ps", "rocky attach", "rocky serve", "rocky route", "--json",
         "passed_with_notes", "image_generate", "ROCKY_IMAGE_MODEL", "runs/notes/", "deliverables/",
         "ROCKY_SANDBOX", "ROCKY_TOKEN", "MEMORY.md", "runs_search", "recipe:", "subtask_skipped",
-        "100k", "cache", "ROCKY_WORKER", "mcp.json", "AGENTS.md", "budget_warn",
+        "100k", "cache", "ROCKY_WORKER", "mcp.json", "AGENTS.md", "budget_warn", "ad_board", "deliverables/ads.html",
     ):
         assert token in en, f"{token} missing from HELP.md"
         assert token.replace("100k", "100 tūkst.") in lt, f"{token} missing from docs/lt.md"

@@ -14,7 +14,7 @@ def test_thin_plan_becomes_five_stages():
             "steps": [{"id": 1, "title": "Do it", "detail": "write ads", "depends_on": []}],
             "deliverable_path": "out.md",
         },
-        "write meta ads",
+        "write landing page copy",
         {"domain": "marketing"},
     )
     titles = [s["title"].lower() for s in plan["steps"]]

@@ -530,6 +530,49 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "ad_board",
+            "description": (
+                "Publish Facebook / Instagram ads to deliverables/ads.html, a page showing each ad as it looks in the feed "
+                "with copy buttons. Never write that file yourself. Every number in the copy needs a claims entry whose "
+                "source URL is in runs/notes/facts.md. The result says what to fix: call again with the whole corrected "
+                "pack. Visuals named deliverables/visual-<ad number>.png attach by themselves."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "brand": {"type": "string"},
+                    "url": {"type": "string", "description": "the page the ads link to"},
+                    "ads": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "primary_text": {"type": "string", "description": "the feed shows about 125 characters"},
+                                "headline": {"type": "string", "description": "up to 40 characters"},
+                                "description": {"type": "string", "description": "up to 30 characters"},
+                                "cta": {"type": "string", "description": "button label"},
+                                "angle": {"type": "string"},
+                                "audience": {"type": "string"},
+                            },
+                            "required": ["primary_text", "headline", "cta"],
+                        },
+                    },
+                    "claims": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"text": {"type": "string"}, "source": {"type": "string"}},
+                            "required": ["text", "source"],
+                        },
+                    },
+                },
+                "required": ["brand", "url", "ads"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "recipe",
             "description": (
                 "List, view, or save plan recipes (ordered step skeletons Rocky enforces for a kind of goal, "
@@ -721,6 +764,10 @@ def dispatch(
             from rocky.memory import apply_memory
 
             return apply_memory(tools.root, args)
+        if name == "ad_board":
+            from rocky.adboard import ad_board_tool
+
+            return ad_board_tool(tools, args)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 

@@ -139,7 +139,7 @@ Kiti raktai: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `
 
 1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas ir užduoties **kalba** (`lt`, `en`, …; jei modelis nenurodo, ją nustato euristika). Kiekvienam tolesniam vaidmeniui liepiama galutinį failą, santraukas, pastabas ir bet kokį klausimą tau rašyti ta kalba, nebent užduotis prašo kitos — lietuviška užduotis gauna lietuvišką failą, o ne tą kalbą tikrintojas laiko blokuojančiu trūkumu. Biudžeto klausimas lietuviškoms užduotims užduodamas lietuviškai (`taip` / `ne` / skaičius).
 2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).
-3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (numatytai **Claude Opus 5.5**; jei jo kataloge nėra — stipriausias dabartinis modelis), kritikas (stipriausias modelis, ne brangesnis už planuotoją), darbuotojas (numatytai **Gemini 3.8 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai; stipriausias modelis iki 5 / 8 / 12 $ už milijoną mišrių tokenų kainos lubų trivial / moderate / hard tikslams, nes jis per kelis ėjimus iš naujo skaito galutinį failą ir jo įvesties tokenai lemia kainą — pirmasis invohub paleidimas mokėjo 1,50 € už patikrą prie 18 $/M). Automatiškai parenkant praleidžiami modeliai, kuriems katalogas nurodo pabaigos datą, ir modeliai, išleisti daugiau kaip 90 dienų prieš naujausią savo šeimos modelį, kad didesnė kaina nesuteiktų pirmenybės ankstesnei kartai. Jūsų prisegto darbuotojo tai neliečia.
+3. **Sudėtis** — iš gyvo „OpenRouter“ katalogo. Planuotojas (numatytai **Claude Opus 5.5**; jei jo kataloge nėra — stipriausias dabartinis modelis), kritikas (stipriausias modelis, ne brangesnis už planuotoją), darbuotojas (numatytai **Gemini 3.8 Flash** — lietuvių kalba + įrankiai; keičiama per `ROCKY_WORKER`), tikrintojas (kita modelių šeima; tik skaitymo įrankiai; stipriausias modelis iki 5 / 8 / 12 $ už milijoną mišrių tokenų kainos lubų trivial / moderate / hard tikslams, nes jis per kelis ėjimus iš naujo skaito galutinį failą ir jo įvesties tokenai lemia kainą — pirmasis invohub paleidimas mokėjo 1,50 € už patikrą prie 18 $/M). Automatiškai parenkant praleidžiami modeliai, kuriems katalogas nurodo pabaigos datą, ir modeliai, išleisti daugiau kaip 90 dienų prieš naujausią savo šeimos modelį, kad didesnė kaina nesuteiktų pirmenybės ankstesnei kartai. Tavo prisegto darbuotojo tai neliečia.
 4. **Kritikas** — puola užduotį, nustato kokybės kartelę, **pritaikytą tikslui ir luboms**: vienos eilutės tikslas su 1 € lubomis gauna kartelę, kurią geras laisvai samdomas specialistas pasiekia per popietę, surašytą keliais patikrinamais teiginiais — niekada „nulis faktinių klaidų istoriko akimis“, papildomi metodologijos skyriai ar formatai, kurių neprašei. `trivial` tikslams praleidžiamas.
 5. **Planas** — dalys su `depends_on`. `trivial` tikslams praleidžiamas (vienas darbuotojo žingsnis tiesiai tikrintojui; planuotojas įsijungia tik jei tikrinimas nepavyksta). Nepriklausomos dalys gali vykti lygiagrečiai (iki 4).
 6. **Darbuotojai** — kiekviena dalis yra atskiras pokalbis, bendras katalogas.
@@ -305,7 +305,7 @@ Planuotojas ir kiekvienas darbuotojas šią taisyklę gauna prompt'e; plikas gal
 
 ## 13. Įrankiai, kuriuos gali kviesti darbuotojas
 
-`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
+`bash`, `read_file`, `write_file`, `append_file`, `patch`, `list_dir`, `grep`, `todo`, `web_search`, `web_fetch`, `browser_navigate` / `browser_snapshot` / `browser_close`, `vision_analyze`, `image_generate`, `clarify`, `skills_list`, `skill_view`, `office_read`, `memory`, `runs_search`, `recipe`, `ad_board`, plius bet kurie tavo sukonfigūruoti **MCP** įrankiai (žemiau).
 
 ### Vaizdai
 
@@ -345,19 +345,21 @@ Rocky iš `~/.claude/skills` dar įkelia **tyrimų + rinkodaros** leidžiamųjų
 export ROCKY_SKILLS=/kelias/iki/kitu/igudziu
 ```
 
-Reklamos / tekstų / kampanijų tikslai planuojami kaip **tyrimas → VOC → tekstas → pptx + xlsx → vizualai** — tai įmontuotas `marketing` receptas. Vizualų žingsnis parašo `deliverables/visual-brief.md` (po bloką kiekvienam vizualui: formatas, žinutė, kompozicija, prekės ženklo hex spalvos, teksto užrašas), tada per `image_generate` kiekvieną bloką paverčia `deliverables/visual-1.png`, `visual-2.png`, …
+„Facebook“, „Instagram“ ir „Meta“ reklamų tikslai vykdomi pagal įmontuotą `ads` receptą: **faktai → reklamos → vizualai**, be skaidrių ir lentelių. Žingsniai nustatyti iš anksto, todėl planuotojas kviečiamas tik perplanuojant. Rezultatas — `deliverables/ads.html`, vienas savarankiškas puslapis (jį atveria `rocky open`): kiekviena reklama atrodo kaip sraute, nukirpta ten, kur nukerpa srautas, su kopijavimo mygtukais, vizualo atsisiuntimu ir antspaudu, ar ji paruošta. Darbuotojai reklamas skelbia įrankiu `ad_board`, o kiekvieną kvietimą tikrina kodas: skaičius tekste turi turėti `claims` įrašą, kurio šaltinio nuoroda yra `runs/notes/facts.md`; kitaip reklama pažymima kaip taisytina, o darbuotojui tiksliai pasakoma, ką pakeisti. Tekstas, ilgesnis, nei rodo srautas, ir absoliutūs pažadai yra įspėjimai, dėl kurių sprendi tu. Puslapis įrašomas, kai tik tekstai paruošti, ir atnaujinamas atsiradus vizualams, todėl net vėliau nutrūkęs paleidimas palieka reklamas; jei tikrintojas nespėjo, o automatiniai patikrinimai švarūs, paleidimas baigiasi `passed_with_notes`.
+
+Kiti rinkodaros tikslai ir reklamų tikslai, kuriuose minimos skaidrės ar lentelė (`pptx`, `xlsx`, `deck`), planuojami kaip **tyrimas → VOC → tekstas → pptx + xlsx → vizualai** — tai įmontuotas `marketing` receptas. Vizualų žingsnis parašo `deliverables/visual-brief.md` (po bloką kiekvienam vizualui: formatas, žinutė, kompozicija, prekės ženklo hex spalvos, teksto užrašas), tada per `image_generate` kiekvieną bloką paverčia `deliverables/visual-1.png`, `visual-2.png`, …
 
 ### Receptai
 
 Receptas — plano griaučiai, kuriuos Rocky priverstinai taiko, kai tikslas atitinka: sutvarkyti žingsniai, `depends_on`, galutinio failo kelias ir raktažodžių užuominos. Failai — TOML:
 
-- įmontuoti: `rocky/recipes/*.toml` (šiandien `marketing` — tyrimas, VOC, tekstas, skaidrės + lentelė, vizualai)
+- įmontuoti: `rocky/recipes/*.toml` (`ads` — faktai, reklamos, vizualai viename puslapyje; `marketing` — tyrimas, VOC, tekstas, skaidrės + lentelė, vizualai)
 - bendri: katalogai iš `ROCKY_RECIPES=/kelias/a,/kelias/b`
 - šio katalogo: `<katalogas>/.rocky/recipes/*.toml` (tuo pačiu pavadinimu laimi)
 
 Kiekvienas žingsnis gali deklaruoti `writes = ["runs/notes/research.md"]` — failus, kuriuos privalo palikti diske. Kai darbuotojas sustoja be jų, Rocky jį paragina (daugiausia dukart, `nudge` įvykis); jei failų vis tiek nėra, žingsnis tikrintojui pateikiamas kaip **INCOMPLETE**, kad tolesni žingsniai ir verdiktas negalėtų apsimesti, jog darbas atliktas. Planuotojo žingsniai `writes` sąrašą gauna irgi.
 
-Atitikimo tvarka: `recipe:<pavadinimas>` bet kur tiksle → įvertinta sritis → raktažodžiai. Jei planuotojas jau dengia visus privalomus etapus, planas paliekamas; kitaip recepto žingsniai jį pakeičia. Darbuotojai gali `recipe list / view / save` — išsaugotas receptas naudojamas nuo **kito** paleidimo, tad peržiūrėk jį. Formatas — `rocky/recipes/marketing.toml`.
+Atitikimo tvarka: `recipe:<pavadinimas>` bet kur tiksle → receptas, atpažįstamas vien pagal žodžius (`ads`) → įvertinta sritis → raktažodžiai. Jei planuotojas jau dengia visus privalomus etapus, planas paliekamas; kitaip recepto žingsniai jį pakeičia. Darbuotojai gali `recipe list / view / save` — išsaugotas receptas naudojamas nuo **kito** paleidimo, tad peržiūrėk jį. Formatas — `rocky/recipes/marketing.toml`.
 
 ---
 

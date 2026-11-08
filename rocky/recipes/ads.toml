@@ -1,0 +1,53 @@
+# Rocky recipe: Facebook / Instagram ads, delivered as a page a marketer opens.
+# No deck, no spreadsheet: the ad_board tool checks the copy with code and
+# writes deliverables/ads.html. A goal that names a deck or a sheet goes to the
+# marketing recipe instead.
+
+name = "ads"
+description = "Facts → ads → visuals, handed over as one page showing each ad in the feed. Facebook, Instagram, Meta ads."
+deliverable_path = "deliverables/ads.html"
+notes = "Facts go to runs/notes/facts.md. The ad_board tool writes deliverables/ads.html and runs/notes/ads.json. Visuals are deliverables/visual-<ad number>.png. No deck or spreadsheet."
+cost_multiplier = 1.0
+
+[match]
+hints = [
+  "facebook ad", "facebook reklam", "fb reklam", "fb ad", "meta ad", "meta reklam",
+  "instagram ad", "instagram reklam", "ad copy", "ad creative", "reklamų kampanij",
+  "reklamų variant", "reklamos variant", "reklamos tekst", "reklamų tekst",
+]
+unless = ["pptx", "skaidr", "pristatym", "deck", "xlsx", "excel"]
+
+[[steps]]
+id = 1
+title = "Facts"
+depends_on = []
+requires = ["fact", "fakt", "research", "tyrim"]
+writes = ["runs/notes/facts.md"]
+detail = """Read the site the goal names with web_fetch: home, services or pricing, about, one case page. \
+Use at most ten tool calls in all and write as soon as you have enough. \
+Write runs/notes/facts.md for: {goal}. What is sold, to whom, the offer, prices, proof numbers, tone, brand colours as hex: \
+one line per fact, with the URL it came from. If the goal asks about competitors, add two or three with URLs. \
+Mark what you could not confirm. No invented numbers, quotes or reviews."""
+
+[[steps]]
+id = 2
+title = "Ads"
+depends_on = [1]
+requires = ["ad_board"]
+writes = ["deliverables/ads.html", "runs/notes/ads.json"]
+detail = """skill_view meta-ads-copy if it is listed. Using only runs/notes/facts.md, write three ads with different angles \
+(or the number the goal names) for: {goal}. \
+Call ad_board with brand, url, ads (primary_text, headline, description, cta, angle, audience) and claims. \
+Put every number in the copy into claims with its URL from runs/notes/facts.md, or write the copy without digits. \
+When ad_board lists problems, fix them and call it again with the whole pack. Do not write the page yourself."""
+
+[[steps]]
+id = 3
+title = "Visuals"
+depends_on = [2]
+requires = ["visual", "vizual", "image"]
+writes = ["deliverables/visual-1.png"]
+detail = """One square image per ad: image_generate with aspect_ratio 1:1 and path deliverables/visual-1.png for ad 1, \
+deliverables/visual-2.png for ad 2, and so on. Read the ads in runs/notes/ads.json and the brand colours in runs/notes/facts.md. \
+One clear subject that carries the ad's angle. No text in the image, no invented logos or awards. \
+vision_analyze each one once and regenerate it once only if it is wrong. They appear on the page by themselves."""

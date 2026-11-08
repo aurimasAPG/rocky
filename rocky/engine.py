@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from rocky.adboard import BOARD_PATH, is_board, ready as board_ready, refresh as refresh_board, verifier_brief
 from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
 from rocky.budget import BudgetedClient
 from rocky.config import forced_language, preferred_worker
@@ -391,6 +392,11 @@ def orchestrate(
         assessment["goal"] = assessment.get("goal") or goal
         assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
         assessment["language"] = _language_for(goal, assessment)
+        if _is_trivial(assessment):
+            # An ad goal needs the recipe's facts and visuals; the trivial path has one step and no recipe.
+            matched = find_recipe(goal, assessment, load_recipes(workspace_path))
+            if matched is not None and matched.deliverable_path == BOARD_PATH:
+                assessment["complexity"] = "moderate"
         base_eur = estimate_run_eur(assessment, goal)
         factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
         estimate_eur = round(base_eur * factor, 2)
@@ -543,6 +549,7 @@ def orchestrate(
             skip=skip_steps,
         )
         skip_steps = set()
+        refresh_board(plan, tools)
         if client.blocked or tally.usd >= usd_cap * VERIFY_GRACE:
             fire(
                 "budget",
@@ -719,6 +726,8 @@ def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tool
     if passed and not verify.get("notes_only"):
         return "passed", []
     if not verify:
+        if board_ready(plan, tools):
+            return "passed_with_notes", ["not reviewed by the verifier; the automatic checks passed"]
         return "unmet", []
     deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
     if not deliverable or _missing_files(tools, [deliverable]):
@@ -1093,6 +1102,12 @@ def _make_plan(
         listing = ""
     recipes = load_recipes(workspace)
     recipe = find_recipe(goal, assessment, recipes)
+    if recipe and recipe.deliverable_path == BOARD_PATH and not revision:
+        # These steps are fixed. A planner can only add to them, and its added ZIP step is what failed a real run.
+        plan = recipe.apply({"summary": goal, "steps": []}, goal)
+        plan["recipe"] = recipe.name
+        fire("plan", **plan)
+        return plan
     user = {
         "goal": goal,
         "assessment": assessment,
@@ -1542,7 +1557,10 @@ def _verify(
     listing = tools.list_dir(".")
     deliverable = plan.get("deliverable_path") or assessment.get("deliverable") or ""
     body = ""
-    if deliverable:
+    brief = verifier_brief(tools) if is_board(plan) else None
+    if brief is not None:
+        body = brief["pack"]
+    elif deliverable:
         try:
             body = tools.read_file(deliverable)
         except ToolError as exc:
@@ -1585,6 +1603,7 @@ def _verify(
                     "deliverable_path": deliverable,
                     "deliverable_excerpt": body[:12000],
                     "worker_summary": worker_summary,
+                    **({"automatic_checks": brief["automatic_checks"]} if brief else {}),
                 },
                 ensure_ascii=False,
                 indent=2,
