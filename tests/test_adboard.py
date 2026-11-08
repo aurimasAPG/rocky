@@ -37,6 +37,7 @@ def _pack(**ad):
                 "cta": "Sužinoti daugiau",
                 "angle": "Rezultatas",
                 "audience": "E. parduotuvių vadovai",
+                "mix": {"product": "Reklamos valdymas", "price": "Nuo 990 € per mėnesį", "place": "Internetu, Lietuvoje"},
                 **ad,
             }
         ],
@@ -119,6 +120,35 @@ def test_no_ads_blocks():
     pack = _pack()
     pack["ads"] = []
     assert _codes(_check(pack, images={}), "block") == ["no_ads"]
+
+
+def test_an_ad_with_no_offer_behind_it_warns_for_each_gap():
+    checks = _check(_pack(mix={"product": "Auditas"}))
+    assert _codes(checks, "block") == [] and _codes(checks, "warn") == ["mix_missing", "mix_missing"]
+    assert [c.field for c in checks] == ["price", "place"]
+
+
+def test_the_offer_is_shown_beside_the_ad():
+    page = render(normalize(_pack()), [], {})
+    assert "Kiek kainuoja" in page and "Nuo 990 € per mėnesį" in page and "Internetu, Lietuvoje" in page
+
+
+def test_a_gap_in_the_offer_is_named_on_the_page():
+    pack = normalize(_pack(mix={"product": "Auditas", "price": "Nemokamai"}))
+    page = render(pack, check_pack(pack, None, {1: "x"}), {1: "x"})
+    assert "kur pirkėjas tai gauna" in page
+
+
+def test_the_recipe_asks_for_the_offer_and_where_buyers_get_it():
+    steps = {step["title"]: step["detail"] for step in load_recipes()["ads"].render_steps("goal")}
+    assert "where and how buyers get it" in steps["Facts"]
+    assert "product, price, place" in steps["Ads"]
+
+
+def test_a_mix_sent_as_a_json_string_still_works():
+    pack = _pack()
+    pack["ads"][0]["mix"] = json.dumps({"product": "A", "price": "B", "place": "C"})
+    assert normalize(pack)["ads"][0]["mix"] == {"product": "A", "price": "B", "place": "C"}
 
 
 def test_nested_arrays_sent_as_json_strings_still_work():

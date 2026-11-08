@@ -28,6 +28,8 @@ FACTS_PATH = "runs/notes/facts.md"
 MAX_ADS = 10
 REQUIRED = ("primary_text", "headline", "cta")
 COPY_FIELDS = ("primary_text", "headline", "description")
+# The offer behind each ad's promise; the ad itself is the promotion (Principles of Marketing, pp. 32–35).
+MIX_FIELDS = ("product", "price", "place")
 # What the feed shows before it cuts the text.
 FEED_LIMITS = {"primary_text": 125, "headline": 40, "description": 30}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
@@ -38,8 +40,14 @@ PROMISES = (
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 
 _FIELD_NAMES = {
-    "en": {"primary_text": "primary text", "headline": "headline", "description": "description", "cta": "button"},
-    "lt": {"primary_text": "pagrindinis tekstas", "headline": "antraštė", "description": "aprašymas", "cta": "mygtukas"},
+    "en": {
+        "primary_text": "primary text", "headline": "headline", "description": "description", "cta": "button",
+        "product": "what the buyer gets", "price": "what it costs", "place": "where the buyer gets it",
+    },
+    "lt": {
+        "primary_text": "pagrindinis tekstas", "headline": "antraštė", "description": "aprašymas", "cta": "mygtukas",
+        "product": "ką pirkėjas gauna", "price": "kiek tai kainuoja", "place": "kur pirkėjas tai gauna",
+    },
 }
 _MESSAGES = {
     "en": {
@@ -52,6 +60,7 @@ _MESSAGES = {
         "too_long": "{Field}: the feed shows up to {limit} characters, this has {n}.",
         "promise": "Absolute promise “{value}”: make sure you can prove it.",
         "no_image": "No visual yet.",
+        "mix_missing": "The promise needs an offer behind it: add {field}.",
     },
     "lt": {
         "no_ads": "Nėra nė vienos reklamos.",
@@ -63,6 +72,7 @@ _MESSAGES = {
         "too_long": "{Field}: rekomenduojama iki {limit} simbolių, dabar {n}.",
         "promise": "Absoliutus pažadas „{value}“: patikrinkite, ar galite jį įrodyti.",
         "no_image": "Vizualas dar nesukurtas.",
+        "mix_missing": "Pažadą turi palaikyti pasiūlymas: nurodykite, {field}.",
     },
 }
 _LABELS = {
@@ -73,6 +83,7 @@ _LABELS = {
         "description": "Description", "download": "Download visual", "no_visual": "No visual yet",
         "evidence": "Evidence", "evidence_note": "Where every number in these ads comes from.", "claim": "Claim",
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
+        "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
     },
     "lt": {
         "slug": "Rocky · reklamų lenta", "ads": "Reklamų", "ready": "Paruošta", "fix": "Reikia pataisyti",
@@ -82,6 +93,7 @@ _LABELS = {
         "download": "Atsisiųsti vizualą", "no_visual": "Vizualas dar nesukurtas", "evidence": "Įrodymai",
         "evidence_note": "Iš kur paimtas kiekvienas skaičius šiose reklamose.", "claim": "Teiginys",
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
+        "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
     },
 }
 
@@ -118,12 +130,27 @@ def _dicts(value: Any) -> list[dict]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
+def _object(value: Any) -> dict:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
 def normalize(args: dict) -> dict:
     fields = (*COPY_FIELDS, "cta", "angle", "audience", "image")
     return {
         "brand": _text(args.get("brand"), 120),
         "url": _text(args.get("url"), 500),
-        "ads": [{name: _text(ad.get(name)) for name in fields} for ad in _dicts(args.get("ads"))[:MAX_ADS]],
+        "ads": [
+            {
+                **{name: _text(ad.get(name)) for name in fields},
+                "mix": {name: _text(_object(ad.get("mix")).get(name), 300) for name in MIX_FIELDS},
+            }
+            for ad in _dicts(args.get("ads"))[:MAX_ADS]
+        ],
         "claims": [
             {"text": _text(claim.get("text"), 500), "source": _text(claim.get("source"), 500)}
             for claim in _dicts(args.get("claims"))
@@ -172,6 +199,10 @@ def check_pack(pack: dict, facts: str | None, images: dict[int, str]) -> list[Ch
             for phrase in PROMISES:
                 if phrase in lowered:
                     checks.append(Check("warn", "promise", ad=n, field=name, value=phrase))
+        mix = ad.get("mix") or {}
+        for name in MIX_FIELDS:
+            if not mix.get(name):
+                checks.append(Check("warn", "mix_missing", ad=n, field=name))
         if n not in images:
             checks.append(Check("warn", "no_image", ad=n))
     return checks
@@ -347,6 +378,11 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
     audience = (
         f'<p class="audience"><small>{e(labels["audience"])}</small>{e(ad["audience"])}</p>' if ad["audience"] else ""
     )
+    mix = ad.get("mix") or {}
+    offer = "".join(
+        f'<div><dt>{e(labels["mix_" + name])}</dt><dd>{e(mix[name])}</dd></div>' for name in MIX_FIELDS if mix.get(name)
+    )
+    offer = f'<dl class="offer">{offer}</dl>' if offer else ""
     buttons = "".join(
         f'<button type="button" data-copy="{e(ad[name], quote=True)}">{e(labels[label])}</button>'
         for name, label in (("primary_text", "text"), ("headline", "headline"), ("description", "description"))
@@ -360,7 +396,7 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
         '<aside class="note">'
         f'<div class="stamp {kind}">{e(stamp)}</div>'
         f'<h2><small>{e(labels["number"])} {n}</small>{e(ad["angle"])}</h2>'
-        f"{audience}"
+        f"{audience}{offer}"
         f'<ul class="checks">{items}</ul>'
         f'<div class="copies"><small>{e(labels["copy"])}</small><div>{buttons}</div>{download}</div>'
         "</aside>"
@@ -467,6 +503,7 @@ outline:1px solid var(--rule);animation:rise .55s cubic-bezier(.2,.75,.25,1) bot
 .note h2{font:400 28px/1.14 var(--serif);margin:0 0 18px;overflow-wrap:anywhere}
 .note h2 small{display:block;margin-bottom:6px}
 .audience{margin:0 0 18px;font-size:15px}.audience small{display:block;margin-bottom:3px}
+.offer{margin:0 0 18px;font-size:15px}.offer div{margin-bottom:10px}.offer dt{margin-bottom:3px}.offer dd{margin:0}
 .checks{list-style:none;margin:0 0 20px;padding:0;font-size:14.5px}
 .checks:empty{display:none}
 .checks li{padding:8px 0 8px 14px;border-top:1px solid var(--rule);position:relative}

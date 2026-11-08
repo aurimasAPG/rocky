@@ -553,6 +553,15 @@ CLIENT_TOOL_SPECS = [
                                 "cta": {"type": "string", "description": "button label"},
                                 "angle": {"type": "string"},
                                 "audience": {"type": "string"},
+                                "mix": {
+                                    "type": "object",
+                                    "description": "the offer that makes this ad's promise true, from the facts",
+                                    "properties": {
+                                        "product": {"type": "string", "description": "what the buyer gets"},
+                                        "price": {"type": "string", "description": "what it costs, or that it is not published"},
+                                        "place": {"type": "string", "description": "where and how the buyer gets it"},
+                                    },
+                                },
                             },
                             "required": ["primary_text", "headline", "cta"],
                         },
