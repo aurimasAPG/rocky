@@ -57,3 +57,43 @@ A user who built a modification for private use loses something by publishing it
 - With no real modifications known, say so and propose a discovery step, a survey of power users. Do not invent contributor types.
 
 Source: Democratizing Innovation, pp. 102–104.
+
+## Give fans the first look and watch what they repeat
+
+A community that hears first, from a page it can check, spreads the launch for you; a community that hears with everyone else spreads nothing. What fans repeat is the test of the announcement.
+
+- When the brief names an existing community (group, newsletter, club), `deliverables/launch-fan-first.md` has: the first-look asset with at least one fact the public will not get yet; one canonical reference URL (or `deliverables/reference-page.md` to publish first); the gap in hours before public release; the three to five facts to watch for in shares.
+- Run `claim_check` with the fan announcement as the draft and the reference page as the only source; every claim is `supported` by that page before it goes out, and a `number_differs` is fixed in the draft, not explained.
+- After launch, collect shared posts (`web_search`, pasted links) and tally which watched facts appear under `Repeated:` in `runs/notes/facts.md`. No community → write that fan-first does not apply.
+
+Source: World Wide Rave, pp. 23–25.
+
+## Prove a bridge person is in both communities
+
+The people who carry news between two groups are the few who genuinely take part in both. A plausible name is the easiest thing to invent, so each one is proved on two pages.
+
+- Each candidate is a row in `runs/notes/bridges.md`: name or handle | community A URL | community B URL | evidence A | evidence B | how information travels between them.
+- Evidence is the handle found on the fetched page: `web_fetch` or `browser_navigate` each URL and quote the snippet; run `claim_check` with the row as the draft and the two URLs as sources so the handle is matched, not remembered. A closed group is `not accessible`.
+- Only rows with both snippets are `patvirtinta`; the rest are `nepatvirtinta — tikrinti rankiniu būdu`, listed separately and never as confirmed. For each community pair name one observed channel (a cross-post, a shared event, a named reposter) with its URL; none found → say so and ask the admin.
+
+Source: Propaganda, pp. 21–22.
+
+## Choose review outlets by whom their readers advise
+
+A review in the accountants' association newsletter reaches the people who tell the buyer what to use; a review in a national portal reaches everyone else. Rank outlets by who reads them, not by how many.
+
+- When the goal mentions review, press, PR, apžvalga or žiniasklaida, write `runs/notes/outlets.md`: outlet | URL | readership (who, with a URL proving it: media kit, about page, member list) | size figure + source URL | readers advise the target market? yes/no + evidence | rank.
+- A specialist outlet whose readers are or advise the buyer ranks above a larger general outlet; a row with `readership unknown` cannot rank above an evidenced row.
+- Run `claim_check` on outlets.md with the table's URLs as sources; every size figure must come back `supported`. A circulation remembered from general knowledge is deleted, not kept with a caveat.
+
+Source: The Macintosh Way, pp. 140–141.
+
+## Give channel staff the product, then watch a demo
+
+A reseller's rep who pitches from a PDF cannot answer the buyer's second question. Enablement means a seat of their own, a real task and someone watching them do it.
+
+- An enablement deliverable for resellers, partners, dealers or distributors has four sections: `Prieiga` (own seat or sandbox per rep, for how long); `Demonstracinė užduotis` (one realistic task from the rep's own work with an observable pass: done without the trainer in N minutes); `Pirkėjo klausimai` (at least five follow-up questions with answers); `Stebėjimas` (date and owner).
+- Every figure in the answers passes `claim_check` against `runs/notes/facts.md`; a question with no sourced answer stays with `atsakymas: nežinomas — paklausti produkto savininko`.
+- If the rep's daily work is unknown, ask with `clarify` or label the demo task an assumption; never invent reseller names. Slides and a sales sheet alone do not meet the rule.
+
+Source: The Macintosh Way, pp. 89–90.

@@ -116,3 +116,33 @@ The perceptual-map rule in `marketing-strategy` builds the map from public buyer
 - An empty corner is a position only if buyers also say they want it; add that question before recommending it.
 
 Source: Principles of Marketing, pp. 197–199.
+
+## Ask whom buyers trusted for this decision
+
+A café owner follows one blogger for coffee and asks someone else entirely about the internet contract. Seeding by follower count reaches the first and misses the second.
+
+- An opinion-leader or seeding recommendation cites decision-specific trust: an interview answer, a forum thread or a review where buyers name whom they asked about this decision. Follower counts are not evidence.
+- The interview guide carries the question „Kieno nuomonės klausėte, kai paskutinį kartą rinkotės interneto tiekėją?“ / "Whose opinion did you ask the last time you chose an internet provider?" Record each answer in `runs/notes/voc.md` under `## Authority`: person | decision | evidence (quote or URL) | trusted for other decisions: yes/no.
+- A candidate with only popularity is labelled „bendras populiarumas — netinka“ and left out of the seed list. No interviews or threads yet → deliver the guide and mark candidates `hypotheses until interviews run`; do not rank them.
+
+Source: Propaganda, pp. 40–41.
+
+## Reconstruct the choice from the shelf backwards
+
+The eight seconds at the shelf decide between the brands that survived; the others were dropped weeks earlier by a video, a bad batch or a price memory. Where a rival was discarded is where to fight it.
+
+- A shopper-path note has `## Shelf-back` in `runs/notes/research.md` with three lists: the final set at the point of purchase; alternatives discarded before arriving, each with the stage (search, social, prior use, price memory) and a quoted source (interview line, review or forum via `web_search` and `web_fetch`); alternatives never considered.
+- Each discard has a source or the tag `assumption — verify with 5 shopper intercepts`; interview counts are written as fractions (`2/6 quotes`).
+- The recommendation says where to fight each rival: on the shelf (price, visibility) or upstream, at the stage where it was discarded. No shopper evidence → the section says so and holds a five-question intercept script instead of invented discards.
+
+Source: Winning the Zero Moment of Truth, p. 20.
+
+## Audit a platform's ecosystem before recommending it
+
+A marketplace is chosen for who already sells and buys there, what it costs to get in, and how often it changes the rules on its sellers. A fee comparison alone picks the wrong platform.
+
+- When the goal names two or more platforms, marketplaces or distributors, write `runs/notes/channels.md`, one block per platform with three sourced lines: `Participants:` (active sellers and buyers in the category), `Entry:` (fees in € and %, approval, days to first listing, API openness), `Adaptation:` (fee, ranking and policy changes in 24 months, dated).
+- Run `claim_check` on channels.md with the fetched pages as sources; every fee and count must be `supported`. An unsourced line reads `Participants: unknown — no public seller count; ask the platform`, never an estimate.
+- End with one recommendation and the condition that flips it: „Pradėti „Etsy“; pereiti į „Amazon.de“, kai mėnesio apimtis viršys N vnt., nes tada 39 €/mėn. mokestis bus mažesnis už „Etsy“ mokesčius už pardavimą“, with N from the fees.
+
+Source: New Rules for the New Economy, pp. 75–77.

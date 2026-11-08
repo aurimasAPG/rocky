@@ -208,3 +208,91 @@ def test_recipes_load_the_new_rule_skills_when_the_goal_matches():
     assert "runs/notes/production.md" in steps["Deck and spreadsheet"]
     ads = _steps()
     assert "`Compare:` line" in ads["Facts"] and "never a superiority claim" in ads["Ads"]
+
+
+
+# Rules added for the ledger entries that need judgment rather than code (browser walkthroughs,
+# model reads, documents that are not ads). Same shape as RULE_SECTIONS; the id is in the test id.
+RULE_SECTIONS_2 = [
+    # web-testing (new skill)
+    ("133", "web-testing", "Write the demo as claims before walking the real flow", "Getting Real, p. 61", "## Demo vs reality"),
+    ("134", "web-testing", "Inspect the empty account screen by screen", "Getting Real, pp. 81–83", "Empty account: not inspectable"),
+    ("137", "web-testing", "Attempt the export before promising portability", "Getting Real, pp. 93–94", "Eksporto nepavyko patikrinti"),
+    ("138", "web-testing", "Walk open → upgrade → cancel before launch", "Getting Real, pp. 103–104", "cancel_not_reached"),
+    ("152", "web-testing", "Test error messages with wrong values", "eMarketing, pp. 163–164", "Paaiškina, kaip taisyti"),
+    ("153", "web-testing", "Run the searches that find nothing", "eMarketing, pp. 165–166", "Aklavietė"),
+    ("154", "web-testing", "Test the checkout on the devices customers use", "eMarketing, pp. 207–208", "no safe payment path"),
+    ("162", "web-testing", "Estimate the peak and ask the host, never load-test", "eMarketing, p. 236", "## Hosting questions"),
+    ("165", "web-testing", "Measure both pages before planning a speed test", "Decoding Decisions, p. 92", "timing_reliable: no"),
+    ("167", "web-testing", "Run a phone task to its answer", "Winning the Zero Moment of Truth, p. 49", "Atsakymas pasiektas"),
+    ("452", "web-testing", "Prove a self-check tool with worked cases", "World Wide Rave, pp. 149–152", "no cases supplied — formula unverified"),
+    ("242", "web-testing", "Read the retention curve before saying where to cut", "eMarketing, p. 355", "no retention data: cannot locate the drop"),
+    ("232", "web-testing", "Judge the ad in a cluttered feed, blind", "The Psychology of Advertising, pp. 181–183", "UNCALIBRATED"),
+    ("222", "web-testing", "Ask what the offer was after a glance at the card", "Scientific Advertising, pp. 46–47", "recall unchecked"),
+    # marketing-strategy
+    ("168", "marketing-strategy", "Judge a shortlist by return visits, not pageviews", "New Rules for the New Economy, pp. 69–70", "returning users to the shortlist within 30 days"),
+    ("224", "marketing-strategy", "Test what the headline leads with, keeping the trial", "My Life in Advertising, pp. 160–161", "Offer lead pair:"),
+    ("248", "marketing-strategy", "Diagnose a pitch by AIDA stage from the deck's own text", "Principles of Marketing, p. 528", "runs/notes/pitch.md"),
+    ("357", "marketing-strategy", "Name the gatekeeper and ask what they need", "Principles of Marketing, pp. 149–150", "Gatekeeper: unknown — asked"),
+    ("374", "marketing-strategy", "Find the partner's champion through their stated priority", "The Macintosh Way, pp. 154–155", "## Vidinis šalininkas"),
+    ("380", "marketing-strategy", "Verify the display went up before judging the promo", "My Life in Advertising, pp. 49–50", "verification: pending"),
+    ("382", "marketing-strategy", "Compute sell-through from stock movements, shown", "The Book of Advertising Tests, pp. 21–23", "parduotas kiekis yra viršutinė riba"),
+    ("386", "marketing-strategy", "Map who sets the choice before the buyer sees it", "Propaganda, pp. 33–34", "`Chain:` block"),
+    ("474", "marketing-strategy", "Rank creative in two windows before pausing any", "Media in Focus, pp. 32–34", "Ranking reverses:"),
+    ("498", "marketing-strategy", "Say who was studied before transferring B2B evidence", "The 5 Principles of Growth in B2B Marketing, p. 26", "Studied:"),
+    ("271", "marketing-strategy", "Put the sharing terms inside the file", "World Wide Rave, pp. 62–63", "Sharing terms:"),
+    # pr-response
+    ("270", "pr-response", "Give fans the first look and watch what they repeat", "World Wide Rave, pp. 23–25", "Repeated:"),
+    ("278", "pr-response", "Prove a bridge person is in both communities", "Propaganda, pp. 21–22", "nepatvirtinta — tikrinti rankiniu būdu"),
+    ("298", "pr-response", "Choose review outlets by whom their readers advise", "The Macintosh Way, pp. 140–141", "runs/notes/outlets.md"),
+    ("367", "pr-response", "Give channel staff the product, then watch a demo", "The Macintosh Way, pp. 89–90", "Demonstracinė užduotis"),
+    # customer-research
+    ("279", "customer-research", "Ask whom buyers trusted for this decision", "Propaganda, pp. 40–41", "## Authority"),
+    ("390", "customer-research", "Reconstruct the choice from the shelf backwards", "Winning the Zero Moment of Truth, p. 20", "## Shelf-back"),
+    ("397", "customer-research", "Audit a platform's ecosystem before recommending it", "New Rules for the New Economy, pp. 75–77", "runs/notes/channels.md"),
+]
+
+
+@pytest.mark.parametrize(
+    "skill, title, source, marker",
+    [row[1:] for row in RULE_SECTIONS_2],
+    ids=[f"{row[0]}-{row[1]}" for row in RULE_SECTIONS_2],
+)
+def test_each_judgment_rule_is_a_section_with_its_source_and_a_concrete_instruction(skill, title, source, marker):
+    text = view_skill(skill)
+    assert f"## {title}\n" in text
+    assert f"Source: {source}." in text
+    assert marker in text
+
+
+def test_a_worker_testing_a_site_or_flow_can_find_the_web_testing_skill():
+    row = next(r for r in catalog_for_prompt() if r["name"] == "web-testing")
+    assert "browser" in row["description"] and "walkthrough" in row["description"]
+    assert "fail" in row["description"] and "headless" in row["description"]
+    assert len(row["description"]) <= 180
+
+
+def test_the_web_testing_skill_names_the_walkthrough_file_and_what_the_browser_cannot_do():
+    text = view_skill("web-testing")
+    assert "runs/notes/walkthrough.md" in text
+    assert "url | action | what appeared | seconds | money mentions" in text
+    assert "Never describe a screen you did not see" in text
+    assert "never fires concurrent requests" in text
+
+
+def test_every_web_testing_section_stays_short_enough_to_be_read_by_a_worker():
+    for section in view_skill("web-testing").split("\n## ")[1:]:
+        assert len(section.split()) <= 180, section.splitlines()[0]
+
+
+
+def test_recipes_load_the_second_rule_batch():
+    steps = {s["title"]: s["detail"] for s in load_recipes()["marketing"].render_steps("goal")}
+    assert "skill_view web-testing" in steps["Research"] and "runs/notes/walkthrough.md" in steps["Research"]
+    assert "`## Authority`" in steps["VOC"] and "`## Shelf-back`" in steps["VOC"]
+    assert "Eksporto nepavyko patikrinti" in steps["Copy"] and "deliverables/gatekeeper_sheet.md" in steps["Copy"]
+    assert "Sharing terms:" in steps["Deck and spreadsheet"]
+    ads = _steps()
+    assert "`## Demo claims`" in ads["Facts"] and "`Chain:` block" in ads["Facts"]
+    assert "Offer lead pair:" in ads["Ads"] and "## Clutter test" in ads["Ads"]
+    assert "visual obscures" in ads["Visuals"]

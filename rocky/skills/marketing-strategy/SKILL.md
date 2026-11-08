@@ -306,3 +306,113 @@ A partner programme is a list of things the company gives: notes, working exampl
 - The programme states a target: how many of the partners have shipped by which day.
 
 Source: The Macintosh Way, pp. 117–118.
+
+## Judge a shortlist by return visits, not pageviews
+
+A curated shortlist or index saves the buyer's search time only if they come back to it when they next have to choose. Views of the shortlist page prove nothing; returns and faster decisions do.
+
+- When the goal tests a shortlist, index or "Top N" page, write `runs/notes/experiment.md`: hypothesis; primary metric `returning users to the shortlist within 30 days`; secondary `sessions to first vendor click`; baseline from the current grid; smallest lift worth acting on; events to add (`shortlist_view`, `shortlist_return`, `vendor_click`).
+- Size it with `experiment_plan` (baseline, minimum effect, weekly traffic) and quote its sample and weeks. No baseline → ask with `clarify`; headless write `baseline missing — test length not computable`, no number.
+- With an export (user id, date, landing path, vendor click), compute both metrics per variant with `table_analyze` (`proportion_diff` for returns, `group` for sessions to first click) and state beat or no beat from its figures.
+
+Source: New Rules for the New Economy, pp. 69–70.
+
+## Test what the headline leads with, keeping the trial
+
+A free trial can make the product look lighter than its claim. Whether the headline should lead with „nemokamai“ or with the price is a test, not a taste; the trial stays in both versions.
+
+- When `runs/notes/facts.md` holds a free trial, sample or gift, write one challenger pair identical in angle and primary text that differs only in the headline lead: free-led („Išbandykite nemokamai 14 dienų“) and price-led („Sąskaitos už 19 €/mėn. — pirmos 14 dienų nemokamai“).
+- Record the pair in facts.md as `Offer lead pair: ad 2 free / ad 3 price` and, next to it, the sample per variant and weeks from `experiment_plan` with the page's baseline rate and weekly traffic. No baseline → `baseline unknown; sample for an assumed 2 %, duration unknown`.
+- A free-led headline without its price-led twin is not a test. Neither ad drops the trial; the price-led one names the price and the trial in the same line.
+
+Source: My Life in Advertising, pp. 160–161.
+
+## Diagnose a pitch by AIDA stage from the deck's own text
+
+Prospects who nod through thirty demos and sign twice are not unconvinced; they were never asked for a next step. Find the stage that leaks by reading the slides, not by opinion.
+
+- `office_read` the deck or script (pptx, pdf, docx). No file → ask with `clarify`; never review a generic pitch.
+- Write `runs/notes/pitch.md` with four headings, Attention, Interest, Desire, Action, each listing slide numbers with the sentence quoted from the extracted text; an empty stage is `gap: <stage>`. An Action quote needs an imperative and a concrete next step (date, trial, call, signature); „Ačiū! Klausimai?“ is `weak close`.
+- When demo, next-step and close counts are known, write the rates (next steps / demos, closes / next steps) and name the leak: engagement high and closes low → test the close first with one dated offer on the last slide („Užsisakykite 30 d. bandomąją versiją iki lapkričio 30 d.“). Without counts write `leak stage: unknown`.
+
+Source: Principles of Marketing, p. 528.
+
+## Name the gatekeeper and ask what they need
+
+In an organisation the decider rarely sees a proposal first; a procurement office, an assistant or an IT reviewer decides what reaches them, and has its own requirements. A pitch that ignores the gatekeeper is never read.
+
+- When the buyer is an organisation, write `Roles:` in `runs/notes/facts.md` (user, influencer, buyer, decider, gatekeeper), each a role or name from the brief or a fetched page.
+- Add `Gatekeeper:` with that office's submission requirements (format, language, portal such as CVP IS, certificates) and a source URL (procurement page, tender spec, vendor-registration form). Nothing found → ask with `clarify`; headless write `Gatekeeper: unknown — asked` and label every assumed requirement.
+- "Dealer", "partner" and "procurement" mean something different in every company: one `clarify` question on what the term covers before assuming. The pack carries a one-page pass-along sheet, `deliverables/gatekeeper_sheet.md`, whose checklist matches the `Gatekeeper:` line one to one, beside the decider pitch. Never invent a submission format.
+
+Source: Principles of Marketing, pp. 149–150.
+
+## Find the partner's champion through their stated priority
+
+A proposal to a marketplace or retailer is carried inside by one person whose own goal it advances. "Category management" is a department; a champion has a name or a role and a priority they have said out loud.
+
+- For a platform, marketplace, retailer or distributor partnership, write `## Vidinis šalininkas` in `runs/notes/research.md`: one role or named person; the public evidence of their current priority (job ad, interview, talk, annual-report goal) quoted with URL from `web_search` and `web_fetch`; one sentence saying how the proposal advances it.
+- Add one customer example they can repeat internally, every number in `runs/notes/facts.md` with its URL and passed through `claim_check`.
+- No public statement found → write „Viešo įrodymo apie asmeninį prioritetą nerasta; kreiptis į [vaidmuo] ir paklausti …“ with the question. A quote without a URL is not evidence; never invent a name.
+
+Source: The Macintosh Way, pp. 154–155.
+
+## Verify the display went up before judging the promo
+
+A paid end-cap that was never built in half the stores makes a good offer look weak. Execution is checked in the stores before anyone reads the sales.
+
+- The agreement deliverable (`deliverables/display_agreement.md`) names: location in store, signage items, materials, store list or count, start and end dates, who verifies, how many stores and by when.
+- Verification is dated store photos or a merchandiser sheet (store, date, present). Run `vision_analyze` on each photo with „Ar matoma [produkto] ekspozicija galinėje lentynoje su [iškaba]? Atsakykite taip arba ne ir pasakykite, ką matote.“ Write `Executed: N of M audited` in `runs/notes/facts.md`.
+- Until that line exists the record says `verification: pending` and no sentence judges the promo. Below 80 % executed in the audited sample, write „Pasiūlymo rezultato vertinti dar negalima: ekspozicija patvirtinta N iš M tikrintų parduotuvių.“ A sales lift is never proof of execution.
+
+Source: My Life in Advertising, pp. 49–50.
+
+## Compute sell-through from stock movements, shown
+
+Deliveries to the stores are not sales. Units sold come from stock movements, with returns, transfers and shrinkage taken out before anything is credited to the campaign.
+
+- Request per store for the period: opening stock, deliveries, closing stock, returns, transfers in and out, shrinkage if recorded, a test/control flag. `table_analyze describe` the file, then sum each column by group with `table_analyze group`.
+- Show the arithmetic: `sell-through = opening + deliveries + transfers in − transfers out − returns − closing`, with the figures: „Testas: 24 000 + 61 000 − 400 − 1 100 − 19 500 = 64 000 vnt. (118 parduotuvių, 542 vnt. parduotuvei)“. Rows with a blank opening or closing are listed and excluded; the total is marked partial.
+- Shrinkage not recorded → „nurašymai neatskirti; parduotas kiekis yra viršutinė riba“. No control stores → sell-through only, „kampanijai priskirti negalima“. Lift is per store, test against control, never from raw totals of unequal groups.
+
+Source: The Book of Advertising Tests, pp. 21–23.
+
+## Map who sets the choice before the buyer sees it
+
+For a floor, a fabric or a fitting, the homeowner often picks from what a designer specified, a contractor recommended and a retailer stocked. Ads aimed only at the end buyer skip the people who made the shortlist.
+
+- For a product sold through retailers or specified by professionals, write a `Chain:` block in `runs/notes/facts.md`, one line per role between maker and end buyer (specifier, recommender, stockist, installer, end buyer): role | influence: sets / recommends / stocks / buys | source URL or `interview: <name>`.
+- Every role that sets or recommends gets an ad or a trade offer whose `audience` names it (a sample box, a specifier commission). A pack aimed only at the end buyer is incomplete when the chain holds a `sets` role.
+- No evidence → `Chain: unknown — sources checked: …` and a `clarify` question: „Kas dažniausiai rekomenduoja ar montuoja jūsų grindis?“ Never assert a chain from category intuition.
+
+Source: Propaganda, pp. 33–34.
+
+## Rank creative in two windows before pausing any
+
+A seven-day CPA ranking favours the creative that converts fast and punishes the one that brings buyers who stay. Pausing on the short window alone throws away the better creative.
+
+- A creative or channel ranking needs an early window (7-day CPA, activations) and a late window (90-day revenue, repeat, retention) from the marketer's file. Compute both with `table_analyze group` (spend and outcomes by creative, a date filter per window) and show one table: creative | early value | early rank | late value | late rank.
+- A creative whose late window is not complete by the file's last date is `censored — measurable from <date>` and not ranked; a group with fewer than 30 early outcomes is `too few`.
+- When the top creative differs, write `Ranking reverses:` and recommend by the late window unless the brief states a direct-response-only goal. No late metric column → `long-window ranking unavailable`; never pause on the early window alone.
+
+Source: Media in Focus, pp. 32–34.
+
+## Say who was studied before transferring B2B evidence
+
+A study of enterprise buying teams says little about a shop owner choosing accounting software outside their expertise. The figure can be right and still not apply.
+
+- Before a B2B study backs a recommendation, `web_fetch` its methodology and write in `runs/notes/facts.md`: `Studied: <who decided>, <company size>, <market> → Ours: <decider>, <size>, <market>`. Methodology not found → `population: unknown`.
+- When the decider or the size band differs, the draft carries a caveat before any budget sentence: „Tyrimas atliktas su didelių įmonių pirkimo komandomis; mūsų pirkėjas — savininkas, perkantis ne savo srities produktą, todėl išvada gali nepersikelti; siūlome 3 mėn. testą su kontroline grupe.“
+- Run `claim_check` on the draft with the study as a source so the figure itself is right; a supported figure from a mismatched population keeps its caveat. Never infer the population from the publisher's name.
+
+Source: The 5 Principles of Growth in B2B Marketing, p. 26.
+
+## Put the sharing terms inside the file
+
+A guide built to be forwarded carries no permission to forward it unless the permission is in the file. A licence line on the landing page stays on the landing page.
+
+- Every downloadable resource meant to spread (PDF, DOCX or PPTX guide, checklist) has a terms block on its first or last page: owner, what readers may do (forward, quote with attribution), what they may not (alter, sell), the licence, a canonical URL. Ask owner and licence with `clarify`; headless default „Galite laisvai persiųsti ir cituoti nurodydami šaltinį. Keisti turinį ar parduoti negalima. Licencija: CC BY-ND 4.0.“ with a note that the owner must confirm it before publishing.
+- After building the file, `office_read` it and confirm the block is in the extracted text; paste the lines into `runs/notes/facts.md` under `Sharing terms:`.
+- A file without the block is not finished; a licence in the email or on the page does not count because it does not travel with the file.
+
+Source: World Wide Rave, pp. 62–63.

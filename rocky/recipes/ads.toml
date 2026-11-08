@@ -34,7 +34,10 @@ If the ads will carry a price, a discount or a promotion, skill_view marketing-n
 If the brand is new or the ads will compare it with known names, skill_view marketing-strategy and write every rating with its count, platform and fetched URL, never a bare score. \
 If buyers substitute a named competitor, skill_view marketing-strategy and write a `Compare:` line with attributes, fair conditions and the next-purchase metric. \
 If most sales happen offline, skill_view customer-research and write the `Offline influence:` line, never an online-only ROAS. \
-If the ads send traffic to a configurator, skill_view marketing-strategy and write runs/notes/feasibility.md from three browser walkthroughs."""
+If the ads send traffic to a configurator, skill_view marketing-strategy and write runs/notes/feasibility.md from three browser walkthroughs. \
+skill_view web-testing when an ad or the site promises a flow in N clicks, steps or minutes (`## Demo claims` then `## Demo vs reality` in runs/notes/walkthrough.md before the claim enters facts), \
+when the ads send paid traffic to a new or changed checkout (one `## Device:` block per device, never a real payment), or when the campaign is a dated promotion with a budget (peak-traffic arithmetic and `## Hosting questions`; Rocky never load-tests). \
+skill_view marketing-strategy when the buyer is an organisation (`Roles:` and `Gatekeeper:` lines) or the product is sold through retailers or specified by professionals (the `Chain:` block; every sets/recommends role gets an ad or trade offer)."""
 
 [[steps]]
 id = 2
@@ -53,6 +56,8 @@ When ad_board lists problems, fix them and call it again with the whole pack. Do
 Then run page_inspect for each ad against the url the ads link to (headline, primary_text, cta, price, audience, offer); \
 a block (price the page does not show, no button or form) means the ad or the landing page must change before handing over — say which in the ad's angle and call ad_board again. \
 An ad that names a competitor is an invitation to the trial on the Compare line, never a superiority claim. \
+If facts.md holds a free trial, sample or gift, skill_view marketing-strategy and write one free-led / price-led headline pair recorded as `Offer lead pair:`, sized with experiment_plan. \
+Before recommending spend, skill_view web-testing: build deliverables/ads_clutter.html and record blind viewers' recall under `## Clutter test` (UNCALIBRATED without real competitor ads). \
 From the facts also fill, where the facts give them: per ad attribute (name, kind), objection (text, source), adoption_stage, outcomes (functional, emotional, social), \
 occasion (when, for_whom, kind), place_effort when the offer names a shop, prior_exposure, appeal, for_role, register, and setting on challengers only; \
 at pack level objections, buyer (payer, user, money_metric, money_value, source), end_market for suppliers, zmot from the ZMOT lines, review_signals, triggers, \
@@ -79,4 +84,5 @@ writes = ["deliverables/visual-1.png"]
 detail = """One square image per ad: image_generate with aspect_ratio 1:1 and path deliverables/visual-1.png for ad 1, \
 deliverables/visual-2.png for ad 2, and so on. Read the ads in runs/notes/ads.json and the brand colours in runs/notes/facts.md. \
 One clear subject that carries the ad's angle. No text in the image, no invented logos or awards. \
-vision_analyze each one once and regenerate it once only if it is wrong. They appear on the page by themselves."""
+vision_analyze each one once and regenerate it once only if it is wrong. They appear on the page by themselves. \
+After each visual, skill_view web-testing and run the blind recall („Vienu sakiniu: kas siūloma ir kodėl pirkti?“) with vision_analyze; regenerate on `visual obscures`."""
