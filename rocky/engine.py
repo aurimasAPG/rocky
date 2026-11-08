@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
+from rocky.budget import BudgetedClient
 from rocky.config import forced_language, preferred_worker
 from rocky.context import DEFAULT_CONTEXT, RepeatGuard, compact
 from rocky.events import Emit, Event
@@ -61,8 +62,8 @@ WORKER_SUMMARY_CHARS = 1500
 VERIFY_TOOL_CHARS = 12000
 # Consecutive failed verifications before the worker model is swapped.
 STALL_AFTER = 2
-# The verifier may run this far over the cap so a finished deliverable still gets judged.
-VERIFY_GRACE = 1.10
+# Multiple of the cap at which verification is skipped; 1.0 means no grace above the cap.
+VERIFY_GRACE = 1.0
 # Times a worker is told to produce its missing output files before the step is marked incomplete.
 MAX_NUDGES = 2
 # Where files go. Working files (research, notes, drafts, scripts) under NOTES_DIR,
@@ -302,6 +303,8 @@ def orchestrate(
         models = parse_models(client.list_models())
         fire("catalog", status="ok", count=len(models))
 
+    client = BudgetedClient(client, models, lambda: max(0.0, usd_cap - tally.usd), fire)
+
     def spend(completion: Completion, role: str = "other") -> None:
         with event_lock:
             ledger.add(completion.usage, role)
@@ -362,7 +365,8 @@ def orchestrate(
             system=(
                 "You assess tasks for Rocky. "
                 "Return JSON only. Judge complexity honestly. "
-                "trivial = one short step; moderate = a few steps; hard = research, code, or multi-file work. "
+                "trivial = one short step or one short writing deliverable; moderate = several distinct phases or sources; "
+                "hard = research, code, or multi-file work. Do not mark a short rewrite, summary, or article moderate just because it needs a file. "
                 "domain: code | research | writing | marketing | ops | mixed. "
                 "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO. "
                 f"deliverable = the final file's path under {DELIVERABLES_DIR}/ (e.g. {DELIVERABLES_DIR}/summary.md) "
@@ -499,6 +503,7 @@ def orchestrate(
     tried_workers = {cast.worker}
     worker_model = cast.worker
     history: list[dict] = []  # one entry per verified loop: plan summary, steps, score, blocking
+    completed_steps: set[int] = set()
     stopped_early = ""
     if resume and resume.get("worker") and _context_length(models, str(resume["worker"])) and any(
         m.id == resume["worker"] for m in models or []
@@ -513,7 +518,7 @@ def orchestrate(
             fire("budget", cap=round(usd_cap, 3), receipt=format_receipt(tally, rate), **tally.payload(rate))
             break
         fire("loop", n=loops, max=max_loops)
-        worker_summary = _run_subagents(
+        worker_summary, completed_steps = _run_subagents(
             client=client,
             model=worker_model,
             goal=goal,
@@ -527,7 +532,7 @@ def orchestrate(
             spend=worker_spend,
             fire=fire,
             budget=usd_cap,
-            cost_so_far=lambda: tally.usd,
+            cost_so_far=lambda: usd_cap if client.blocked else tally.usd,
             ask_user=ask_user,
             llm=client,
             browser=browser,
@@ -538,7 +543,7 @@ def orchestrate(
             skip=skip_steps,
         )
         skip_steps = set()
-        if tally.usd >= usd_cap * VERIFY_GRACE:
+        if client.blocked or tally.usd >= usd_cap * VERIFY_GRACE:
             fire(
                 "budget",
                 cap=round(usd_cap, 3),
@@ -560,6 +565,7 @@ def orchestrate(
                 spender("verifier"),
                 fire,
                 memory_snapshot=memory_snapshot,
+                max_turns=0 if _is_trivial(assessment) else (4 if str(assessment.get("complexity") or "") == "moderate" else MAX_VERIFY_TURNS),
             )
         except Exception as exc:  # noqa: BLE001
             fire("error", message=f"verifier failed: {exc}")
@@ -621,6 +627,7 @@ def orchestrate(
                 worker_context = _context_length(models, worker_model)
                 fail_streak = 0
                 continue
+        previous_plan = plan
         plan = _make_plan(
             client,
             cast.planner,
@@ -634,7 +641,9 @@ def orchestrate(
             memory_snapshot=memory_snapshot,
             pinned_deliverable=str(plan.get("deliverable_path") or ""),
             history=history,
+            completed_steps=[step for step in previous_plan.get("steps") or [] if step.get("id") in completed_steps],
         )
+        skip_steps = _steps_reused_done(previous_plan, plan, completed_steps, tools)
 
     summary = (verify.get("summary") if verify else worker_summary) or ""
     status, notes = _final_status(passed, verify, plan, assessment, tools)
@@ -871,6 +880,29 @@ def _steps_still_done(plan: dict, done_ids: list, tools: WorkspaceTools) -> set[
     return keep
 
 
+def _steps_reused_done(
+    previous_plan: dict,
+    new_plan: dict,
+    completed_ids: set[int],
+    tools: WorkspaceTools,
+) -> set[int]:
+    previous = [step for step in previous_plan.get("steps") or [] if step.get("id") in completed_ids]
+    keep: set[int] = set()
+    for step in new_plan.get("steps") or []:
+        title = str(step.get("title") or "").strip().lower()
+        writes = {str(path) for path in step.get("writes") or []}
+        for old in previous:
+            same_title = str(old.get("title") or "").strip().lower() == title
+            old_writes = {str(path) for path in old.get("writes") or []}
+            same_writes = bool(writes) and writes == old_writes
+            if not ((same_title and writes == old_writes) or same_writes):
+                continue
+            if not _missing_files(tools, [str(path) for path in old.get("writes") or []]):
+                keep.add(step.get("id"))
+            break
+    return keep
+
+
 def _with_memory(base: str, snapshot: str) -> str:
     extra = (snapshot or "").strip()
     if not extra:
@@ -1049,6 +1081,7 @@ def _make_plan(
     memory_snapshot: str = "",
     pinned_deliverable: str = "",
     history: list[dict] | None = None,
+    completed_steps: list[dict] | None = None,
 ) -> dict:
     """The plan. On a revision ``pinned_deliverable`` is the path from the previous
     plan and it is kept: a replan may change the steps, never the file the
@@ -1067,6 +1100,7 @@ def _make_plan(
         "workspace_files": listing,
         "revision_from_verifier": revision,
         "deliverable_path_fixed": pinned_deliverable or None,
+        "completed_steps_to_preserve": completed_steps or [],
         "previous_loops": list(history or []) or None,
         "score_trend": [h["score"] for h in history or []] or None,
         "available_skills": catalog_for_prompt(),
@@ -1108,6 +1142,8 @@ def _make_plan(
                     "Name the final deliverable_path. If deliverable_path_fixed is set, use exactly that path — "
                     "the previous loop's work is there and the user expects that file. "
                     "When revision_from_verifier is given, change what the verifier faulted and keep what passed; "
+                    "completed_steps_to_preserve already passed validation: keep those step ids, titles, and writes unchanged "
+                    "unless the verdict explicitly invalidates their evidence, and do not run them again. "
                     "its blocking list is what must change, its issues are notes. "
                     "previous_loops lists every plan already tried with its score: do not resubmit those steps — "
                     "if the score did not rise, the approach was wrong, so change the approach (different split, "
@@ -1169,8 +1205,9 @@ def _run_subagents(
     summarize=None,
     mcp=None,
     skip: set[int] | None = None,
-) -> str:
+) -> tuple[str, set[int]]:
     summaries: list[str] = []
+    completed: set[int] = set()
     skip = set(skip or ())
     for full_wave in schedule_waves(plan.get("steps") or []):
         if cost_so_far() >= budget:
@@ -1180,12 +1217,13 @@ def _run_subagents(
             if step.get("id") in skip:
                 fire("subtask_skipped", id=step.get("id"), title=step.get("title"), writes=step.get("writes") or [])
                 summaries.append(f"{step.get('title')}: done in the previous run (files on disk: {', '.join(step.get('writes') or []) or 'see workspace'})")
+                completed.add(step.get("id"))
                 continue
             wave.append(step)
         if not wave:
             continue
 
-        def run_one(step: dict) -> str:
+        def run_one(step: dict) -> tuple[str, bool]:
             return _run_subtask(
                 client=client,
                 model=model,
@@ -1212,13 +1250,19 @@ def _run_subagents(
             )
 
         if len(wave) == 1:
-            summaries.append(run_one(wave[0]))
+            summary, done = run_one(wave[0])
+            summaries.append(summary)
+            if done:
+                completed.add(wave[0].get("id"))
             continue
         with ThreadPoolExecutor(max_workers=min(4, len(wave))) as pool:
-            futures = [pool.submit(run_one, step) for step in wave]
+            futures = {pool.submit(run_one, step): step for step in wave}
             for future in as_completed(futures):
-                summaries.append(future.result())
-    return "\n\n".join(s for s in summaries if s)
+                summary, done = future.result()
+                summaries.append(summary)
+                if done:
+                    completed.add(futures[future].get("id"))
+    return "\n\n".join(s for s in summaries if s), completed
 
 
 def _run_subtask(
@@ -1245,7 +1289,7 @@ def _run_subtask(
     worker_context: int = DEFAULT_CONTEXT,
     summarize=None,
     mcp=None,
-) -> str:
+) -> tuple[str, bool]:
     fire("subtask_start", id=step.get("id"), title=step.get("title"), detail=step.get("detail"))
     specs = worker_tools(include_server_tools)
     if mcp is not None:
@@ -1457,10 +1501,11 @@ def _run_subtask(
             "Later steps must not pretend these exist. " + (last_text or "")
         )
         fire("subtask_incomplete", id=step.get("id"), title=step.get("title"), missing=missing)
+    done = bool(expected) and not missing and not aborted and bool(last_text)
     fire("subtask_done", id=step.get("id"), title=step.get("title"), text=(last_text or "")[:2000])
     if last_text:
         fire("worker", text=last_text[:4000], subtask=step.get("title"))
-    return f"{step.get('title')}: {last_text[:WORKER_SUMMARY_CHARS]}"
+    return f"{step.get('title')}: {last_text[:WORKER_SUMMARY_CHARS]}", done
 
 
 def _missing_files(tools: WorkspaceTools, expected: list[str], since: float | None = None) -> list[str]:
@@ -1492,6 +1537,7 @@ def _verify(
     spend,
     fire,
     memory_snapshot: str = "",
+    max_turns: int = MAX_VERIFY_TURNS,
 ) -> dict:
     listing = tools.list_dir(".")
     deliverable = plan.get("deliverable_path") or assessment.get("deliverable") or ""
@@ -1546,7 +1592,7 @@ def _verify(
         },
     ]
     completion = None
-    for _ in range(MAX_VERIFY_TURNS):
+    for _ in range(max_turns):
         completion = _chat(
             client, model=model, messages=messages, tools=VERIFY_TOOL_SPECS, json_schema=VERIFY_SCHEMA
         )

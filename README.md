@@ -1,6 +1,6 @@
 # rocky
 
-OpenRouter agent orchestrator. One command reads a goal, picks three models from the live catalog, then loops **plan → work → verify** until the goal is met. Default cap: **€1 per run**.
+OpenRouter agent orchestrator. One command reads a goal, casts models from the live catalog into five roles, then loops **plan → work → verify** until the goal is met. Default cap: **€1 per run**.
 
 ```bash
 rocky "write a 3-sentence summary to summary.md"
@@ -8,6 +8,13 @@ rocky tui
 rocky serve
 rocky help
 ```
+
+## Version 0.2
+
+- **Simple stays simple:** short tasks still skip the critic and planner. Trivial verification uses the deliverable excerpt directly, with at most two model calls rather than a tool-reading loop.
+- **Budget preflight:** every chat-completion request gets a conservative prompt-cost estimate and a bounded `max_tokens` before it is sent. Unaffordable calls stop before they run. The actual provider receipt is still authoritative; image/tool charges and provider price changes can make the final total differ, so this is a guard, not an absolute billing guarantee.
+- **Less repeated work:** replans preserve only completed steps whose declared files still exist. A deleted file invalidates that step and it runs again.
+- **Proportionate checks:** verification tool use is limited by complexity, and no verification grace is allowed above the cap.
 
 ## Install
 
@@ -39,7 +46,7 @@ git clone https://github.com/aurimasAPG/rocky && cd rocky
 uv tool install --force --reinstall .
 ```
 
-Then `rocky --version`. Browser tools: `ROCKY_EXTRAS=browser` before the one-liner, or `uv tool install "rocky[browser] @ git+…"` plus `playwright install chromium`. Pin a branch or tag with `ROCKY_REF=v0.1.0`. Python 3.11+; the installer picks 3.12.
+Then `rocky --version`. Browser tools: `ROCKY_EXTRAS=browser` before the one-liner, or `uv tool install "rocky[browser] @ git+…"` plus `playwright install chromium`. Pin a branch or tag with `ROCKY_REF=v0.2.0`. Python 3.11+; the installer picks 3.12.
 
 **Python 3.13:** do not use `pip install -e .`. Hidden `.pth` files are skipped and `rocky` will fail to import.
 
