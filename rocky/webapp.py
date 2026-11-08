@@ -11,21 +11,23 @@ from __future__ import annotations
 import hmac
 import ipaddress
 import json
+import re
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from rocky.adboard import BOARD_PATH, current_checks, fix_instruction
+from rocky.artifacts import TEXT_SUFFIXES, artifact_inventory, artifact_path, declared_artifacts, read_preview
 from rocky.config import allowed_workspaces, api_key, serve_token
 from rocky.job import spawn_worker
 from rocky.lang import detect_language
-from rocky.playbook import FIX_CAP_EUR, checks_for, for_code, set_switched_off, switched_off
+from rocky.playbook import FIX_CAP_EUR, checks_for, elements, for_code, library, search, set_switched_off, switched_off
 from rocky.recipes import find_recipe, load_recipes
 from rocky.runs import (
     TERMINAL,
@@ -74,6 +76,11 @@ class ToggleRequest(BaseModel):
     off: bool
 
 
+class ApplyRequest(BaseModel):
+    workspace: str = ""
+    number: int
+
+
 class FixRequest(BaseModel):
     workspace: str = ""
     ad: int = Field(default=0, ge=0)
@@ -111,16 +118,21 @@ def _workspace_ok(path: Path) -> bool:
 
 
 def _workspace_for(run_id: str, raw: str) -> Path:
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", run_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown run")
     with _lock:
         known = _started.get(run_id)
-    if known is not None:
-        return known
-    if not raw:
+    if known is None and not raw:
         raise HTTPException(status_code=404, detail="Unknown run — pass ?workspace=")
-    workspace = Path(raw).expanduser().resolve()
+    workspace = (known or Path(raw).expanduser()).resolve()
     if not _workspace_ok(workspace):
         raise HTTPException(status_code=400, detail="Workspace is not allowed.")
-    if not (run_dir(workspace, run_id) / "meta.json").exists():
+    folder = run_dir(workspace, run_id)
+    try:
+        contained = (folder / "meta.json").resolve().is_relative_to(workspace / ".rocky" / "runs")
+    except (OSError, RuntimeError):
+        contained = False
+    if not contained or not (folder / "meta.json").is_file():
         raise HTTPException(status_code=404, detail="Unknown run")
     return workspace
 
@@ -132,6 +144,7 @@ def _row(meta: dict[str, Any]) -> dict[str, Any]:
         "status": meta.get("status"),
         "passed": meta.get("passed"),
         "eur": meta.get("eur"),
+        "budget_eur": meta.get("budget_eur"),
         "created": meta.get("created"),
         "finished": meta.get("finished"),
         "deliverable_path": meta.get("deliverable_path"),
@@ -200,6 +213,44 @@ def run_status(run_id: str, request: Request, workspace: str = ""):
     ask = read_ask(folder)
     row["ask"] = ask
     return row
+
+
+@app.get("/api/runs/{run_id}/artifacts")
+def artifacts(run_id: str, request: Request, workspace: str = ""):
+    _auth(request)
+    ws = _workspace_for(run_id, workspace)
+    meta = refresh_meta(run_dir(ws, run_id))
+    return JSONResponse(
+        {"files": artifact_inventory(ws, meta), "scope": "current_workspace"},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/runs/{run_id}/artifact")
+def artifact(run_id: str, request: Request, workspace: str = "", path: str = "", download: bool = False):
+    _auth(request)
+    ws = _workspace_for(run_id, workspace)
+    meta = refresh_meta(run_dir(ws, run_id))
+    target = artifact_path(ws, path) if path in declared_artifacts(meta) else None
+    if target is None or not target.is_file():
+        raise HTTPException(status_code=404, detail="This file is not available for this run.")
+    if download:
+        return FileResponse(
+            target,
+            filename=Path(path).name,
+            media_type="application/octet-stream",
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
+        )
+    if target.suffix.lower() not in TEXT_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Download this file to open it in its application.")
+    try:
+        text, truncated = read_preview(target)
+    except OSError:
+        raise HTTPException(status_code=404, detail="This file is no longer available.") from None
+    return JSONResponse(
+        {"path": path, "text": text, "truncated": truncated},
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @app.post("/api/runs/{run_id}/answer")
@@ -277,6 +328,33 @@ def playbook_toggle(body: ToggleRequest, request: Request):
     if not any(body.number == e.number and e.codes for e in checks_for("ads")):
         raise HTTPException(status_code=400, detail="This one cannot be switched off.")
     return {"off": sorted(set_switched_off(folder, body.number, body.off))}
+
+
+@app.get("/api/playbook/search")
+def playbook_search(request: Request, q: str = "", topic: str = "", workspace: str = ""):
+    _auth(request)
+    entries = library(_folder(workspace))
+    applied = {e.number for e in elements()}
+    return {
+        "topics": list(dict.fromkeys(entry.topic for entry in entries)),
+        "apply_label": f"Apply to this campaign (up to €{FIX_CAP_EUR:.2f})",
+        "results": [
+            {"number": e.number, "title": e.title, "body": e.body, "source": e.source, "topic": e.topic, "applied": e.number in applied}
+            for e in search(entries, q, topic)
+        ],
+    }
+
+
+@app.post("/api/runs/{run_id}/apply")
+def playbook_apply(run_id: str, body: ApplyRequest, request: Request):
+    """Apply one playbook entry to a finished run. The instruction comes from the entry, not the request."""
+    _auth(request)
+    workspace = _workspace_for(run_id, body.workspace)
+    entry = next((e for e in library(workspace) if e.number == body.number), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="No such playbook entry.")
+    instruction = f"Apply this marketing principle to the campaign and change only what it calls for. {entry.title}. {entry.body}"
+    return _follow_up(workspace, run_id, instruction)
 
 
 @app.post("/api/runs/{run_id}/fix")

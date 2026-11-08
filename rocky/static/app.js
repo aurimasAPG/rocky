@@ -1,7 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const BOARD_PATH = "deliverables/ads.html";
 
-let current = { id: null, workspace: "", source: null, running: false };
+let current = { id: null, workspace: "", source: null, running: false, meta: {} };
+let receipt = {};
 
 function token() {
   return $("token").value.trim();
@@ -17,9 +18,7 @@ function headers() {
 function rememberToken() {
   // EventSource cannot send headers; a cookie keeps the token out of the URL and out of access logs.
   const t = token();
-  document.cookie = t
-    ? `rocky_token=${encodeURIComponent(t)}; path=/; SameSite=Strict`
-    : "rocky_token=; path=/; Max-Age=0; SameSite=Strict";
+  if (t) document.cookie = `rocky_token=${encodeURIComponent(t)}; path=/; SameSite=Strict`;
 }
 
 async function api(path, options = {}) {
@@ -38,6 +37,7 @@ async function boot() {
     if (meta.needs_token) $("token-wrap").classList.remove("hidden");
     $("workspace").value = (meta.workspaces && meta.workspaces[0]) || meta.default_workspace || "";
     await refreshRuns();
+    await loadPlaybook();
   } catch {
     $("workspace").placeholder = "/absolute/path/to/project";
   }
@@ -54,6 +54,10 @@ function commas(n) {
 }
 
 function paintBill(p) {
+  for (const key of ["prompt_tokens", "completion_tokens", "total_tokens", "usd", "eur"]) {
+    if (p[key] != null) receipt[key] = p[key];
+  }
+  p = receipt;
   $("tok-in").textContent = commas(p.prompt_tokens);
   $("tok-out").textContent = commas(p.completion_tokens);
   $("tok-total").textContent = commas(p.total_tokens);
@@ -61,6 +65,7 @@ function paintBill(p) {
   $("eur").textContent = `€${Number(p.eur || 0).toFixed(3)}`;
   $("cost-meter").textContent =
     `$${Number(p.usd || 0).toFixed(3)} · €${Number(p.eur || 0).toFixed(3)} · ${commas(p.total_tokens)} tok`;
+  $("delivery-cost").textContent = `€${Number(p.eur || 0).toFixed(3)} spent`;
 }
 
 function workLine(text, cls) {
@@ -95,6 +100,7 @@ function showAsk(ask) {
   $("ask-options").textContent = opts.length ? opts.join("  ·  ") : "";
   $("ask-input").value = "";
   $("ask-input").focus();
+  $("delivery-status").textContent = "Needs your input";
 }
 
 function hideAsk() {
@@ -102,10 +108,27 @@ function hideAsk() {
 }
 
 function handle(event) {
-  const p = event.payload || {};
+  let p = event.payload || {};
   const t = event.type;
+  if (t === "done") p = { ...current.meta, ...p };
   if (t === "cost" || t === "done") paintBill(p);
-  if (t === "run_started") $("status-meter").textContent = "running";
+  if (t === "run_started") {
+    current.meta = { ...current.meta, ...p, status: "running" };
+    $("status-meter").textContent = "running";
+    renderDelivery();
+  }
+  if (t === "meta") {
+    // A snapshot can finish a crashed run that has no final `done` event.
+    if (TERMINAL_STATES.has(current.meta.status) && !TERMINAL_STATES.has(p.status)) return;
+    current.meta = { ...current.meta, ...p };
+    paintBill(p);
+    renderDelivery();
+    const finished = TERMINAL_STATES.has(p.status);
+    setRunning(!finished);
+    $("status-meter").textContent = OUTCOME_LABELS[p.status] || p.status || "Working";
+    if (finished) { hideAsk(); loadDeliveryFiles(); }
+    else if (p.ask) showAsk(p.ask);
+  }
   if (t === "assessed") {
     workLine(`assess · ${p.complexity} · ${p.domain}${p.language ? " · " + p.language : ""}${p.estimated_eur != null ? " · ~€" + p.estimated_eur : ""}`);
   }
@@ -177,13 +200,23 @@ function handle(event) {
       card("pass", "result", p.deliverable_path + ((p.files || []).length > 1 ? `\nalso written: ${p.files.filter((f) => f !== p.deliverable_path).join(", ")}` : ""));
     } else {
       $("status-meter").textContent = `${status} · no deliverable`;
-      card("fail", "no result", (p.deliverable_path ? `${p.deliverable_path} was never written` : "nothing was written")
+      card("fail", "saved work", (p.deliverable_path ? `${p.deliverable_path} was not reported as available` : "No deliverable was reported. Check saved files above.")
         + ((p.files || []).length ? `\npartial work: ${p.files.join(", ")}` : "")
         + (current.id ? `\ncontinue with: rocky resume ${current.id}` : ""));
     }
     if (p.notes && p.notes.length) card("fail", "notes", p.notes.join("\n"));
     if (p.summary) card(p.passed ? "pass" : "fail", "summary", p.summary);
-    if (p.deliverable_exists && p.deliverable_path === BOARD_PATH) showResult();
+    current.meta = { ...current.meta, ...p, status: p.status || (p.passed ? "passed" : "unmet") };
+    renderDelivery();
+    loadDeliveryFiles();
+    const jump = document.createElement("button");
+    jump.type = "button";
+    jump.textContent = "View saved files";
+    jump.addEventListener("click", () => {
+      $("handover").scrollIntoView({ block: "start" });
+      $("handover-title").focus({ preventScroll: true });
+    });
+    $("verify-log").prepend(jump);
     setActive(p.passed ? "verifier" : "planner");
     setRunning(false);
     refreshRuns();
@@ -191,6 +224,7 @@ function handle(event) {
 }
 
 function showResult() {
+  boardIdentity = runIdentity();
   $("result").classList.remove("hidden");
   $("result-frame").src = `/api/runs/${encodeURIComponent(current.id)}/board?workspace=${encodeURIComponent(current.workspace)}&v=${Date.now()}`;
 }
@@ -204,15 +238,18 @@ function readDismissed() {
 }
 
 async function fixFinding(finding) {
+  const identity = runIdentity();
   try {
     const data = await api(`/api/runs/${encodeURIComponent(current.id)}/fix`, {
       method: "POST",
       body: JSON.stringify({ workspace: current.workspace, ad: finding.ad, code: finding.code, field: finding.field, value: finding.value }),
     });
+    if (identity !== runIdentity()) return;
     clearBoard();
     listen(data.id, data.workspace);
     refreshRuns();
   } catch (err) {
+    if (identity !== runIdentity()) return;
     workLine(`fix failed: ${err.message}`, "warn");
     showResult();
   }
@@ -220,7 +257,7 @@ async function fixFinding(finding) {
 
 window.addEventListener("message", (ev) => {
   const frame = $("result-frame");
-  if (ev.source !== frame.contentWindow || !ev.data) return;
+  if (ev.source !== frame.contentWindow || !ev.data || boardIdentity !== runIdentity()) return;
   const d = ev.data;
   if (d.type === "rocky-height") frame.style.height = `${Math.min(Number(d.h) || 0, 30000)}px`;
   if (d.type === "rocky-ready") frame.contentWindow.postMessage({ type: "rocky-restore", list: readDismissed() }, "*");
@@ -235,21 +272,40 @@ function clearBoard() {
   $("work-log").innerHTML = "";
   $("verify-log").innerHTML = "";
   hideAsk();
+  resetDelivery();
+  receipt = {};
+  setActive(null);
+  ["critic", "planner", "worker", "verifier"].forEach((role) => {
+    $(`model-${role}`).textContent = "waiting";
+    $(`why-${role}`).textContent = "";
+  });
+  $("run-id").textContent = "";
+  $("status-meter").textContent = "idle";
   paintBill({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, usd: 0, eur: 0 });
 }
 
 function listen(id, workspace) {
   if (current.source) current.source.close();
-  current = { id, workspace, source: null, running: true };
+  clearBoard();
+  current = { id, workspace, source: null, running: true, meta: {} };
   rememberToken();
   const es = new EventSource(`/api/runs/${encodeURIComponent(id)}/events?workspace=${encodeURIComponent(workspace)}`);
   current.source = es;
   setRunning(true);
   $("run-id").textContent = id;
+  $("task-composer").open = false;
+  renderDelivery();
+  $("handover").scrollIntoView({ block: "start" });
+  api(`/api/runs/${encodeURIComponent(id)}?workspace=${encodeURIComponent(workspace)}`).then((meta) => {
+    if (current.source === es) handle({ type: "meta", payload: meta });
+  }).catch((err) => {
+    if (current.source === es) $("delivery-summary").textContent = `Could not load task details: ${err.message}`;
+  });
   es.onmessage = (msg) => {
+    if (current.source !== es) return;
     try { handle(JSON.parse(msg.data)); } catch { /* ignore keepalives */ }
   };
-  es.addEventListener("end", () => { es.close(); setRunning(false); });
+  es.addEventListener("end", () => { es.close(); if (current.source === es) setRunning(false); });
   es.onerror = () => { /* browser retries; the stream ends itself when the run is over */ };
 }
 
@@ -258,6 +314,7 @@ async function refreshRuns() {
   if (!workspace) return;
   try {
     const rows = await api(`/api/runs?workspace=${encodeURIComponent(workspace)}`);
+    if (workspace !== $("workspace").value.trim()) return;
     const ul = $("runs");
     ul.innerHTML = "";
     rows.slice(0, 12).forEach((r) => {
@@ -282,7 +339,6 @@ $("run-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   $("form-error").hidden = true;
   $("go").disabled = true;
-  clearBoard();
   $("status-meter").textContent = "starting";
   rememberToken();
   try {
@@ -307,11 +363,15 @@ $("run-form").addEventListener("submit", async (ev) => {
 
 $("stop").addEventListener("click", async () => {
   if (!current.id) return;
+  const identity = runIdentity();
   $("stop").disabled = true;
   try {
-    await api(`/api/runs/${encodeURIComponent(current.id)}/stop`, { method: "POST", body: JSON.stringify({ workspace: current.workspace }) });
+    const meta = await api(`/api/runs/${encodeURIComponent(current.id)}/stop`, { method: "POST", body: JSON.stringify({ workspace: current.workspace }) });
+    if (identity !== runIdentity()) return;
+    handle({ type: "meta", payload: meta });
     workLine("stop requested — files already written stay", "warn");
   } catch (err) {
+    if (identity !== runIdentity()) return;
     workLine(`stop failed: ${err.message}`, "warn");
     $("stop").disabled = false;
   }
@@ -321,11 +381,18 @@ $("ask-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   if (!current.id) return;
   const text = $("ask-input").value.trim();
+  const identity = runIdentity();
   try {
     await api(`/api/runs/${encodeURIComponent(current.id)}/answer`, { method: "POST", body: JSON.stringify({ workspace: current.workspace, text }) });
+    if (identity !== runIdentity()) return;
     workLine(`answer · ${text}`);
     hideAsk();
+    if (!TERMINAL_STATES.has(current.meta.status)) {
+      current.meta.status = "running";
+      renderDelivery();
+    }
   } catch (err) {
+    if (identity !== runIdentity()) return;
     $("ask-options").textContent = err.message;
   }
 });
@@ -389,6 +456,94 @@ $("goal").addEventListener("input", () => {
 
 $("will-edit").addEventListener("click", () => $("will-edit-list").classList.toggle("hidden"));
 
-$("workspace").addEventListener("change", refreshRuns);
+let playbookTimer = null;
+let playbookTopic = "";
 
+function paintTopics(topics) {
+  const box = $("pb-topics");
+  box.innerHTML = "";
+  topics.forEach((topic) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = topic === playbookTopic ? "chip on" : "chip";
+    chip.textContent = topic;
+    chip.addEventListener("click", () => {
+      playbookTopic = playbookTopic === topic ? "" : topic;
+      loadPlaybook();
+    });
+    box.append(chip);
+  });
+}
+
+function paintResults(data) {
+  const list = $("pb-results");
+  list.innerHTML = "";
+  data.results.forEach((entry) => {
+    const row = document.createElement("li");
+    const title = document.createElement("h3");
+    title.textContent = entry.title;
+    const body = document.createElement("p");
+    body.textContent = entry.body;
+    const source = document.createElement("small");
+    source.textContent = `${entry.source}${entry.applied ? " · already applied by Rocky" : ""}`;
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.textContent = data.apply_label;
+    apply.addEventListener("click", () => applyEntry(entry));
+    row.append(title, body, source, apply);
+    list.append(row);
+  });
+}
+
+async function loadPlaybook() {
+  const workspace = $("workspace").value.trim();
+  if (!workspace) return;
+  const q = $("pb-query").value;
+  try {
+    const data = await api(`/api/playbook/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(playbookTopic)}&workspace=${encodeURIComponent(workspace)}`);
+    paintTopics(data.topics);
+    paintResults(data);
+  } catch { /* token or workspace not ready yet */ }
+}
+
+async function applyEntry(entry) {
+  const note = $("pb-note");
+  note.hidden = true;
+  if (!current.id) {
+    note.hidden = false;
+    note.textContent = "Open a finished campaign from the list below first.";
+    return;
+  }
+  const identity = runIdentity();
+  try {
+    const data = await api(`/api/runs/${encodeURIComponent(current.id)}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ workspace: current.workspace, number: entry.number }),
+    });
+    if (identity !== runIdentity()) return;
+    clearBoard();
+    listen(data.id, data.workspace);
+    refreshRuns();
+  } catch (err) {
+    if (identity !== runIdentity()) return;
+    note.hidden = false;
+    note.textContent = err.message;
+  }
+}
+
+$("pb-query").addEventListener("input", () => {
+  clearTimeout(playbookTimer);
+  playbookTimer = setTimeout(loadPlaybook, 300);
+});
+
+$("workspace").addEventListener("change", () => {
+  if (current.source) current.source.close();
+  clearBoard();
+  current = { id: null, workspace: "", source: null, running: false, meta: {} };
+  setRunning(false);
+  $("task-composer").open = true;
+  refreshRuns(); loadPlaybook(); loadPreview();
+});
+
+initDelivery();
 boot();

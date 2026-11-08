@@ -8,6 +8,8 @@ playbook search all read from here instead of keeping their own copies.
 from __future__ import annotations
 
 import json
+import os
+import re
 import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
@@ -99,3 +101,114 @@ def set_switched_off(root: str | Path, number: int, off: bool) -> set[int]:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"off": sorted(numbers)}), encoding="utf-8")
     return numbers
+
+
+@dataclass(frozen=True)
+class Entry:
+    number: int
+    title: str
+    body: str
+    source: str
+    topic: str
+
+
+_HEADING = re.compile(r"^##\s+(.+?)\s*$")
+_ENTRY = re.compile(r"^(\d+)\.\s+\*\*(.+?)\*\*\s*(.*)$")
+_CITATION = re.compile(r"\s*\[([^\]]+)\]\([^)]*\)\s*$")
+_WORD = re.compile(r"[^\W\d_]+")
+_STOPWORDS = frozenset(
+    "the and for are too not how why what with our you your they them this that has have from but very "
+    "mano mūsų per yra kaip kodėl kas labai nes bet man mums jie tai jau dar nėra".split()
+)
+# A marketer describes a situation, often in Lithuanian, and the entries are in English.
+_SYNONYMS = {
+    "expensive": ["cost", "budget", "cpa", "spend"],
+    "brang": ["cost", "budget", "cpa", "spend"],
+    "kain": ["price", "pricing", "cost"],
+    "ads": ["ad", "advertising", "campaign", "creative", "media"],
+    "reklam": ["ad", "advertising", "campaign", "creative", "media"],
+    "nebegrįž": ["repeat", "retention", "loyalty", "churn"],
+    "grįž": ["repeat", "retention", "loyalty"],
+    "pardav": ["sales", "sell", "selling"],
+    "neperk": ["sales", "conversion", "buyer"],
+    "perk": ["buy", "buyer", "purchase"],
+    "pirk": ["buy", "buyer", "purchase"],
+    "klient": ["customer", "client", "buyer"],
+    "konkurent": ["competitor", "competition"],
+    "konvers": ["conversion", "convert"],
+    "rink": ["market"],
+    "auditor": ["audience", "segment"],
+    "segment": ["segment"],
+    "tekst": ["copy", "headline", "message"],
+    "antrašt": ["headline"],
+    "lojal": ["loyalty", "repeat", "retention"],
+    "paiešk": ["search", "seo"],
+    "svetain": ["website", "landing", "site"],
+    "biudžet": ["budget", "spend", "media"],
+    "matav": ["measure", "measurement"],
+    "test": ["test", "experiment"],
+    "atsiliep": ["review", "testimonial"],
+    "ženkl": ["brand"],
+}
+
+
+def _library_file(root: str | Path) -> Path | None:
+    home = Path(os.environ.get("ROCKY_HOME") or Path.home() / ".rocky").expanduser()
+    configured = os.environ.get("ROCKY_PLAYBOOK") or ""
+    candidates = [Path(configured).expanduser()] if configured else []
+    candidates += [Path(root) / "500list.md", home / "500list.md"]
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def library(root: str | Path) -> list[Entry]:
+    """The full list when this machine has it; otherwise the elements Rocky already applies."""
+    path = _library_file(root)
+    entries: list[Entry] = []
+    topic = ""
+    for line in path.read_text(encoding="utf-8").splitlines() if path else []:
+        heading = _HEADING.match(line)
+        if heading:
+            topic = heading.group(1)
+            continue
+        entry = _ENTRY.match(line)
+        if entry and topic:
+            citation = _CITATION.search(entry.group(3))
+            body = entry.group(3)[: citation.start()].strip() if citation else entry.group(3).strip()
+            entries.append(Entry(int(entry.group(1)), entry.group(2).rstrip("."), body, citation.group(1) if citation else "", topic))
+    if entries:
+        return entries
+    return [Entry(e.number, e.title, f"{e.question['en']} {e.why['en']}", e.source, e.topic) for e in elements() if e.number]
+
+
+def _words(text: str) -> list[str]:
+    return _WORD.findall(text.lower())
+
+
+def _hit(term: str, words: list[str]) -> bool:
+    if len(term) < 4:
+        return term in words or f"{term}s" in words or term.rstrip("s") in words
+    return any(word.startswith(term[:5]) for word in words)
+
+
+def _terms(token: str) -> list[str]:
+    extra = [term for stem, terms in _SYNONYMS.items() if token.startswith(stem) for term in terms]
+    return [token, *extra]
+
+
+def search(entries: list[Entry], query: str, topic: str = "", limit: int = 12) -> list[Entry]:
+    """Entries for a situation described in plain words. An empty search lists a chosen topic, never all 500."""
+    pool = [entry for entry in entries if not topic or entry.topic == topic]
+    tokens = [word for word in dict.fromkeys(_words(query)) if len(word) > 2 and word not in _STOPWORDS]
+    if not tokens:
+        return pool[:limit] if topic else []
+    scored: list[tuple[int, int, int, Entry]] = []
+    for position, entry in enumerate(pool):
+        title, body = _words(entry.title), _words(entry.body)
+        points = [
+            3 if any(_hit(t, title) for t in _terms(token)) else 1 if any(_hit(t, body) for t in _terms(token)) else 0
+            for token in tokens
+        ]
+        if any(points):
+            scored.append((-sum(1 for p in points if p), -sum(points), position, entry))
+    return [row[3] for row in sorted(scored, key=lambda row: row[:3])[:limit]]
+

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=delivery-1" />
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -23,6 +23,69 @@
   </header>
 
   <main>
+    <section class="handover hidden" id="handover" aria-labelledby="handover-title">
+      <div class="handover-top">
+        <div>
+          <p class="eyebrow">Your task</p>
+          <h2 id="handover-title" tabindex="-1">Working on your result</h2>
+        </div>
+        <div class="handover-actions">
+          <button type="button" id="new-task" class="secondary">View task</button>
+          <button type="button" id="stop" class="secondary" disabled>Stop the run</button>
+        </div>
+      </div>
+      <details class="delivery-brief">
+        <summary>Task brief</summary>
+        <p id="selected-goal" class="selected-goal"></p>
+      </details>
+      <div class="delivery-state">
+        <span id="delivery-status" role="status" aria-live="polite">Starting</span>
+        <span id="delivery-cost"></span>
+      </div>
+      <details id="delivery-review" class="delivery-review">
+        <summary>Rocky’s review</summary>
+        <p id="delivery-summary"></p>
+      </details>
+      <ul id="delivery-notes" class="hidden"></ul>
+      <form id="ask-form" class="ask hidden">
+        <p class="ask-title">Rocky needs your input</p>
+        <label for="ask-input" id="ask-question"></label>
+        <p id="ask-options" class="dim"></p>
+        <div class="row">
+          <input id="ask-input" type="text" class="grow" placeholder="Your answer" aria-describedby="ask-options" />
+          <button type="submit">Answer</button>
+        </div>
+      </form>
+      <div class="delivery-files hidden" id="delivery-files">
+        <div class="files-heading">
+          <h3>Files from this task</h3>
+          <p>Current workspace files · later tasks can change them</p>
+        </div>
+        <p id="files-message" role="status"></p>
+        <button id="retry-files" type="button" class="secondary hidden">Retry loading files</button>
+        <div class="delivery-layout" id="delivery-layout">
+          <ul id="file-list" aria-label="Task files"></ul>
+          <section class="file-preview hidden" id="file-preview" aria-labelledby="preview-name">
+            <div class="preview-toolbar">
+              <h3 id="preview-name"></h3>
+              <div class="preview-actions">
+                <button type="button" id="copy-result">Copy text</button>
+                <a id="download-result" class="download-action">Download</a>
+              </div>
+            </div>
+            <p id="preview-message" role="status"></p>
+            <pre id="preview-text" tabindex="0"></pre>
+          </section>
+        </div>
+      </div>
+      <section class="result hidden" id="result" aria-label="Ad page preview">
+        <iframe id="result-frame" title="Ad page" sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox"></iframe>
+      </section>
+      <p class="delivery-context"><span id="delivery-workspace"></span><span class="run-id" id="run-id"></span></p>
+    </section>
+
+    <details id="task-composer" class="task-composer" open>
+      <summary>Task brief and settings</summary>
     <section class="desk">
       <h1>Cast a goal.<br />Three models run it.</h1>
       <p class="lede">Paste what you need. rocky picks a planner, a cheap worker, and a verifier from the live OpenRouter catalog, then loops until the goal holds.</p>
@@ -56,21 +119,11 @@
         </label>
         <div class="row">
           <button type="submit" id="go">Run the loop</button>
-          <button type="button" id="stop" class="secondary" disabled>Stop the run</button>
-          <span class="run-id" id="run-id"></span>
         </div>
         <p class="form-error" id="form-error" hidden></p>
       </form>
-      <form id="ask-form" class="ask hidden">
-        <p class="ask-title">Rocky asks</p>
-        <p id="ask-question"></p>
-        <p id="ask-options" class="dim"></p>
-        <div class="row">
-          <input id="ask-input" type="text" class="grow" placeholder="yes / keep / a number / a short answer" />
-          <button type="submit">Answer</button>
-        </div>
-      </form>
     </section>
+    </details>
 
     <section class="bill" aria-label="Run price">
       <div class="cell">
@@ -118,11 +171,6 @@
       </article>
     </section>
 
-    <section class="result hidden" id="result" aria-label="Result">
-      <h2>Result</h2>
-      <iframe id="result-frame" title="Ad page" sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox"></iframe>
-    </section>
-
     <section class="board">
       <div class="col" data-lane="plan">
         <h2>Plan</h2>
@@ -137,12 +185,21 @@
         <div id="verify-log"></div>
       </div>
     </section>
+    <section class="playbook" aria-label="Playbook">
+      <h2>Playbook</h2>
+      <input id="pb-query" type="search" placeholder="Describe the situation: my ads are too expensive" />
+      <div id="pb-topics" class="chips"></div>
+      <p id="pb-note" class="dim" hidden></p>
+      <ul id="pb-results"></ul>
+    </section>
+
     <section class="runs-list" aria-label="Runs in this folder">
       <h2>Runs in this folder</h2>
       <ul id="runs"></ul>
       <p class="dim">The same runs appear in <code>rocky ps</code>; <code>rocky attach</code>, <code>rocky resume</code>, and <code>rocky open</code> work on them.</p>
     </section>
   </main>
-  <script src="/static/app.js"></script>
+  <script src="/static/delivery.js?v=delivery-1"></script>
+  <script src="/static/app.js?v=delivery-1"></script>
 </body>
 </html>
