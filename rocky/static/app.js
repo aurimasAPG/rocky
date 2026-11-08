@@ -38,6 +38,7 @@ async function boot() {
     if (meta.needs_token) $("token-wrap").classList.remove("hidden");
     $("workspace").value = (meta.workspaces && meta.workspaces[0]) || meta.default_workspace || "";
     await refreshRuns();
+    await loadPlaybook();
   } catch {
     $("workspace").placeholder = "/absolute/path/to/project";
   }
@@ -389,6 +390,83 @@ $("goal").addEventListener("input", () => {
 
 $("will-edit").addEventListener("click", () => $("will-edit-list").classList.toggle("hidden"));
 
-$("workspace").addEventListener("change", refreshRuns);
+let playbookTimer = null;
+let playbookTopic = "";
+
+function paintTopics(topics) {
+  const box = $("pb-topics");
+  box.innerHTML = "";
+  topics.forEach((topic) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = topic === playbookTopic ? "chip on" : "chip";
+    chip.textContent = topic;
+    chip.addEventListener("click", () => {
+      playbookTopic = playbookTopic === topic ? "" : topic;
+      loadPlaybook();
+    });
+    box.append(chip);
+  });
+}
+
+function paintResults(data) {
+  const list = $("pb-results");
+  list.innerHTML = "";
+  data.results.forEach((entry) => {
+    const row = document.createElement("li");
+    const title = document.createElement("h3");
+    title.textContent = entry.title;
+    const body = document.createElement("p");
+    body.textContent = entry.body;
+    const source = document.createElement("small");
+    source.textContent = `${entry.source}${entry.applied ? " · already applied by Rocky" : ""}`;
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.textContent = data.apply_label;
+    apply.addEventListener("click", () => applyEntry(entry));
+    row.append(title, body, source, apply);
+    list.append(row);
+  });
+}
+
+async function loadPlaybook() {
+  const workspace = $("workspace").value.trim();
+  if (!workspace) return;
+  const q = $("pb-query").value;
+  try {
+    const data = await api(`/api/playbook/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(playbookTopic)}&workspace=${encodeURIComponent(workspace)}`);
+    paintTopics(data.topics);
+    paintResults(data);
+  } catch { /* token or workspace not ready yet */ }
+}
+
+async function applyEntry(entry) {
+  const note = $("pb-note");
+  note.hidden = true;
+  if (!current.id) {
+    note.hidden = false;
+    note.textContent = "Open a finished campaign from the list below first.";
+    return;
+  }
+  try {
+    const data = await api(`/api/runs/${encodeURIComponent(current.id)}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ workspace: current.workspace, number: entry.number }),
+    });
+    clearBoard();
+    listen(data.id, data.workspace);
+    refreshRuns();
+  } catch (err) {
+    note.hidden = false;
+    note.textContent = err.message;
+  }
+}
+
+$("pb-query").addEventListener("input", () => {
+  clearTimeout(playbookTimer);
+  playbookTimer = setTimeout(loadPlaybook, 300);
+});
+
+$("workspace").addEventListener("change", () => { refreshRuns(); loadPlaybook(); });
 
 boot();

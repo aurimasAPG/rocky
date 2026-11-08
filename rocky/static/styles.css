@@ -218,3 +218,15 @@ button.secondary:disabled { opacity: 0.35; cursor: default; }
 .will-check ul { list-style: none; margin: 8px 0 0; padding: 0; }
 .will-check li { padding: 3px 0; }
 .link { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+
+.playbook { padding: 24px 32px; }
+.playbook h2 { font-family: var(--display); margin: 0 0 12px; }
+.playbook input { width: 100%; max-width: 640px; padding: 10px 12px; font: inherit; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.chip { border: 1px solid var(--mute); background: none; color: inherit; padding: 4px 10px; font: 0.8rem var(--sans); cursor: pointer; }
+.chip.on { background: var(--paper); color: var(--ink); }
+#pb-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+#pb-results li { max-width: 760px; border-top: 1px solid var(--mute); padding-top: 12px; }
+#pb-results h3 { margin: 0 0 4px; font-size: 1rem; }
+#pb-results p { margin: 0 0 6px; }
+#pb-results small { display: block; margin-bottom: 8px; color: var(--mute); font-family: var(--mono); }
