@@ -49,6 +49,7 @@ _TOOL_VERB = {
     "customer_economics": "calculating",
     "experiment_plan": "sizing the test",
     "funnel_analyze": "reading the funnel",
+    "repeat_buying": "counting repeat buyers",
     "reach_overlap": "estimating reach",
     "page_inspect": "checking the landing page",
     "claim_check": "checking claims",

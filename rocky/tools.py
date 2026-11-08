@@ -1004,6 +1004,206 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "repeat_buying",
+            "description": "Brand-growth and repeat-buying arithmetic from the user's own transaction file (CSV or XLSX in the workspace, one row per order: customer id, date, optional amount, order_id, sku, brand, units) or from given numbers. Call it for any question about loyalty, repeat rate, penetration, cohorts and retention, light versus heavy buyers, buyers entering or leaving, brand duplication and repertoire, whether a brand's loyalty fits its size (double jeopardy), market share versus sales growth, or sales spikes versus a baseline — never count these by eye or quote a repeat rate without saying which definition. Pick analysis: summary, frequency, repeat (definition A = 2+ purchases in a window vs definition B = bought in period 1 and again in period 2), skip_return, cohorts (optional baseline vs test window with new vs returning buyers), entrants_leavers (cumulative distinct buyers, penetration when universe is given, double count from summing periods), duplication (needs brand column), spikes (periods above a rolling-median baseline). No file needed for double_jeopardy and share_vs_growth. Results carry window, rows_used, missing, warnings (small_base below min_buyers), method and a one-sentence summary to quote; report missing and warnings, do not fill them in.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "analysis": {
+                        "type": "string",
+                        "enum": [
+                            "summary",
+                            "frequency",
+                            "repeat",
+                            "skip_return",
+                            "cohorts",
+                            "entrants_leavers",
+                            "duplication",
+                            "spikes",
+                            "double_jeopardy",
+                            "share_vs_growth"
+                        ],
+                        "description": "which question to answer; default summary"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "CSV or XLSX transaction file relative to the workspace (all analyses except double_jeopardy and share_vs_growth)"
+                    },
+                    "sheet": {
+                        "type": "string",
+                        "description": "XLSX sheet name; first sheet by default"
+                    },
+                    "columns": {
+                        "type": "object",
+                        "description": "header names, case-insensitive: {customer, date, amount?, order_id?, sku?, brand?, units?}; common names are found automatically",
+                        "properties": {
+                            "customer": {
+                                "type": "string"
+                            },
+                            "date": {
+                                "type": "string"
+                            },
+                            "amount": {
+                                "type": "string"
+                            },
+                            "order_id": {
+                                "type": "string"
+                            },
+                            "sku": {
+                                "type": "string"
+                            },
+                            "brand": {
+                                "type": "string"
+                            },
+                            "units": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": [
+                            "week",
+                            "month",
+                            "quarter",
+                            "year"
+                        ],
+                        "description": "period for per-period tables; default month"
+                    },
+                    "date_from": {
+                        "type": "string",
+                        "description": "ISO date; rows before it are left out"
+                    },
+                    "date_to": {
+                        "type": "string",
+                        "description": "ISO date; rows after it are left out"
+                    },
+                    "sku": {
+                        "type": "string",
+                        "description": "keep only rows with this sku (needs columns.sku)"
+                    },
+                    "focus_brand": {
+                        "type": "string",
+                        "description": "brand to report share of requirements for (duplication) or to give a verdict on (double_jeopardy)"
+                    },
+                    "min_buyers": {
+                        "type": "integer",
+                        "description": "bases below this are flagged small_base; default 30"
+                    },
+                    "universe": {
+                        "type": "integer",
+                        "description": "number of households or customers in the market, for penetration"
+                    },
+                    "universe_source": {
+                        "type": "string",
+                        "description": "where the universe count comes from; required with universe"
+                    },
+                    "bins": {
+                        "type": "array",
+                        "items": {},
+                        "description": "frequency: purchases-per-buyer bins, default [1, 2, 3, 4, '5+']"
+                    },
+                    "window_a": {
+                        "type": "object",
+                        "description": "repeat: {from, to} for definition A and period 1 of definition B"
+                    },
+                    "window_b": {
+                        "type": "object",
+                        "description": "repeat: {from, to} for period 2 of definition B"
+                    },
+                    "pack_life_days": {
+                        "type": "number",
+                        "description": "repeat: product pack life; recommended_window_days = max(median days between purchases, pack_life_days)"
+                    },
+                    "intermittent_threshold_pct": {
+                        "type": "number",
+                        "description": "skip_return: mean skip-then-return share at or above which buying is called intermittent; default 10"
+                    },
+                    "baseline_from": {
+                        "type": "string",
+                        "description": "cohorts: ISO start of the baseline window"
+                    },
+                    "baseline_to": {
+                        "type": "string",
+                        "description": "cohorts: ISO end of the baseline window"
+                    },
+                    "test_from": {
+                        "type": "string",
+                        "description": "cohorts: ISO start of the test (launch, campaign) window"
+                    },
+                    "test_to": {
+                        "type": "string",
+                        "description": "cohorts: ISO end of the test window"
+                    },
+                    "min_baseline_periods": {
+                        "type": "integer",
+                        "description": "cohorts: baselines shorter than this are flagged short_baseline; default 4"
+                    },
+                    "value_column": {
+                        "type": "string",
+                        "description": "spikes: column with units or revenue per row, summed per period"
+                    },
+                    "measure": {
+                        "type": "string",
+                        "description": "spikes: name of what value_column measures"
+                    },
+                    "baseline_window": {
+                        "type": "integer",
+                        "description": "spikes: number of previous periods whose median is the baseline; default 8"
+                    },
+                    "spike_factor": {
+                        "type": "number",
+                        "description": "spikes: a period above baseline × this factor is a spike; default 1.5"
+                    },
+                    "change_date": {
+                        "type": "string",
+                        "description": "spikes: ISO date; reports the non-spike level before and after it"
+                    },
+                    "brands": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "double_jeopardy: [{name, penetration_pct (or buyers with universe), loyalty (or repeat_pct / retention_pct / frequency)}], at least 2, better 4+"
+                    },
+                    "loyalty_kind": {
+                        "type": "string",
+                        "enum": [
+                            "repeat",
+                            "frequency",
+                            "retention"
+                        ],
+                        "description": "double_jeopardy: what the loyalty figure is; default repeat"
+                    },
+                    "tolerance_pct": {
+                        "type": "number",
+                        "description": "double_jeopardy: residual within this is 'in line with size'; default 5"
+                    },
+                    "brand": {
+                        "type": "object",
+                        "description": "share_vs_growth: {values: [one sales figure per period], label?}"
+                    },
+                    "category": {
+                        "type": "object",
+                        "description": "share_vs_growth: {values: [category sales per period, same length], label?}"
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "share_vs_growth: one period label per value"
+                    }
+                },
+                "required": [
+                    "analysis"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -1424,6 +1624,10 @@ def dispatch(
             from rocky.funnel import funnel_analyze_tool
 
             return funnel_analyze_tool(tools, args)
+        if name == "repeat_buying":
+            from rocky.panel import repeat_buying_tool
+
+            return repeat_buying_tool(tools, args)
         if name == "reach_overlap":
             from rocky.reach import reach_overlap_tool
 
