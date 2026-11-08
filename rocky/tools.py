@@ -1174,7 +1174,7 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "page_inspect",
-            "description": "Compare an ad, email or post with the page it links to, element by element: promise (H1, title, first screen), price, call to action (buttons and forms), audience words, offer words and language. Run it for every ad or email that links to a page, after the copy is written and before handing over, instead of judging message match by eye. Give the ad fields and exactly one page source: html, a workspace path, or a url. Each finding (block / warn / info) quotes the exact ad copy and the exact page element behind it; fix blocks before the ad runs. A url that could not be fetched lands under missing, so give the HTML or path then.",
+            "description": "Compare an ad, email or post with the page it links to, element by element: promise (H1, title, first screen), price, call to action, audience, offer and language; add query and intent to check that the page answers the search. Run it for every ad or email that links to a page, before handing over. Optional checks on the same page: credibility (who runs it, contact and privacy links, unsourced claims), links (broken internal links, redirects), trust (timers, scarcity, pre-ticked add-ons), price_ladder, crawler (facts missing from raw HTML), data_use (trackers before consent), schema, navigation, promises, touchpoint, tracked_links (UTM), and kind=receipt|shipping|welcome for transactional emails. Give one page source: html, path or url. Every finding quotes the exact copy and page element; fix blocks first. Anything not fetchable or not given lands under missing.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1224,11 +1224,163 @@ CLIENT_TOOL_SPECS = [
                     "html": {
                         "type": "string",
                         "description": "the page HTML itself"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "the search term the visitor typed; checked word by word against H1, title and first screen"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "informational",
+                            "commercial",
+                            "transactional",
+                            "navigational",
+                            "local"
+                        ],
+                        "description": "what the searcher wants; inferred from query if omitted"
+                    },
+                    "brand": {
+                        "type": "string",
+                        "description": "brand or product name, for navigational intent, welcome emails and schema checks"
+                    },
+                    "checks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "credibility",
+                                "links",
+                                "trust",
+                                "price_ladder",
+                                "crawler",
+                                "data_use",
+                                "images_off",
+                                "schema",
+                                "navigation",
+                                "promises",
+                                "trust_signals",
+                                "touchpoint",
+                                "listing",
+                                "top_tasks",
+                                "mobile",
+                                "all"
+                            ]
+                        },
+                        "description": "extra checks to run on the page; each adds its own block to the output"
+                    },
+                    "tiers": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "price": {
+                                    "type": "string"
+                                },
+                                "period": {
+                                    "type": "string"
+                                },
+                                "features": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "description": "price ladder tiers when the page's pricing cards cannot be parsed"
+                    },
+                    "required_facts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "facts a crawler must see; each comes back html | rendered_only | missing"
+                    },
+                    "rendered_text": {
+                        "type": "string",
+                        "description": "the page text from browser_snapshot, to find facts visible only after rendering"
+                    },
+                    "required_content": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "items a shelf-QR or product page must carry (adds the mobile weight block)"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "receipt",
+                            "shipping",
+                            "welcome"
+                        ],
+                        "description": "check a transactional email for its required fields instead of a landing page"
+                    },
+                    "expected": {
+                        "type": "object",
+                        "properties": {
+                            "amount": {
+                                "type": "number"
+                            },
+                            "order_ref": {
+                                "type": "string"
+                            },
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "the test order's figures to cross-check against the email"
+                    },
+                    "policy": {
+                        "type": "string",
+                        "description": "privacy policy as url, workspace path or text; vendors and fields not named in it become findings"
+                    },
+                    "schema": {
+                        "type": "string",
+                        "description": "JSON-LD to evaluate as if it were on the page"
+                    },
+                    "product_name": {
+                        "type": "string",
+                        "description": "touchpoint check: the product a recipient-facing artefact should name and link"
+                    },
+                    "tracked_links": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "campaign URLs to check for utm keys, case, consistency and survival through redirects"
+                    },
+                    "expected_tags": {
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string"
+                            },
+                            "medium": {
+                                "type": "string"
+                            },
+                            "campaign": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "base_url": {
+                        "type": "string",
+                        "description": "site address to resolve relative links when the page is given as html or path"
+                    },
+                    "max_links": {
+                        "type": "integer",
+                        "description": "internal links to check through the link checker (default 30)"
                     }
                 },
-                "required": [
-                    "ad"
-                ]
+                "required": []
             }
         }
     },
@@ -3662,7 +3814,8 @@ def dispatch(
             from rocky.pageinspect import page_inspect_tool
 
             fetch_html = getattr(searcher, "fetch_html", None) if searcher is not None else None
-            return page_inspect_tool(tools, args, fetch_html=fetch_html)
+            fetch_meta = getattr(searcher, "fetch_meta", None) if searcher is not None else None
+            return page_inspect_tool(tools, args, fetch_html=fetch_html, fetch_meta=fetch_meta)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 
