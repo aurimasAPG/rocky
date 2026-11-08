@@ -99,3 +99,23 @@ def test_the_perceptual_map_rule_refuses_to_pass_opinion_off_as_buyers():
     assert "Label the map a hypothesis" in text and "An empty corner is a question" in text
     assert "Principles of Marketing, pp. 197–199" in text
 
+
+
+def test_a_worker_can_find_the_numbers_skill():
+    row = next(r for r in catalog_for_prompt() if r["name"] == "marketing-numbers")
+    assert "unit economics" in row["description"] and "A/B-test" in row["description"] and "Pricing" in row["description"]
+
+
+def test_pricing_and_test_goals_load_the_numbers_skill():
+    research = load_recipes()["marketing"].render_steps("goal")[0]["detail"]
+    assert "skill_view marketing-numbers" in research and "unit_economics or experiment_plan" in research
+    facts = _steps()["Facts"]
+    assert "skill_view marketing-numbers" in facts and "unit_economics" in facts
+
+
+def test_the_numbers_skill_separates_margin_from_markup_and_handles_missing_inputs():
+    text = view_skill("marketing-numbers")
+    assert "Never do the arithmetic yourself" in text
+    assert "A 40 % margin is a 67 % markup" in text
+    assert "Never pick one row silently" in text
+    assert "decision_rule" in text and "#488" in text and "#464" in text

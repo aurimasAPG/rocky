@@ -27,7 +27,8 @@ detail = """skill_view marketing-strategy. Read the site the goal names with web
 Use at most ten tool calls in all and write as soon as you have enough. \
 Write runs/notes/facts.md for: {goal}. Start it with a line `Job: ` saying what the customer is trying to get done, a line `Pitch: ` quoting the main message the site uses today, then two or three `Segment: ` lines, each an outcome a group struggles to reach and the circumstance that identifies them, with its rough size, buying power and cost to reach, marked as estimates unless sourced. Drop a segment too small or too poor to pay back. Then one `Match: ` line per product on sale naming the segment it serves best. Then what is sold, to whom, the offer, prices, where and how buyers get it (delivery, outlets, booking), proof numbers, tone, brand colours as hex: \
 one line per fact, with the URL it came from. Add a `Growth: ` line: penetration if this campaign sells more where the brand already sells, development if it takes the product to new buyers or a new country. For development add a `Reach: ` line with the evidence and URL that those buyers can be reached. Add two or three `Table stake: ` lines: an outcome customers expect from anyone in this category and already get from competitors, its minimum acceptable level, and whether this brand meets it (met, unmet or unknown). If the goal asks about competitors, add two or three with URLs. \
-Mark what you could not confirm. No invented numbers, quotes or reviews."""
+Mark what you could not confirm. No invented numbers, quotes or reviews. \
+If the ads will carry a price, a discount or a promotion, skill_view marketing-numbers and check the offer with unit_economics before writing it into the facts."""
 
 [[steps]]
 id = 2

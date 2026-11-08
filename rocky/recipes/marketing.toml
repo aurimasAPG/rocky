@@ -32,7 +32,8 @@ Investigate the market, competitors, and claims for: {goal}. \
 web_search + web_fetch primary sources. Write runs/notes/research.md with URL, claim, why it matters. \
 Separate fact / inference / unknown. Do not invent statistics. \
 If the goal compares product lines or asks where to invest, skill_view marketing-strategy and apply its growth-share rule. \
-If the goal asks for positioning or a comparison with competitors, skill_view marketing-strategy and apply its perceptual-map rule."""
+If the goal asks for positioning or a comparison with competitors, skill_view marketing-strategy and apply its perceptual-map rule. \
+If the goal involves a price, discount, promotion, margin, acquisition cost or a test, skill_view marketing-numbers and get every figure from unit_economics or experiment_plan."""
 
 [[steps]]
 id = 2
