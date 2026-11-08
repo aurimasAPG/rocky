@@ -1334,6 +1334,8 @@ def _run_subtask(
                 "crosstab, before/after, period comparison or theme count); never read its percentages by eye. "
                 "A channel comparison or combined reach goes through reach_overlap; a media budget, share of voice, offer comparison, "
                 "flight calendar or spend classification goes through media_plan; never add reaches or budgets up yourself. "
+                "Referral loops, adoption forecasts, sampling or seeding arms, commission plans, site catchments, account penetration, "
+                "mental availability, benchmark fit and respondent coverage go through campaign_calc. "
                 "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
                 "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
                 "Survey or interview questions go through survey_check before they reach the deliverable; outcome statements and "

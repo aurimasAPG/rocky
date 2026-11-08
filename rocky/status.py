@@ -54,6 +54,7 @@ _TOOL_VERB = {
     "table_analyze": "reading the table",
     "reach_overlap": "estimating reach",
     "media_plan": "planning the media",
+    "campaign_calc": "calculating the campaign",
     "page_inspect": "checking the landing page",
     "seo_inspect": "checking search",
     "survey_check": "checking the questionnaire",

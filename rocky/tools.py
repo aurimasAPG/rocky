@@ -3276,6 +3276,306 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "campaign_calc",
+            "description": "Campaign arithmetic a worker must not do in prose; pick the mode that answers the marketer's question and quote its figures, method, missing and warnings. lift_compare: which sampling, coupon, deal or geo arm paid off and what a (gross or incremental) buyer cost, Wilson interval on the conversion; without baseline_buyers the result says gross, never incremental. referral_loop: the viral coefficient K (invites x acceptance x activation), amplification 1/(1-K), users after n cycles, break-even incentive per referred user. seeding_compare: seeded vs organic on cost per review and per 1 000 reach. bass: adoption forecast and peak from market_size and >=6 periods of history (p, q fitted) or given p, q; defaults flagged. buyer_overlap: brands sharing buyers more than their size predicts (duplication law, partitions). network_value: reachable counterparties after an integration under linear and Metcalfe models, break-even users for a fee. commission_compare: payout per sale and per rep, whether a plan rewards low-margin sales, the payout-neutral gross-profit rate. catchment_compare: best site for its rent with weights stated and sensitivity. account_penetration: growth left in existing accounts vs new logos. mental_availability: buying situations where the brand is missing from unaided recall. benchmark_fit: whether an external average applies to this brand and the expectation range, never a bare point. line_metrics: words, syllables, reading seconds, first-line benefit. audience_panel: whether a respondent list covers the target shares.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "lift_compare",
+                            "referral_loop",
+                            "seeding_compare",
+                            "bass",
+                            "buyer_overlap",
+                            "network_value",
+                            "commission_compare",
+                            "catchment_compare",
+                            "account_penetration",
+                            "mental_availability",
+                            "benchmark_fit",
+                            "line_metrics",
+                            "audience_panel"
+                        ],
+                        "description": "which calculation to run"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "money unit label, default EUR"
+                    },
+                    "arms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "lift_compare: [{name, units, unit_cost, extra_cost, buyers, population, baseline_buyers}]; seeding_compare: [{name, kind, units, cost, reviews, reach}]"
+                    },
+                    "invites_per_user": {
+                        "type": "number",
+                        "description": "referral_loop: invitations sent per user"
+                    },
+                    "acceptance_rate": {
+                        "type": "number",
+                        "description": "referral_loop: share of invites accepted, 0-1 (40 is read as 0.4)"
+                    },
+                    "activation_rate": {
+                        "type": "number",
+                        "description": "referral_loop: share of accepted invitees who become users, 0-1"
+                    },
+                    "cycle_days": {
+                        "type": "number",
+                        "description": "referral_loop: days from a user's activation to the invitee's activation"
+                    },
+                    "horizon_days": {
+                        "type": "number",
+                        "description": "referral_loop: horizon for cycles, default 90"
+                    },
+                    "users": {
+                        "type": "number",
+                        "description": "referral_loop: seed users; network_value: own network size"
+                    },
+                    "cycles": {
+                        "type": "integer",
+                        "description": "referral_loop: cycles to project, default 3"
+                    },
+                    "contribution_per_user": {
+                        "type": "number",
+                        "description": "referral_loop: contribution a user brings, sets the break-even incentive"
+                    },
+                    "incentive_per_referred_user": {
+                        "type": "number",
+                        "description": "referral_loop: what the programme pays per referred user"
+                    },
+                    "paid_cac": {
+                        "type": "number",
+                        "description": "referral_loop: paid acquisition cost per user, for the blended CAC"
+                    },
+                    "min_reviews": {
+                        "type": "integer",
+                        "description": "seeding_compare: reviews under which the base is small, default 20"
+                    },
+                    "market_size": {
+                        "type": "number",
+                        "description": "bass: the finite pool of potential adopters"
+                    },
+                    "history": {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "description": "bass: new adopters per period so far; p and q are fitted from 6 or more"
+                    },
+                    "p": {
+                        "type": "number",
+                        "description": "bass: coefficient of innovation (0-1), with q"
+                    },
+                    "q": {
+                        "type": "number",
+                        "description": "bass: coefficient of imitation (0-1), with p"
+                    },
+                    "horizon": {
+                        "type": "integer",
+                        "description": "bass: periods to forecast, default 12"
+                    },
+                    "adopters_to_date": {
+                        "type": "number",
+                        "description": "bass: cumulative adopters so far when it differs from the history sum"
+                    },
+                    "period": {
+                        "type": "string",
+                        "description": "bass: period label (month, quarter, year)"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "buyer_overlap: [{buyer, brand, units}]; mental_availability: [{respondent, situation, brand, aided}] one row per mention"
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "description": "buyer_overlap: ratio above which a pair is a partition candidate, default 1.5"
+                    },
+                    "min_buyers": {
+                        "type": "integer",
+                        "description": "buyer_overlap: brands with fewer buyers are left out, default 50"
+                    },
+                    "baseline": {
+                        "type": "string",
+                        "enum": [
+                            "duplication_law",
+                            "independence"
+                        ],
+                        "description": "buyer_overlap: expected duplication baseline, default duplication_law"
+                    },
+                    "focus_brand": {
+                        "type": "string",
+                        "description": "buyer_overlap / mental_availability: the marketer's brand"
+                    },
+                    "partner_users": {
+                        "type": "number",
+                        "description": "network_value: size of the network to integrate with"
+                    },
+                    "overlap_fraction": {
+                        "type": "number",
+                        "description": "network_value: share of partner users already in own network, 0-1; unknown gives an upper bound"
+                    },
+                    "counterparty_relevance": {
+                        "type": "number",
+                        "description": "network_value: share of own users who deal with partner-network firms, 0-1"
+                    },
+                    "interactions_per_user": {
+                        "type": "number",
+                        "description": "network_value: interactions per user per period"
+                    },
+                    "value_per_interaction": {
+                        "type": "number",
+                        "description": "network_value: value of one interaction"
+                    },
+                    "fee_per_user": {
+                        "type": "number",
+                        "description": "network_value: fee per user per period"
+                    },
+                    "fixed_costs": {
+                        "type": "number",
+                        "description": "network_value: fixed costs per period for break-even users"
+                    },
+                    "cost_per_user": {
+                        "type": "number",
+                        "description": "network_value: variable cost per user per period"
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "commission_compare: [{name, price, variable_cost or margin_pct, units_per_period, discount_pct}]"
+                    },
+                    "plans": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "commission_compare: [{name, kind: revenue|gross_profit, rate_pct, base, threshold}]; the first plan sets the payout-neutral rate"
+                    },
+                    "sellers": {
+                        "type": "integer",
+                        "description": "commission_compare: number of reps, for payroll"
+                    },
+                    "sites": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "catchment_compare: [{name, bands: [{label, population}] nearest first, competitors, drive_time_minutes, rent}]"
+                    },
+                    "weights": {
+                        "type": "object",
+                        "description": "catchment_compare: {population, competitors, drive_time}, default 0.5 / 0.3 / 0.2"
+                    },
+                    "band_weights": {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "description": "catchment_compare: weight per band, default 1, 0.5, 0.25"
+                    },
+                    "universe_accounts": {
+                        "type": "number",
+                        "description": "account_penetration: potential buying organisations, from a sourced count"
+                    },
+                    "customer_accounts": {
+                        "type": "number",
+                        "description": "account_penetration: accounts already won"
+                    },
+                    "revenues": {
+                        "type": "array",
+                        "items": {},
+                        "description": "account_penetration: revenue per account (numbers or [{account, revenue}])"
+                    },
+                    "avg_revenue": {
+                        "type": "number",
+                        "description": "account_penetration: average revenue per account when the list is unavailable"
+                    },
+                    "ceiling": {
+                        "type": "number",
+                        "description": "account_penetration: realistic revenue ceiling per account; default 90th percentile, flagged assumed"
+                    },
+                    "growth_last_period": {
+                        "type": "number",
+                        "description": "account_penetration: revenue growth last period"
+                    },
+                    "growth_from_existing_pct": {
+                        "type": "number",
+                        "description": "account_penetration: share of that growth from existing accounts, 0-100"
+                    },
+                    "min_n": {
+                        "type": "integer",
+                        "description": "mental_availability: respondents per situation under which confidence is low, default 30"
+                    },
+                    "n_respondents": {
+                        "type": "integer",
+                        "description": "mental_availability: all respondents, including those who named nobody"
+                    },
+                    "respondents_per_situation": {
+                        "type": "object",
+                        "description": "mental_availability: {situation: n} when some respondents named nobody"
+                    },
+                    "benchmark": {
+                        "type": "object",
+                        "description": "benchmark_fit: {metric, value, unit, source_url, selection: awards|self_submitted|panel|census|platform|own|unknown, industries, markets, budget_min, budget_max, objective, sample_n, period}"
+                    },
+                    "own": {
+                        "type": "object",
+                        "description": "benchmark_fit: {industry, market, budget, objective, period} of the brand"
+                    },
+                    "own_history": {
+                        "type": "object",
+                        "description": "benchmark_fit: {values: [metric per comparable past piece], new_value, min_n (default 5)}"
+                    },
+                    "lines": {
+                        "type": "array",
+                        "items": {},
+                        "description": "line_metrics: strings or [{name, text}]"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ],
+                        "description": "line_metrics: language for syllables and benefit cues, default lt"
+                    },
+                    "wpm": {
+                        "type": "number",
+                        "description": "line_metrics: reading speed, default 200"
+                    },
+                    "respondents": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "audience_panel: [{dimension: value, ...}] one object per respondent"
+                    },
+                    "target": {
+                        "type": "object",
+                        "description": "audience_panel: {dimension: {value: share_pct}}, shares per dimension sum to 100"
+                    },
+                    "tolerance_pp": {
+                        "type": "number",
+                        "description": "audience_panel: shortfall in percentage points that counts as a gap, default 5"
+                    }
+                },
+                "required": [
+                    "mode"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -3785,6 +4085,10 @@ def dispatch(
             from rocky.panel import repeat_buying_tool
 
             return repeat_buying_tool(tools, args)
+        if name == "campaign_calc":
+            from rocky.campaign import campaign_calc_tool
+
+            return campaign_calc_tool(args)
         if name == "media_plan":
             from rocky.media import media_plan_tool
 
