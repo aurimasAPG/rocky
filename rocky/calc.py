@@ -166,8 +166,11 @@ def unit_economics(args: dict) -> dict[str, Any]:
     retail = _obj(args, "retail")
     media = _obj(args, "media_value")
     routes = _obj(args, "routes")
+    segments = _rows(args, "segments")
+    budget = _number(args, "budget", minimum=0.0)
     # Blocks that carry their own prices may be called without a base price.
-    standalone = any(b is not None for b in (ownership, retail, media, routes))
+    segments_self_contained = bool(segments) and all(row.get("contribution_per_unit") not in (None, "") for row in segments)
+    standalone = any(b is not None for b in (ownership, retail, media, routes)) or segments_self_contained
 
     price = _number(args, "price", required=not standalone, minimum=0.0)
     free_tier = price == 0 and (obligations is not None or variants is not None)
@@ -306,6 +309,8 @@ def unit_economics(args: dict) -> dict[str, Any]:
         attach("media_value", _media_value(media, price, cost, currency, warnings))
     if routes is not None:
         attach("routes", _routes(routes, currency))
+    if segments is not None and (segments_self_contained or not needs_cost("segments")):
+        attach("segments", _segments(segments, price, cost, budget, currency))
 
     out["summary"] = " ".join(s for s in summary if s)
     if warnings:
@@ -3097,6 +3102,88 @@ def experiment_plan(args: dict) -> dict[str, Any]:
 
 def experiment_plan_tool(args: dict) -> str:
     return json.dumps(experiment_plan(args or {}), ensure_ascii=False, indent=1)
+
+
+def _segments(rows: list[dict], price: float | None, cost: float | None, budget: float | None, currency: str) -> dict[str, Any]:
+    """Allowable acquisition cost per segment and a budget split by headroom.
+
+    Category non-users and brand switchers rarely share a lifetime or a CPA, so
+    they are priced as separate rows: ``allowable_cac`` = contribution per unit ×
+    ``expected_purchases``; ``cac_to_allowable`` under 0.8 is *acquire*, up to
+    1.0 *marginal*, above it *stop*. A row without ``expected_purchases`` gets a
+    conditional table at 1, 2, 3 and 5 purchases instead of a guess. ``budget``
+    is split in proportion to headroom (allowable − cpa) among the segments with
+    positive headroom; the split is a proposal, never a forecast.
+    """
+    if not rows:
+        raise ToolError("segments needs at least one row")
+    base = (price - cost) if (price is not None and cost is not None) else None
+    out_rows: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for i, row in enumerate(rows):
+        name = str(row.get("name") or f"segment {i + 1}").strip()
+        cpa = _number(row, "cpa", required=True, minimum=0.0)
+        contrib = _number(row, "contribution_per_unit", minimum=0.0)
+        if contrib is None:
+            contrib = base
+        if contrib is None:
+            raise ToolError(f"segments[{i}] needs contribution_per_unit when price and variable_cost are not given")
+        entry: dict[str, Any] = {"name": name, "cpa": _money(cpa), "contribution_per_unit": _money(contrib)}
+        purchases = _number(row, "expected_purchases", minimum=0.0)
+        if purchases is None:
+            entry["missing"] = ["expected_purchases"]
+            entry["conditional"] = [
+                {
+                    "expected_purchases": n,
+                    "allowable_cac": _money(contrib * n),
+                    "cac_to_allowable": round(cpa / (contrib * n), 2) if contrib > 0 else None,
+                }
+                for n in (1, 2, 3, 5)
+            ]
+            missing.append(f"{name}: expected_purchases")
+        else:
+            allowable = contrib * purchases
+            ratio = round(cpa / allowable, 2) if allowable > 0 else None
+            entry.update(
+                {
+                    "expected_purchases": purchases,
+                    "allowable_cac": _money(allowable),
+                    "headroom": _money(allowable - cpa),
+                    "cac_to_allowable": ratio,
+                    "payback_purchases": round(cpa / contrib, 1) if contrib > 0 else None,
+                    "verdict": "stop" if ratio is None or ratio > 1 else ("marginal" if ratio > 0.8 else "acquire"),
+                }
+            )
+        out_rows.append(entry)
+    out: dict[str, Any] = {"segments": out_rows, "currency": currency}
+    if missing:
+        out["missing"] = missing
+    if budget is not None:
+        eligible = [r for r in out_rows if r.get("headroom") is not None and r["headroom"] > 0]
+        total = sum(r["headroom"] for r in eligible)
+        split = []
+        for r in out_rows:
+            share = (r["headroom"] / total) if (r in eligible and total > 0) else 0.0
+            amount = budget * share
+            split.append(
+                {
+                    "name": r["name"],
+                    "share_pct": round(100 * share, 1),
+                    "budget": _money(amount),
+                    "customers": int(amount // r["cpa"]) if r["cpa"] > 0 and amount > 0 else 0,
+                }
+            )
+        out["budget_split"] = split
+    verdicts = [f"{r['name']} {r['verdict']} (CAC {r['cac_to_allowable']}× allowable)" for r in out_rows if "verdict" in r]
+    blended = ""
+    if len([r for r in out_rows if "verdict" in r]) >= 2 and len({r["verdict"] for r in out_rows if "verdict" in r}) > 1:
+        blended = " A blended CPA would hide that one segment is over its allowable; keep them apart."
+    out["summary"] = ("Per segment: " + "; ".join(verdicts) + "." if verdicts else "Segment economics need expected_purchases per segment.") + blended
+    out["assumptions"] = [
+        "allowable_cac = contribution_per_unit × expected_purchases; cac_to_allowable ≤ 0.8 acquire, ≤ 1.0 marginal, above stop.",
+        "budget_split is proportional to headroom (allowable − cpa) among segments with positive headroom: a proposal, not a forecast.",
+    ]
+    return out
 
 
 def unit_economics_tool(args: dict) -> str:

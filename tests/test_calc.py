@@ -875,3 +875,38 @@ def test_dispatch_unit_economics_blocks_without_price(tmp_path):
     spec = next(t for t in worker_tools(False) if t["function"]["name"] == "unit_economics")
     assert spec["function"]["parameters"]["required"] == []
     assert "retail" in spec["function"]["parameters"]["properties"]
+
+
+
+def test_segments_price_nonusers_and_switchers_apart():
+    from rocky.calc import unit_economics
+
+    out = unit_economics(
+        {
+            "price": 100,
+            "variable_cost": 60,
+            "budget": 1000,
+            "segments": [
+                {"name": "category non-users", "cpa": 40, "expected_purchases": 1},
+                {"name": "brand switchers", "cpa": 25, "expected_purchases": 3},
+            ],
+        }
+    )
+    seg = {r["name"]: r for r in out["segments"]["segments"]}
+    assert seg["category non-users"]["allowable_cac"] == 40.0 and seg["category non-users"]["verdict"] == "marginal"
+    assert seg["brand switchers"]["allowable_cac"] == 120.0 and seg["brand switchers"]["headroom"] == 95.0
+    assert seg["brand switchers"]["verdict"] == "acquire" and seg["brand switchers"]["payback_purchases"] == 0.6
+    split = {r["name"]: r for r in out["segments"]["budget_split"]}
+    assert split["brand switchers"]["budget"] == 1000.0 and split["brand switchers"]["customers"] == 40
+    assert split["category non-users"]["budget"] == 0.0
+    assert "blended CPA" in out["segments"]["summary"]
+
+
+def test_segments_without_purchases_give_a_conditional_table():
+    from rocky.calc import unit_economics
+
+    out = unit_economics({"segments": [{"name": "lapsed", "cpa": 30, "contribution_per_unit": 20}]})
+    row = out["segments"]["segments"][0]
+    assert row["missing"] == ["expected_purchases"]
+    assert [c["allowable_cac"] for c in row["conditional"]] == [20.0, 40.0, 60.0, 100.0]
+    assert out["segments"]["missing"] == ["lapsed: expected_purchases"]

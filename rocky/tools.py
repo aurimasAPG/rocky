@@ -448,7 +448,7 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "unit_economics",
-            "description": "Calculate contribution, margin and markup, break-even and what a price change must win back. Call it for every pricing, discount, promotion, bundle, tier, channel-price or acquisition-cost question instead of doing the arithmetic yourself; give per-unit numbers in one currency. Optional blocks on the same call: several plans ranked by net contribution (plans), realized price after markdowns (sales_mix or markdown_pct), a bundle against separate purchases (bundle), tiers blended against the baseline with the cannibalization break-even (variants), the price buildup through a distribution chain with a back-solve to a shelf target (chain), and fixed/per-unit obligations with payback (obligations). If variable_cost is unknown the result lists it under missing with a conditional table: ask the user (clarify) or state the assumption. Further blocks, each switched on by its own object: capacity (unsold slots by time band and the shift break-even of an off-peak price), ownership (total cost of a base product plus its consumable against an alternative), offers (trial-then-bill vs refund, a paid option such as express delivery, a referral reward), line (a new variant or premium line and a repositioning over a horizon, a price history decomposed into price, volume and cost effects), retail (bulk breaking, assortment, channel risk, channel functions, the price waterfall, shelf displacement, routes with transit losses, a coupon promotion, delivered prices, payment terms, GMROI, a returns reserve, sales incentives), media_value (keyword test, incremental space, a catalogue drop, spend levels on profit, a public outcome, a partnership's three figures, a context-checked benchmark) and routes (options scored against ranked outcomes); price may be omitted when only ownership, retail, media_value or routes is asked for.",
+            "description": "Calculate contribution, margin and markup, break-even and what a price change must win back. Call it for every pricing, discount, promotion, bundle, tier, channel-price or acquisition-cost question instead of doing the arithmetic yourself; give per-unit numbers in one currency. Optional blocks on the same call: several plans ranked by net contribution (plans), realized price after markdowns (sales_mix or markdown_pct), a bundle against separate purchases (bundle), tiers blended against the baseline with the cannibalization break-even (variants), the price buildup through a distribution chain with a back-solve to a shelf target (chain), and fixed/per-unit obligations with payback (obligations). If variable_cost is unknown the result lists it under missing with a conditional table: ask the user (clarify) or state the assumption. Further blocks, each switched on by its own object: capacity (unsold slots by time band and the shift break-even of an off-peak price), ownership (total cost of a base product plus its consumable against an alternative), offers (trial-then-bill vs refund, a paid option such as express delivery, a referral reward), line (a new variant or premium line and a repositioning over a horizon, a price history decomposed into price, volume and cost effects), retail (bulk breaking, assortment, channel risk, channel functions, the price waterfall, shelf displacement, routes with transit losses, a coupon promotion, delivered prices, payment terms, GMROI, a returns reserve, sales incentives), media_value (keyword test, incremental space, a catalogue drop, spend levels on profit, a public outcome, a partnership's three figures, a context-checked benchmark) and routes (options scored against ranked outcomes); price may be omitted when only ownership, retail, media_value or routes is asked for. segments prices category non-users and brand switchers apart (allowable CAC per segment, never one blended CPA) and splits a budget by headroom.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1895,6 +1895,37 @@ CLIENT_TOOL_SPECS = [
                             "outcomes",
                             "routes"
                         ]
+                    },
+                    "segments": {
+                        "type": "array",
+                        "description": "acquisition segments priced apart (category non-users vs brand switchers, new vs lapsed): allowable CAC = contribution × expected_purchases, CAC-to-allowable ratio, headroom, payback purchases and a verdict per segment; with budget a split by headroom; a row without expected_purchases gets a conditional table",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "cpa": {
+                                    "type": "number",
+                                    "description": "cost per acquired customer in this segment"
+                                },
+                                "expected_purchases": {
+                                    "type": "number",
+                                    "description": "purchases expected from one acquired customer over the horizon"
+                                },
+                                "contribution_per_unit": {
+                                    "type": "number",
+                                    "description": "default: price − variable_cost"
+                                }
+                            },
+                            "required": [
+                                "cpa"
+                            ]
+                        }
+                    },
+                    "budget": {
+                        "type": "number",
+                        "description": "with segments: acquisition budget to split by headroom"
                     }
                 },
                 "required": []

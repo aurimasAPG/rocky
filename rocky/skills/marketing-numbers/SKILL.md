@@ -32,6 +32,7 @@ Source: Principles of Marketing on markup and margin; My Life in Advertising on 
 
 - When the marketer states what they expect (a 20 % lift, a 15 % uplift from the promotion), pass it as `expected_uplift_pct` and report the `decision` and the two flip points: the unit cost and the uplift at which the answer changes. That is the sentence the marketer argues about in the meeting.
 - A promotion that pays only above the flip point should be written as a test with a stop rule, sized by `experiment_plan`, not as a plan.
+- When a brief separates category non-users from brand switchers (or new from lapsed buyers), pass them as `segments` to `unit_economics` with each one's CPA and expected purchases. Report the allowable CAC and verdict per segment; never one blended CPA, because the segment that loses money disappears inside the average.
 
 ## A/B tests
 
