@@ -3576,6 +3576,325 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "plan_check",
+            "description": "Check one structured marketing plan by code before it reaches the marketer; kind picks the checker. content_calendar: items with dates, owners, goals, stages, formats and lifespans against capacity and audience evidence (week gaps, channel clashes, stage gaps, formats unsupported, crowded launch window, missing review or expiry, stale overlap). pr_board: press release, story, announcement, sponsorship pack or message house — news hook, attributed quote, boilerplate ≤ 100 words, contact, date, a sourced fact per figure (claim_check), byline disclosure, partners' own sourced goals, affected groups in their own words, reader reason per publication, one core sentence with ≤ 3 evidenced pillars kept by every variant. demo_board: one claim with a number, an act the visitor performs, the result last, the product early. response_board: escalation tiers with owner, minutes, EUR thresholds, a sensitive tier that never answers in public, drills that reach escalation. partner_board: obligations both ways, support items with the obstacle removed and a ship signal, exclusivity, sourced investment signals. qualification: a sales sheet (need, means, access, timing, decision process with evidence or a question) or a recruit screener (questions that discriminate between segments). evidence_log: append sourced observations to runs/notes/evidence.jsonl and audit a secondary source's measure, population and period. community_rules: allowed, removed, who decides, appeal, response time. retell and ad_pretest: a cold reader model that has never seen the brief repeats the message or names the offer; scored on which must_survive terms survived; without a reader model the prompts are returned and nothing is judged. Every kind returns findings, missing, counts, clean and summary; it never fills a slot the worker left empty.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "content_calendar",
+                            "pr_board",
+                            "demo_board",
+                            "response_board",
+                            "partner_board",
+                            "qualification",
+                            "evidence_log",
+                            "community_rules",
+                            "retell",
+                            "ad_pretest"
+                        ]
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ]
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "content_calendar: [{title, publish_date, channel, format, owner, stage, goal, source, lifespan, review_date, expires_on, event_date, hours}]"
+                    },
+                    "launch_date": {
+                        "type": "string"
+                    },
+                    "capacity": {
+                        "type": "object",
+                        "description": "content_calendar: {items_per_week, hours_per_week}"
+                    },
+                    "audience_evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "inventory": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "content_calendar: existing content [{title, url, updated}]"
+                    },
+                    "competitors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "today": {
+                        "type": "string"
+                    },
+                    "draft": {
+                        "type": "string"
+                    },
+                    "draft_path": {
+                        "type": "string"
+                    },
+                    "doc_kind": {
+                        "type": "string",
+                        "enum": [
+                            "press_release",
+                            "story",
+                            "announcement",
+                            "sponsorship"
+                        ]
+                    },
+                    "parts": {
+                        "type": "object"
+                    },
+                    "facts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "pr_board: [{figure, source, status}]"
+                    },
+                    "sources": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "byline": {
+                        "type": "object"
+                    },
+                    "sponsor": {
+                        "type": "string"
+                    },
+                    "partners": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "beneficiaries": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "affected": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "publications": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "readers": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "message_house": {
+                        "type": "object",
+                        "description": "pr_board: {core, pillars [{text, evidence {text, source}}], variants [{channel, text}]}"
+                    },
+                    "audience": {
+                        "type": "string"
+                    },
+                    "claim": {
+                        "type": "string"
+                    },
+                    "situation": {
+                        "type": "string"
+                    },
+                    "result": {
+                        "type": "string"
+                    },
+                    "judged_by": {
+                        "type": "string"
+                    },
+                    "takeaway": {
+                        "type": "string"
+                    },
+                    "session_minutes": {
+                        "type": "number"
+                    },
+                    "first_product_minute": {
+                        "type": "number"
+                    },
+                    "materials": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "live": {
+                        "type": "boolean"
+                    },
+                    "audience_reasons": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "pre_talk_questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "tiers": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "scenarios": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "contacts_confirmed": {
+                        "type": "boolean"
+                    },
+                    "support_items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "exclusivity": {
+                        "type": "object"
+                    },
+                    "sheet": {
+                        "type": "string",
+                        "enum": [
+                            "sales",
+                            "screener"
+                        ]
+                    },
+                    "prospect": {
+                        "type": "string"
+                    },
+                    "conditions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "disqualifiers": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "segments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "routes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "entries": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "evidence_log: [{kind modification|quote|finding|source_audit, text, source_url, quote, tags, measure, population, period}]"
+                    },
+                    "needed": {
+                        "type": "object"
+                    },
+                    "known_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "statements": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "retell: [{id, text, must_survive}]"
+                    },
+                    "buyer_type": {
+                        "type": "string"
+                    },
+                    "ads": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "ad_pretest: [{id, headline, primary_text, must_survive, image_path, image_description}]"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "glance",
+                            "reference",
+                            "identification"
+                        ]
+                    },
+                    "exposure_ms": {
+                        "type": "integer"
+                    },
+                    "job": {
+                        "type": "string"
+                    },
+                    "n_readers": {
+                        "type": "integer"
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "reader model id, default google/gemini-3.8-flash"
+                    }
+                },
+                "required": [
+                    "kind"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -4085,6 +4404,10 @@ def dispatch(
             from rocky.panel import repeat_buying_tool
 
             return repeat_buying_tool(tools, args)
+        if name == "plan_check":
+            from rocky.plans import plan_check_tool
+
+            return plan_check_tool(tools, args, llm=llm)
         if name == "campaign_calc":
             from rocky.campaign import campaign_calc_tool
 
