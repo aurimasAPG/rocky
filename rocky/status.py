@@ -46,6 +46,7 @@ _TOOL_VERB = {
     "image_generate": "drawing",
     "ad_board": "building ads",
     "unit_economics": "calculating",
+    "experiment_plan": "sizing the test",
     "clarify": "asking you",
 }
 

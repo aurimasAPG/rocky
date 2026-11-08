@@ -474,6 +474,33 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "experiment_plan",
+            "description": (
+                "Plan an A/B test on a rate: sample size per variant, duration from weekly traffic, and the decision rule. "
+                "Use it whenever a brief proposes testing a page, ad, price, email or offer, instead of guessing how long "
+                "to run it. Rates are percentages. Without weekly_traffic the duration is reported as unknown; ask for it."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "baseline_rate": {"type": "number", "description": "current rate in percent, e.g. 3.2"},
+                    "minimum_effect": {"type": "number", "description": "smallest lift worth detecting"},
+                    "effect_kind": {"type": "string", "enum": ["relative", "absolute"], "description": "relative = percent of baseline (default); absolute = percentage points"},
+                    "weekly_traffic": {"type": "number", "description": "eligible visitors or orders per week across all variants"},
+                    "variants": {"type": "integer", "description": "arms including control, default 2"},
+                    "alpha": {"type": "number", "description": "significance level, default 0.05"},
+                    "power": {"type": "number", "description": "default 0.8"},
+                    "two_sided": {"type": "boolean"},
+                    "max_weeks": {"type": "number", "description": "how long the marketer can wait; returns what is detectable in that time"},
+                    "metric": {"type": "string", "description": "what the rate measures, e.g. checkout conversion"},
+                },
+                "required": ["baseline_rate", "minimum_effect"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -844,6 +871,10 @@ def dispatch(
             from rocky.calc import unit_economics_tool
 
             return unit_economics_tool(args)
+        if name == "experiment_plan":
+            from rocky.calc import experiment_plan_tool
+
+            return experiment_plan_tool(args)
         if name == "recipe":
             from rocky.recipes import recipe_tool
 

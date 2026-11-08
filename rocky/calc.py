@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+from statistics import NormalDist
 from typing import Any
 
 from rocky.tools import ToolError
@@ -239,6 +240,146 @@ def _summary_change(row: dict[str, Any], change: dict[str, Any], currency: str) 
     if change.get("decision"):
         head += f" Decision at the expected uplift: {change['decision']}."
     return head
+
+
+# --- experiment planning -------------------------------------------------
+
+DEFAULT_ALPHA = 0.05
+DEFAULT_POWER = 0.8
+_Z = NormalDist()
+
+
+def _sample_per_variant(p1: float, p2: float, alpha: float, power: float, two_sided: bool) -> int:
+    """Normal-approximation sample size per arm for a difference in proportions."""
+    z_alpha = _Z.inv_cdf(1 - alpha / 2) if two_sided else _Z.inv_cdf(1 - alpha)
+    z_beta = _Z.inv_cdf(power)
+    pbar = (p1 + p2) / 2
+    numerator = z_alpha * math.sqrt(2 * pbar * (1 - pbar)) + z_beta * math.sqrt(p1 * (1 - p1) + p2 * (1 - p2))
+    return math.ceil((numerator / (p2 - p1)) ** 2 - 1e-9)
+
+
+def _detectable_relative_effect(p1: float, per_variant: int, alpha: float, power: float, two_sided: bool) -> float:
+    """Smallest relative lift (fraction) the given sample per arm can detect: bisection on the lift."""
+    lo, hi = 1e-4, 5.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        p2 = min(p1 * (1 + mid), 0.999999)
+        if _sample_per_variant(p1, p2, alpha, power, two_sided) <= per_variant:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+def experiment_plan(args: dict) -> dict[str, Any]:
+    """Sample size per variant, duration and a decision rule for an A/B test on a rate.
+
+    Inputs: ``baseline_rate`` (percent, e.g. 3.2 for 3.2 % conversion),
+    ``minimum_effect`` with ``effect_kind`` ``relative`` (percent of baseline,
+    default) or ``absolute`` (percentage points), ``weekly_traffic`` (eligible
+    visitors or orders per week, all variants together), ``variants`` (arms
+    including control, default 2), ``alpha`` (default 0.05), ``power`` (default
+    0.8), ``two_sided`` (default true), ``max_weeks`` (how long the marketer can
+    wait). Missing traffic → duration is reported as unknown, never guessed.
+    """
+    baseline = _number(args, "baseline_rate", required=True)
+    if not 0 < baseline < 100:
+        raise ToolError("baseline_rate must be a percentage between 0 and 100")
+    effect = _number(args, "minimum_effect", required=True)
+    if effect <= 0:
+        raise ToolError("minimum_effect must be greater than zero")
+    kind = str(args.get("effect_kind") or "relative").strip().lower()
+    if kind not in {"relative", "absolute"}:
+        raise ToolError("effect_kind must be relative or absolute")
+    variants = int(_number(args, "variants", minimum=2) or 2)
+    alpha = _number(args, "alpha") or DEFAULT_ALPHA
+    power = _number(args, "power") or DEFAULT_POWER
+    if not 0 < alpha < 0.5 or not 0.5 <= power < 1:
+        raise ToolError("alpha must be between 0 and 0.5, power between 0.5 and 1")
+    two_sided = str(args.get("two_sided", True)).strip().lower() not in {"false", "0", "no"}
+    traffic = _number(args, "weekly_traffic", minimum=0.0)
+    max_weeks = _number(args, "max_weeks", minimum=0.0)
+    metric = str(args.get("metric") or "conversion rate").strip()
+
+    p1 = baseline / 100
+    p2 = p1 * (1 + effect / 100) if kind == "relative" else p1 + effect / 100
+    if not 0 < p2 < 1:
+        raise ToolError("the target rate falls outside 0–100 %; check minimum_effect and effect_kind")
+    comparisons = variants - 1
+    alpha_each = alpha / comparisons  # Bonferroni when several challengers share one control
+    per_variant = _sample_per_variant(p1, p2, alpha_each, power, two_sided)
+    total = per_variant * variants
+    out: dict[str, Any] = {
+        "inputs": {
+            "baseline_rate_pct": baseline,
+            "target_rate_pct": round(p2 * 100, 3),
+            "minimum_effect": effect,
+            "effect_kind": kind,
+            "variants": variants,
+            "alpha": alpha,
+            "alpha_per_comparison": round(alpha_each, 4),
+            "power": power,
+            "two_sided": two_sided,
+            "weekly_traffic": traffic,
+            "max_weeks": max_weeks,
+        },
+        "sample_per_variant": per_variant,
+        "total_sample": total,
+        "missing": [],
+        "warnings": [],
+        "method": "normal approximation for two proportions; Bonferroni split of alpha across challengers",
+    }
+    if comparisons > 1:
+        out["warnings"].append(f"{comparisons} challengers against one control: alpha is split to {alpha_each:.4f} per comparison, which raises the sample.")
+    if per_variant < 100:
+        out["warnings"].append("Fewer than 100 per variant: the normal approximation is rough at this size.")
+    if traffic is None:
+        out["missing"].append("weekly_traffic")
+        out["weeks"] = None
+        out["summary"] = (
+            f"{per_variant:,} per variant ({total:,} in all) to detect {metric} moving from {baseline:g} % to "
+            f"{p2 * 100:.3g} %. Duration is unknown until weekly_traffic is given; ask for it."
+        )
+    elif traffic <= 0:
+        out["missing"].append("weekly_traffic")
+        out["weeks"] = None
+        out["summary"] = "weekly_traffic is zero: the test cannot run."
+    else:
+        weeks = math.ceil(total / traffic - 1e-9)
+        out["weeks"] = weeks
+        out["days"] = weeks * 7
+        out["feasible_in_max_weeks"] = None if max_weeks is None else weeks <= max_weeks
+        if max_weeks is not None and weeks > max_weeks:
+            reachable = int(traffic * max_weeks / variants)
+            if reachable > 0:
+                mde = _detectable_relative_effect(p1, reachable, alpha_each, power, two_sided)
+                out["detectable_in_max_weeks"] = {
+                    "per_variant": reachable,
+                    "relative_effect_pct": round(mde * 100, 1),
+                    "target_rate_pct": round(p1 * (1 + mde) * 100, 3),
+                }
+                out["warnings"].append(
+                    f"Needs {weeks} weeks but only {max_weeks:g} are available. In {max_weeks:g} weeks the smallest "
+                    f"detectable lift is {mde * 100:.1f} % relative ({p1 * (1 + mde) * 100:.3g} %)."
+                )
+        if weeks < 2:
+            out["warnings"].append("Run at least two full weeks anyway so every weekday is covered twice.")
+        out["summary"] = (
+            f"{per_variant:,} per variant ({total:,} in all): about {weeks} week{'s' if weeks != 1 else ''} at "
+            f"{traffic:,.0f} eligible per week, to detect {metric} moving from {baseline:g} % to {p2 * 100:.3g} %."
+        )
+    tail = "two-sided" if two_sided else "one-sided"
+    out["decision_rule"] = (
+        f"Fix the sample in advance: {per_variant:,} per variant. Run whole weeks and do not stop early on a "
+        f"good day. Call a variant the winner only if its {metric} beats the control by at least "
+        f"{(p2 - p1) * 100:.3g} percentage points with a {tail} p-value below {alpha_each:.4g}"
+        f"{' (per comparison)' if comparisons > 1 else ''}. Otherwise keep the control and record the result."
+    )
+    return out
+
+
+def experiment_plan_tool(args: dict) -> str:
+    return json.dumps(experiment_plan(args or {}), ensure_ascii=False, indent=1)
 
 
 def unit_economics_tool(args: dict) -> str:

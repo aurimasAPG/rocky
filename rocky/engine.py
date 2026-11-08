@@ -1319,6 +1319,7 @@ def _run_subtask(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
                 "Margins, break-even, discounts, promotions and acquisition costs go through unit_economics; "
                 "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
+                "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +
