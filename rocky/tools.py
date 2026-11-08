@@ -3759,7 +3759,7 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "table_analyze",
-            "description": "Read the user's own spreadsheet (CSV or XLSX in the workspace) as data and answer one question about it with real numbers: survey and respondent audits, service-quality gaps by branch or channel, complaint themes, search-term brand splits, press benchmarks across periods, before/after checks, lead-time distributions, sampling coverage. Use it for any spreadsheet question that is not a funnel (funnels go to funnel_analyze) or a transaction panel (repeat_buying), and never compute a count, share, mean, difference or percentage from a file by eye or with your own arithmetic. Pick op: describe, group (count/sum/mean/median/share/distinct by columns or week:/month: of a date column, with gap best−worst), crosstab (cells, row %, chi-square when every expected cell ≥ 5), before_after (means around split_date, Welch t, optional normalize_by), period_compare (latest vs previous and vs year ago), proportion_diff (two groups: difference in pp, Wald 95 % CI, z-test; without group_column: one proportion with Wilson CI), intervals (days between two date columns), coverage (list shares vs population_shares), text_themes (regex themes with samples), search_terms_split (branded vs non-branded spend, CPA, ROAS from a Google Ads export). Every result reports the dates actually covered, rows used, groups below min_rows as thin (never ranked), blanks and bad cells under missing, the method behind any statistic, and a one-sentence summary to quote as is.",
+            "description": "Read the user's own spreadsheet (CSV or XLSX in the workspace) as data and answer one question about it with real numbers: survey and respondent audits, service-quality gaps by branch or channel, complaint themes, search-term brand splits, press benchmarks across periods, before/after checks, lead-time distributions, sampling coverage. Use it for any spreadsheet question that is not a funnel (funnels go to funnel_analyze) or a transaction panel (repeat_buying), and never compute a count, share, mean, difference or percentage from a file by eye or with your own arithmetic. Pick op: describe, group (count/sum/mean/median/share/distinct by columns or week:/month: of a date column, with gap best−worst), crosstab (cells, row %, chi-square when every expected cell ≥ 5), before_after (means around split_date, Welch t, optional normalize_by), period_compare (latest vs previous and vs year ago), proportion_diff (two groups: difference in pp, Wald 95 % CI, z-test; without group_column: one proportion with Wilson CI), intervals (days between two date columns), coverage (list shares vs population_shares), text_themes (regex themes with samples), search_terms_split (branded vs non-branded spend, CPA, ROAS from a Google Ads export). Every result reports the dates actually covered, rows used, groups below min_rows as thin (never ranked), blanks and bad cells under missing, the method behind any statistic, and a one-sentence summary to quote as is. The 500-list ops read the marketer's own file as data: cohort_compare (affected cohort vs the rest with a Wald interval, first-event retention with censoring, a compare_column split), change_impact (pre/early/late windows, complaints per 1 000, noise band, change point, shared drop per segment), media_response (lag 0–4 correlation labelled correlation-not-causation, post-burst decay and half-life), price_response (arc and cross elasticity, contribution across the range; also inline before/after), promo_effect, choice_mix, basket, buyer_frequency (with and without outliers, NBD bands, continuous vs intermittent reporters), panel (share stability, duplication law, no penetration without total_households), survey, brand_recall (unaided and recognition never merged), keyword_demand (assumptions listed), page_breadth, market_match, campaign_compare (also inline campaigns[]), session_log and customer_audit.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -3775,13 +3775,30 @@ CLIENT_TOOL_SPECS = [
                             "intervals",
                             "coverage",
                             "text_themes",
-                            "search_terms_split"
+                            "search_terms_split",
+                            "cohort_compare",
+                            "change_impact",
+                            "media_response",
+                            "price_response",
+                            "promo_effect",
+                            "choice_mix",
+                            "basket",
+                            "buyer_frequency",
+                            "panel",
+                            "survey",
+                            "brand_recall",
+                            "keyword_demand",
+                            "page_breadth",
+                            "market_match",
+                            "campaign_compare",
+                            "session_log",
+                            "customer_audit"
                         ],
                         "description": "what to compute"
                     },
                     "path": {
                         "type": "string",
-                        "description": "CSV or XLSX file relative to the workspace"
+                        "description": "CSV or XLSX file relative to the workspace; optional for price_response with before/after and campaign_compare with campaigns[]"
                     },
                     "sheet": {
                         "type": "string",
@@ -3842,11 +3859,11 @@ CLIENT_TOOL_SPECS = [
                         "items": {
                             "type": "string"
                         },
-                        "description": "group/coverage/text_themes/before_after: grouping column(s), or week:<date column> / month:<date column> / year:<date column> / weekday:<date column>"
+                        "description": "group/coverage/text_themes/before_after: grouping column(s)…; change_impact: segment column (e.g. source) for per-segment change points and shared_drop"
                     },
                     "metric": {
                         "type": "string",
-                        "description": "group/before_after: numeric column to aggregate"
+                        "description": "group/before_after: numeric column to aggregate; change_impact/media_response/market_match/promo_effect: the numeric series column"
                     },
                     "agg": {
                         "type": "string",
@@ -3866,7 +3883,7 @@ CLIENT_TOOL_SPECS = [
                     },
                     "top": {
                         "type": "integer",
-                        "description": "group: how many groups to list (default 20)"
+                        "description": "group: how many groups to list (default 20); basket: how many attached skus to list (default 10)"
                     },
                     "population_shares": {
                         "type": "object",
@@ -3890,7 +3907,7 @@ CLIENT_TOOL_SPECS = [
                     },
                     "period_column": {
                         "type": "string",
-                        "description": "period_compare: quarter/month/date column (2025-Q1, Q1 2025, 2026-03, 2026-03-01) or month:<date column>"
+                        "description": "period_compare: quarter/month/date column…; panel: column with the period label per row"
                     },
                     "metrics": {
                         "type": "array",
@@ -3905,7 +3922,7 @@ CLIENT_TOOL_SPECS = [
                     },
                     "group_column": {
                         "type": "string",
-                        "description": "proportion_diff: column with exactly two groups (or name them with group_a/group_b); omit for a single proportion"
+                        "description": "proportion_diff: column with exactly two groups…; survey: segment or period column for per-group tallies and scores"
                     },
                     "group_a": {
                         "type": "string",
@@ -3917,14 +3934,14 @@ CLIENT_TOOL_SPECS = [
                     },
                     "outcome_column": {
                         "type": "string",
-                        "description": "proportion_diff: column holding the outcome"
+                        "description": "proportion_diff: column holding the outcome; choice_mix: outcome per row (e.g. status) for outcome_rate_pct per option value"
                     },
                     "positive_values": {
                         "type": "array",
                         "items": {
                             "type": "string"
                         },
-                        "description": "proportion_diff: values counted as positive (default yes/true/1/taip)"
+                        "description": "values counted as positive (default yes/true/1/taip) for proportion_diff, cohort_compare success_column, choice_mix outcome_column, price_response promo/stock columns, brand_recall recognition/remembered columns, customer_audit bounce/consent"
                     },
                     "invited": {
                         "type": "integer",
@@ -3968,11 +3985,614 @@ CLIENT_TOOL_SPECS = [
                     "value_column": {
                         "type": "string",
                         "description": "search_terms_split: override for the conversion value column"
+                    },
+                    "id_column": {
+                        "type": "string",
+                        "description": "cohort_compare/buyer_frequency: id per row (user, customer, household); customer_audit: optional row label column"
+                    },
+                    "success_column": {
+                        "type": "string",
+                        "description": "cohort_compare: outcome column; a row is a success when its value is in positive_values"
+                    },
+                    "cohort_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "cohort_compare: ids of the affected cohort"
+                    },
+                    "cohort_filter": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "column": {
+                                    "type": "string"
+                                },
+                                "op": {
+                                    "type": "string"
+                                },
+                                "value": {}
+                            },
+                            "required": [
+                                "column",
+                                "value"
+                            ]
+                        },
+                        "description": "cohort_compare: ids with at least one row matching these filters form the cohort (e.g. error_code == ADDR_SAVE)"
+                    },
+                    "cohort_first_from": {
+                        "type": "string",
+                        "description": "cohort_compare: YYYY-MM-DD; ids whose first dated row falls between cohort_first_from and cohort_first_to form the cohort"
+                    },
+                    "cohort_first_to": {
+                        "type": "string",
+                        "description": "cohort_compare: YYYY-MM-DD, see cohort_first_from"
+                    },
+                    "from_date": {
+                        "type": "string",
+                        "description": "cohort_compare: YYYY-MM-DD from which a row counts as 'returned' (e.g. the fix date); default the first date in the file"
+                    },
+                    "window_days": {
+                        "type": "integer",
+                        "description": "cohort_compare: days after from_date in which returns count; omit for open-ended"
+                    },
+                    "min_cohort": {
+                        "type": "integer",
+                        "description": "cohort_compare: fewest cohort ids for percentages (default 5); others need min_rows"
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": [
+                            "week",
+                            "month"
+                        ],
+                        "description": "cohort_compare: builds first-event cohorts and per-period new/active/success/connected-pairs tables; panel: bucket of date_column when there is no period_column"
+                    },
+                    "horizon_periods": {
+                        "type": "integer",
+                        "description": "cohort_compare retention: offsets 1..horizon (default 3); a period starting after the data ends is censored, not churned"
+                    },
+                    "counterparty_column": {
+                        "type": "string",
+                        "description": "cohort_compare: other-side id per row for distinct connected pairs per period (marketplaces)"
+                    },
+                    "compare_column": {
+                        "type": "string",
+                        "description": "cohort_compare: split rows by this column (e.g. saved_details_used) and compare median metrics and completion; pair with filter and metrics"
+                    },
+                    "change_date": {
+                        "type": "string",
+                        "description": "change_impact: YYYY-MM-DD of the change; without it the detected change point splits pre/post"
+                    },
+                    "complaints_column": {
+                        "type": "string",
+                        "description": "change_impact: complaint count per row"
+                    },
+                    "exposure_column": {
+                        "type": "string",
+                        "description": "change_impact: denominator per row (orders, sessions) for complaints per 1 000"
+                    },
+                    "noise_band_sd": {
+                        "type": "number",
+                        "description": "change_impact: half-width of the pre band in sample sd (default 2)"
+                    },
+                    "early_periods": {
+                        "type": "integer",
+                        "description": "change_impact: periods right after the change forming the early window (default 2)"
+                    },
+                    "late_periods": {
+                        "type": "integer",
+                        "description": "change_impact: last periods forming the late window (default 2)"
+                    },
+                    "min_pre_periods": {
+                        "type": "integer",
+                        "description": "change_impact: fewest pre periods (default 4) before any verdict"
+                    },
+                    "min_post_periods": {
+                        "type": "integer",
+                        "description": "change_impact: fewest post periods (default 4); fewer gives too_early with the count still needed"
+                    },
+                    "rolling": {
+                        "type": "integer",
+                        "description": "change_impact: rolling-mean window for the change point (default 7; use 2–4 for weekly data)"
+                    },
+                    "min_level": {
+                        "type": "number",
+                        "description": "change_impact with by: segments whose mean per period is below this (default 30) are listed under missing, not scored"
+                    },
+                    "shared_drop_days": {
+                        "type": "integer",
+                        "description": "change_impact with by: change points within this many days count as one shared drop (default 3)"
+                    },
+                    "spend_column": {
+                        "type": "string",
+                        "description": "media_response: spend per row; bursts are detected as runs with spend > 0 when campaigns is absent"
+                    },
+                    "spend_columns": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "media_response: several spend columns summed per period"
+                    },
+                    "campaigns": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "media_response: [{name, start, end}] burst windows; campaign_compare: inline [{name, sov_pct, som_start_pct, som_end_pct, months, spend_eur, brand_type?}] (no path needed)"
+                    },
+                    "max_lag": {
+                        "type": "integer",
+                        "description": "media_response: largest lag in periods for the spend–sales correlation (default 4)"
+                    },
+                    "baseline_periods": {
+                        "type": "integer",
+                        "description": "media_response: periods before a burst averaged as baseline (default 4); promo_effect: periods before promo_from (default 8)"
+                    },
+                    "noise_sd": {
+                        "type": "number",
+                        "description": "media_response: post-burst excess is followed until within this many baseline sd (default 1)"
+                    },
+                    "max_post_periods": {
+                        "type": "integer",
+                        "description": "media_response: longest post-burst tail followed (default 12)"
+                    },
+                    "before": {
+                        "type": "object",
+                        "description": "price_response inline: {price, units, period_start?, period_end?} for the earlier period (no path needed)"
+                    },
+                    "after": {
+                        "type": "object",
+                        "description": "price_response inline: {price, units, period_start?, period_end?} for the later period"
+                    },
+                    "price_column": {
+                        "type": "string",
+                        "description": "price_response from a file: price per row (period)"
+                    },
+                    "units_column": {
+                        "type": "string",
+                        "description": "price_response: units per row; buyer_frequency/panel: units per purchase row (default 1)"
+                    },
+                    "promo_column": {
+                        "type": "string",
+                        "description": "price_response: rows positive here are promo periods, excluded and listed under caveats"
+                    },
+                    "stock_column": {
+                        "type": "string",
+                        "description": "price_response: rows positive here are stock-outs, excluded and listed under caveats"
+                    },
+                    "variable_cost": {
+                        "type": "number",
+                        "description": "price_response: variable cost per unit of the repriced product for contribution before/after"
+                    },
+                    "related": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "price_response: [{name, units_before, units_after, price_before?, price_after?, variable_cost?}] for cross elasticity (substitute/complement) and the range contribution total"
+                    },
+                    "item_column": {
+                        "type": "string",
+                        "description": "promo_effect: item/pack per row"
+                    },
+                    "promo_item": {
+                        "type": "string",
+                        "description": "promo_effect: the promoted item value"
+                    },
+                    "promo_from": {
+                        "type": "string",
+                        "description": "promo_effect: YYYY-MM-DD first promo period"
+                    },
+                    "promo_to": {
+                        "type": "string",
+                        "description": "promo_effect: YYYY-MM-DD last promo period"
+                    },
+                    "related_items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "promo_effect: sibling packs to read alongside"
+                    },
+                    "post_periods": {
+                        "type": "integer",
+                        "description": "promo_effect: periods after promo_to (default 2 × promo length)"
+                    },
+                    "recovery_tolerance_pct": {
+                        "type": "number",
+                        "description": "promo_effect: back to baseline when within this % (default 10)"
+                    },
+                    "option_columns": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "choice_mix: one column per configurator option"
+                    },
+                    "default_share_threshold": {
+                        "type": "number",
+                        "description": "choice_mix: top-value share for shared_default (default 70)"
+                    },
+                    "specify_share_threshold": {
+                        "type": "number",
+                        "description": "choice_mix: top-value share below which buyers_specify (default 40)"
+                    },
+                    "max_values": {
+                        "type": "integer",
+                        "description": "choice_mix: columns with more distinct values get no verdict (default 50)"
+                    },
+                    "order_column": {
+                        "type": "string",
+                        "description": "basket: order/basket id per line"
+                    },
+                    "sku_column": {
+                        "type": "string",
+                        "description": "basket: sku or product per line"
+                    },
+                    "focus_skus": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "basket: skus to anchor on (attach rate, lift, repeat for their buyers)"
+                    },
+                    "revenue_column": {
+                        "type": "string",
+                        "description": "basket: net revenue per line for revenue per basket with/without focus"
+                    },
+                    "customer_column": {
+                        "type": "string",
+                        "description": "basket: customer id for repeat rate and days between focus orders; without it repeat is 'unavailable'"
+                    },
+                    "qty_column": {
+                        "type": "string",
+                        "description": "buyer_frequency: quantity per row, reported for outliers"
+                    },
+                    "universe": {
+                        "type": "integer",
+                        "description": "buyer_frequency: population size for penetration (buyers ÷ universe)"
+                    },
+                    "outlier_rule": {
+                        "type": "object",
+                        "description": "buyer_frequency: {method: iqr|multiple_of_median|zscore, threshold} (default iqr 3); outliers are flagged 'investigate' and every figure is given with and without them"
+                    },
+                    "population_size": {
+                        "type": "integer",
+                        "description": "buyer_frequency: all potential buyers; adds the zero class for the NBD fit"
+                    },
+                    "reporting_column": {
+                        "type": "string",
+                        "description": "buyer_frequency panel split: periods reported per id (in this file or reporting_path)"
+                    },
+                    "reporting_path": {
+                        "type": "string",
+                        "description": "buyer_frequency: separate CSV/XLSX with id and periods reported"
+                    },
+                    "reporting_sheet": {
+                        "type": "string",
+                        "description": "buyer_frequency: sheet of reporting_path"
+                    },
+                    "reporting_id_column": {
+                        "type": "string",
+                        "description": "buyer_frequency: id column in reporting_path (default id_column)"
+                    },
+                    "expected_periods": {
+                        "type": "integer",
+                        "description": "buyer_frequency: periods a continuous reporter must have (e.g. 52); default the most any id reported, said in warnings"
+                    },
+                    "brand_column": {
+                        "type": "string",
+                        "description": "buyer_frequency reporter split and panel: brand per purchase row"
+                    },
+                    "focal_brand": {
+                        "type": "string",
+                        "description": "buyer_frequency reporter split: brand whose share and frequency are compared between continuous and intermittent reporters"
+                    },
+                    "household_column": {
+                        "type": "string",
+                        "description": "panel: household id per purchase row"
+                    },
+                    "total_households": {
+                        "type": "integer",
+                        "description": "panel: all continuously reporting households incl. non-buyers; without it penetration is null with reason and ask_for names what to request"
+                    },
+                    "share_swing_threshold_pp": {
+                        "type": "number",
+                        "description": "panel: largest tolerated period-to-period share swing (default 5)"
+                    },
+                    "duplication_tolerance": {
+                        "type": "number",
+                        "description": "panel: observed ÷ expected duplication outside 1/x–x is flagged (default 1.5)"
+                    },
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "survey: answer columns to tally (counts, shares, median/mean and share at threshold when numeric)"
+                    },
+                    "response_column": {
+                        "type": "string",
+                        "description": "survey: the scored scale column (with scale and method)"
+                    },
+                    "scale": {
+                        "type": "object",
+                        "description": "survey: {min, max} of the response scale; answers outside it are excluded and make groups non-comparable"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "top_two_box",
+                            "top_box",
+                            "mean",
+                            "nps"
+                        ],
+                        "description": "survey: how response_column is scored (default top_two_box)"
+                    },
+                    "question": {
+                        "type": "string",
+                        "description": "survey: verbatim question text echoed in the definition"
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "description": "survey: numeric questions also report the share of answers at or above it"
+                    },
+                    "unaided_column": {
+                        "type": "string",
+                        "description": "brand_recall: free-text unaided mentions, split on ; , / and newlines, matched to brand_aliases"
+                    },
+                    "brand_aliases": {
+                        "type": "object",
+                        "description": "brand_recall: {brand: [spellings]} for matching mentions and attribution answers"
+                    },
+                    "recognition_columns": {
+                        "type": "object",
+                        "description": "brand_recall: {ad: column} with positive values when the ad was recognised"
+                    },
+                    "attribution_columns": {
+                        "type": "object",
+                        "description": "brand_recall: {message: column} with the 'who advertised it' answer"
+                    },
+                    "remembered_columns": {
+                        "type": "object",
+                        "description": "brand_recall: {message: column} positive when the message was remembered (the attribution base)"
+                    },
+                    "own_brand": {
+                        "type": "string",
+                        "description": "brand_recall: the marketer's brand"
+                    },
+                    "competitor_brands": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "brand_recall: competitors credited in attribution; others land under other_unmatched"
+                    },
+                    "dont_know_values": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "brand_recall: answers counted as don't know (default nežinau, don't know, blank)"
+                    },
+                    "keyword_column": {
+                        "type": "string",
+                        "description": "keyword_demand: keyword column (auto-detected)"
+                    },
+                    "volume_column": {
+                        "type": "string",
+                        "description": "keyword_demand: monthly searches column (auto-detected)"
+                    },
+                    "cpc_column": {
+                        "type": "string",
+                        "description": "keyword_demand: CPC column (optional)"
+                    },
+                    "kd_column": {
+                        "type": "string",
+                        "description": "keyword_demand: difficulty column (optional)"
+                    },
+                    "head_term": {
+                        "type": "string",
+                        "description": "keyword_demand: the broad head keyword compared with the grouped long tail"
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "keyword_demand: [{name, keywords: [...]}] or [{name, modifiers: [...]}] need groups; unmatched keywords are listed, never dropped silently"
+                    },
+                    "ctr_share_pct": {
+                        "type": "number",
+                        "description": "keyword_demand: assumed click share of searches (default 25), listed under assumptions"
+                    },
+                    "conversion_rate_pct": {
+                        "description": "keyword_demand: a number for all, or {group name or 'head': pct}"
+                    },
+                    "order_value_eur": {
+                        "type": "number",
+                        "description": "keyword_demand: value per conversion for est_value_eur"
+                    },
+                    "url_column": {
+                        "type": "string",
+                        "description": "page_breadth: page URL column (auto-detected: Top pages, Landing page, page, url)"
+                    },
+                    "metric_column": {
+                        "type": "string",
+                        "description": "page_breadth: clicks/sessions column (auto-detected)"
+                    },
+                    "min_value": {
+                        "type": "number",
+                        "description": "page_breadth: a page counts when its metric is at least this (default 1)"
+                    },
+                    "period_label": {
+                        "type": "string",
+                        "description": "page_breadth: label for path's period (e.g. Q1)"
+                    },
+                    "compare_path": {
+                        "type": "string",
+                        "description": "page_breadth: second period's export for delta, pages_new and pages_lost"
+                    },
+                    "compare_sheet": {
+                        "type": "string",
+                        "description": "page_breadth: sheet of compare_path"
+                    },
+                    "compare_label": {
+                        "type": "string",
+                        "description": "page_breadth: label for the second period"
+                    },
+                    "index_path": {
+                        "type": "string",
+                        "description": "page_breadth: sitemap.xml, a URL list .txt or a coverage CSV/XLSX in the workspace for indexed_without_traffic"
+                    },
+                    "index_sheet": {
+                        "type": "string",
+                        "description": "page_breadth: sheet of a CSV/XLSX index_path"
+                    },
+                    "index_url_column": {
+                        "type": "string",
+                        "description": "page_breadth: URL column of a CSV/XLSX index_path"
+                    },
+                    "market_column": {
+                        "type": "string",
+                        "description": "market_match: market/city per row"
+                    },
+                    "candidates": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "market_match: markets to score (default all)"
+                    },
+                    "test_market": {
+                        "type": "string",
+                        "description": "market_match: pair only this market with every control"
+                    },
+                    "test_weeks": {
+                        "type": "integer",
+                        "description": "market_match: planned test length for min_detectable_lift_pct (default 6)"
+                    },
+                    "min_periods": {
+                        "type": "integer",
+                        "description": "market_match: fewest pre periods per market (default 8); fewer is unsuitable"
+                    },
+                    "confounds": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "market_match: [{market, note}] known differences echoed into the result"
+                    },
+                    "name_column": {
+                        "type": "string",
+                        "description": "campaign_compare from a file: brand/campaign name column"
+                    },
+                    "sov_pct_column": {
+                        "type": "string",
+                        "description": "campaign_compare: share of voice % column"
+                    },
+                    "esov_pts_column": {
+                        "type": "string",
+                        "description": "campaign_compare: ESOV points column (instead of sov + som_start)"
+                    },
+                    "som_start_pct_column": {
+                        "type": "string",
+                        "description": "campaign_compare: market share at start"
+                    },
+                    "som_end_pct_column": {
+                        "type": "string",
+                        "description": "campaign_compare: market share at end"
+                    },
+                    "share_change_pp_column": {
+                        "type": "string",
+                        "description": "campaign_compare: share change in pp (instead of start/end)"
+                    },
+                    "months_column": {
+                        "type": "string",
+                        "description": "campaign_compare: duration in months per row"
+                    },
+                    "months": {
+                        "type": "number",
+                        "description": "campaign_compare: duration for every row when the file has no months column"
+                    },
+                    "spend_eur_column": {
+                        "type": "string",
+                        "description": "campaign_compare: spend per row"
+                    },
+                    "brand_type_column": {
+                        "type": "string",
+                        "description": "campaign_compare: established|launch|niche per row; enables the per-type benchmark and contamination flag"
+                    },
+                    "session_column": {
+                        "type": "string",
+                        "description": "session_log: session id per action row"
+                    },
+                    "action_column": {
+                        "type": "string",
+                        "description": "session_log: open / discard / revisit per row"
+                    },
+                    "source_column": {
+                        "type": "string",
+                        "description": "session_log: site or option acted on; customer_audit: where the record came from (phone, e-shop) for cross-source matches"
+                    },
+                    "reason_column": {
+                        "type": "string",
+                        "description": "session_log: verbatim discard reason"
+                    },
+                    "action_values": {
+                        "type": "object",
+                        "description": "session_log: {open: [...], discard: [...], revisit: [...]} to map other action spellings"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "duplicates",
+                            "stale",
+                            "both"
+                        ],
+                        "description": "customer_audit: what to check (default both)"
+                    },
+                    "phone_column": {
+                        "type": "string",
+                        "description": "customer_audit: phone column (auto-detected)"
+                    },
+                    "email_column": {
+                        "type": "string",
+                        "description": "customer_audit: email column (auto-detected)"
+                    },
+                    "fuzzy_names": {
+                        "type": "boolean",
+                        "description": "customer_audit: list same-name rows as candidates needing confirmation (default true)"
+                    },
+                    "last_activity_column": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "customer_audit stale: one or more date columns; the latest per row is used"
+                    },
+                    "stale_after_months": {
+                        "type": "integer",
+                        "description": "customer_audit: months without activity that make a record stale (default 18), echoed back"
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "description": "customer_audit: YYYY-MM-DD reference date (default today)"
+                    },
+                    "bounce_column": {
+                        "type": "string",
+                        "description": "customer_audit: positive when the address bounced"
+                    },
+                    "consent_column": {
+                        "type": "string",
+                        "description": "customer_audit: rows with a non-positive value here count as no consent"
                     }
                 },
                 "required": [
-                    "op",
-                    "path"
+                    "op"
                 ]
             }
         }
