@@ -3895,6 +3895,318 @@ CLIENT_TOOL_SPECS = [
     {
         "type": "function",
         "function": {
+            "name": "web_check",
+            "description": "Web checks a marketer asks for by eye, done by code. Pick the mode: name_check (candidate names → spellings a LT/EN listener would type, what each finds in search, collisions with another brand or a dictionary word; verdict always untested_with_buyers), mention_scan (brand + domain + qualifiers → results sorted ours / ambiguous / other, ambiguity share, the qualifier that disambiguates best), policy_finder (site_url, topic delivery|returns|exceptions, start_url → follows footer/header/help/FAQ links, returns policy_url, clicks_from_start and the promise fields with verbatim quotes), listing_check (canonical NAP + listing pages → per field match / mismatch / not_found after digit normalisation), search_intent (queries → informational / commercial / transactional / navigational / mixed with evidence tokens and SERP shapes), site_crawl (BFS within max_pages/max_depth → depth and inbound per page, orphan important pages with suggested link sources), keyword_inspect (who ranks for a keyword and what their pages carry next to your own), link_prospects (which candidates link to a target, the citing sentence, relevance then reach), locale_check (lang attr, hreflang, currency, date, number and phone formats against an expected locale), kit_check (press or partner kit against required items), email_auth (SPF/DKIM/DMARC results parsed from a pasted raw email; DNS lookups land under missing with the dig commands), search_region (region-aware query variants; the searcher has no region parameter). A url, query or lookup that could not be done lands under missing, never guessed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "name_check",
+                            "mention_scan",
+                            "policy_finder",
+                            "listing_check",
+                            "search_intent",
+                            "site_crawl",
+                            "keyword_inspect",
+                            "link_prospects",
+                            "locale_check",
+                            "kit_check",
+                            "email_auth",
+                            "search_region"
+                        ],
+                        "description": "which check to run"
+                    },
+                    "names": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "name_check: 1-10 candidate names"
+                    },
+                    "langs": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "name_check: listener languages, lt and/or en (default both)"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "name_check: product category words to look for in result titles"
+                    },
+                    "intended_url": {
+                        "type": "string",
+                        "description": "name_check: the site the name should lead to"
+                    },
+                    "brand": {
+                        "type": "string",
+                        "description": "mention_scan: brand name"
+                    },
+                    "domain": {
+                        "type": "string",
+                        "description": "mention_scan: brand domain; email_auth: sending domain when no headers"
+                    },
+                    "qualifiers": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "mention_scan: 2-5 words that identify the brand"
+                    },
+                    "variants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "mention_scan: misspellings or product names; auto-generated when empty"
+                    },
+                    "products": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "mention_scan: product names for brand+product variants"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "mention_scan: cap on results kept (default 60)"
+                    },
+                    "site_url": {
+                        "type": "string",
+                        "description": "policy_finder: the shop's home address"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "enum": [
+                            "delivery",
+                            "returns",
+                            "exceptions"
+                        ],
+                        "description": "policy_finder: which policy to find"
+                    },
+                    "start_url": {
+                        "type": "string",
+                        "description": "policy_finder: where the buyer starts; site_crawl: crawl start"
+                    },
+                    "max_pages": {
+                        "type": "integer",
+                        "description": "policy_finder: page budget (default 15); site_crawl: crawl cap (default 300)"
+                    },
+                    "canonical": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "address": {
+                                "type": "string"
+                            },
+                            "phone": {
+                                "type": "string"
+                            },
+                            "hours": {
+                                "type": "string"
+                            },
+                            "website": {
+                                "type": "string"
+                            }
+                        },
+                        "description": "listing_check: the correct record"
+                    },
+                    "listings": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "url": {
+                                    "type": "string"
+                                },
+                                "path": {
+                                    "type": "string"
+                                },
+                                "html": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "listing_check: directory pages, one source each"
+                    },
+                    "queries": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "search_intent: the queries to classify"
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "search_intent, keyword_inspect: lt or en"
+                    },
+                    "site": {
+                        "type": "string",
+                        "description": "search_intent: own domain"
+                    },
+                    "fetch_serp": {
+                        "type": "boolean",
+                        "description": "search_intent: run the searcher for SERP shapes (default true)"
+                    },
+                    "important_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "site_crawl: pages that must be reachable"
+                    },
+                    "important_path": {
+                        "type": "string",
+                        "description": "site_crawl: workspace file with one url per line"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "site_crawl: click depth cap (default 4)"
+                    },
+                    "same_host_only": {
+                        "type": "boolean",
+                        "description": "site_crawl: stay on the start host (default true)"
+                    },
+                    "keyword": {
+                        "type": "string",
+                        "description": "keyword_inspect: the keyword"
+                    },
+                    "result_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "keyword_inspect: up to 10 ranking urls; omitted = run the searcher"
+                    },
+                    "own_url": {
+                        "type": "string",
+                        "description": "keyword_inspect: the marketer's page"
+                    },
+                    "own_html": {
+                        "type": "string",
+                        "description": "keyword_inspect: the marketer's page as html"
+                    },
+                    "kd": {
+                        "type": "number",
+                        "description": "keyword_inspect: difficulty, passed through"
+                    },
+                    "volume": {
+                        "type": "number",
+                        "description": "keyword_inspect: monthly searches, passed through"
+                    },
+                    "target_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "link_prospects: pages the candidates should link to"
+                    },
+                    "topic_terms": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "link_prospects: 3-10 topic words for relevance"
+                    },
+                    "candidates": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "url": {
+                                    "type": "string"
+                                },
+                                "reach": {
+                                    "type": "number"
+                                }
+                            }
+                        },
+                        "description": "link_prospects: candidate referring pages with DR/traffic as reach"
+                    },
+                    "max_fetch": {
+                        "type": "integer",
+                        "description": "link_prospects: fetch cap (default 50)"
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "locale_check, kit_check: the page address"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "locale_check, kit_check: workspace HTML file"
+                    },
+                    "html": {
+                        "type": "string",
+                        "description": "locale_check, kit_check, listing_check: page source pasted"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "locale_check: copy to check without a page"
+                    },
+                    "expected_locale": {
+                        "type": "string",
+                        "description": "locale_check: e.g. lt-LT, lv-LV, et-EE, pl-PL, de-DE, en-GB"
+                    },
+                    "files": {
+                        "type": "array",
+                        "items": {},
+                        "description": "kit_check: file names (or {path, width, height, alt}) of the kit"
+                    },
+                    "boilerplate": {
+                        "type": "string",
+                        "description": "kit_check: the boilerplate text when not on the page"
+                    },
+                    "contact": {
+                        "type": "string",
+                        "description": "kit_check: contact line when not on the page"
+                    },
+                    "required": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "kit_check: subset of logo_vector, logo_raster, boilerplate, contact, images_sized, images_alt"
+                    },
+                    "headers_text": {
+                        "type": "string",
+                        "description": "email_auth: the raw email source with headers"
+                    },
+                    "dkim_selectors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "email_auth: selectors to name in the dig commands"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "search_region: the query"
+                    },
+                    "region": {
+                        "type": "string",
+                        "description": "search_region: market code such as lt-lt, lv-lv, pl-pl, de-de"
+                    },
+                    "local_terms": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "search_region: native-language terms supplied by the caller"
+                    }
+                },
+                "required": [
+                    "mode"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "browser_navigate",
             "description": "Open a URL in a real Chromium browser (JS-rendered pages) and return visible text.",
             "parameters": {
@@ -4424,6 +4736,16 @@ def dispatch(
             from rocky import research
 
             return getattr(research, f"{name}_tool")(args)
+        if name == "web_check":
+            from rocky.webcheck import web_check_tool
+
+            return web_check_tool(
+                tools,
+                args,
+                fetch_html=getattr(searcher, "fetch_html", None) if searcher is not None else None,
+                fetch_meta=getattr(searcher, "fetch_meta", None) if searcher is not None else None,
+                search=getattr(searcher, "search", None) if searcher is not None else None,
+            )
         if name == "seo_inspect":
             from rocky.seo import seo_inspect_tool
 

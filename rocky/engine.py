@@ -1338,6 +1338,8 @@ def _run_subtask(
                 "mental availability, benchmark fit and respondent coverage go through campaign_calc. "
                 "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
                 "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
+                "A name's spellings, brand mentions, a shop's delivery or returns policy, directory listings, search intent, orphan pages, "
+                "ranking competitors, link prospects, locale formats, a press kit or email authentication headers go through web_check. "
                 "A content calendar, press release, message house, demo plan, escalation matrix, partner programme, qualification sheet "
                 "or community rules goes through plan_check before it reaches the deliverable; a positioning statement or ad can be read "
                 "by a cold reader with plan_check retell or ad_pretest. "

@@ -58,6 +58,7 @@ _TOOL_VERB = {
     "plan_check": "checking the plan",
     "page_inspect": "checking the landing page",
     "seo_inspect": "checking search",
+    "web_check": "checking the web",
     "survey_check": "checking the questionnaire",
     "outcome_scores": "scoring outcomes",
     "research_plan": "designing the study",
