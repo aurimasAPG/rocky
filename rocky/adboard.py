@@ -95,6 +95,8 @@ _LABELS = {
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
         "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
         "role_control": "Control: current pitch", "role_challenger": "Challenger",
+        "guide": "Who gets what", "guide_note": "When a lead comes from an ad, this says which product to offer.",
+        "guide_ad": "Ad", "guide_for": "For", "guide_offer": "Offer",
         "stakes": "Before you spend",
         "stakes_note": "What buyers expect from anyone in this category. If you miss a minimum, fix that before paying for ads.",
         "stake_outcome": "Expected", "stake_minimum": "Minimum", "stake_status": "Status",
@@ -110,6 +112,8 @@ _LABELS = {
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
         "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
         "role_control": "Kontrolinė: dabartinė žinutė", "role_challenger": "Nauja žinutė",
+        "guide": "Kam ką siūlyti", "guide_note": "Kai užklausa ateina iš reklamos, šis sąrašas pasako, kurį produktą siūlyti.",
+        "guide_ad": "Reklama", "guide_for": "Kam", "guide_offer": "Ką siūlyti",
         "stakes": "Prieš leidžiant biudžetą",
         "stakes_note": "Ko pirkėjai tikisi iš bet kurio šios srities pardavėjo. Jei minimumo nepasiekiate, pirma sutvarkykite tai, o ne reklamą.",
         "stake_outcome": "Ko tikimasi", "stake_minimum": "Minimumas", "stake_status": "Būsena",
@@ -443,6 +447,23 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
     )
 
 
+def _guide(pack: dict, labels: dict) -> str:
+    """Which product to offer whoever arrives from each ad (Jobs to Be Done, pp. 113–115). One product needs no guide."""
+    e = html.escape
+    rows = [(n, ad["audience"], (ad.get("mix") or {}).get("product") or "") for n, ad in enumerate(pack["ads"], 1)]
+    rows = [row for row in rows if row[2]]
+    if len({product for _, _, product in rows}) < 2:
+        return ""
+    body = "".join(
+        f'<tr><td>{e(labels["number"])} {n}</td><td>{e(audience)}</td><td>{e(product)}</td></tr>' for n, audience, product in rows
+    )
+    return (
+        f'<section class="evidence guide"><h2>{e(labels["guide"])}</h2><p>{e(labels["guide_note"])}</p>'
+        f'<table><thead><tr><th>{e(labels["guide_ad"])}</th><th>{e(labels["guide_for"])}</th>'
+        f'<th>{e(labels["guide_offer"])}</th></tr></thead><tbody>{body}</tbody></table></section>'
+    )
+
+
 def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
     """One self-contained file: no network, and nothing from a page or a model runs as markup."""
     e = html.escape
@@ -501,7 +522,7 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
         f'<dl class="tally"><div><dt>{e(labels["ads"])}</dt><dd>{len(pack["ads"])}</dd></div>'
         f'<div><dt>{e(labels["ready"])}</dt><dd>{ready_count}</dd></div>'
         f'<div class="{"bad" if fix else ""}"><dt>{e(labels["fix"])}</dt><dd>{fix}</dd></div></dl>{alerts}</header>'
-        f'<main>{proofs}</main>{stakes}'
+        f'<main>{proofs}</main>{_guide(pack, labels)}{stakes}'
         f'<section class="evidence"><h2>{e(labels["evidence"])}</h2><p>{e(labels["evidence_note"])}</p>{evidence}</section>'
         f"<script>{_SCRIPT}</script></body></html>"
     )
@@ -576,6 +597,7 @@ th{text-align:left;padding:0 16px 8px 0}
 td{border-top:1px solid var(--rule);padding:10px 16px 10px 0;vertical-align:top;overflow-wrap:anywhere}
 td a,.mast>a{color:inherit;text-underline-offset:3px}
 td:last-child{font:13.5px/1.45 var(--mono);width:42%}
+.guide td:last-child{font:inherit;width:34%}.guide td:first-child{white-space:nowrap}
 .stakes td:last-child{width:auto;white-space:nowrap}.stakes td.met{color:var(--go)}.stakes td.unmet{color:var(--stop)}.stakes td.unknown{color:var(--hold)}
 @media (max-width:760px){.mast{grid-template-columns:1fr}.tally{grid-column:1;grid-row:auto;margin-top:20px}.proof{grid-template-columns:minmax(0,1fr)}td:last-child{width:auto}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

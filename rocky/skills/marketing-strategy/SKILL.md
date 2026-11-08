@@ -45,3 +45,13 @@ Some outcomes matter to customers and every serious competitor already delivers 
 - No ad leads on a table stake. Differentiate on something competitors do not already deliver.
 
 Source: Jobs to Be Done, pp. 105–106.
+
+## Match an existing portfolio to segments
+
+A company with several products should not push the same one at everybody. For each product already on sale, find the segment whose struggle it solves best, so whoever answers a lead knows what to recommend.
+
+- Write one `Match: <product> → <segment>` line per product in `runs/notes/facts.md`.
+- Each ad's `mix.product` is the product matched to that ad's segment. The page turns these into a guide for the people handling the leads.
+- A product that matches no segment gets no ad. Say so in the facts instead of forcing one.
+
+Source: Jobs to Be Done, pp. 113–115.

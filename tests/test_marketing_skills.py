@@ -47,3 +47,9 @@ def test_the_table_stakes_rule_is_in_the_skill_with_its_source():
     assert "Protect category table stakes" in text
     assert "Jobs to Be Done, pp. 105–106" in text
 
+
+def test_the_portfolio_rule_is_in_the_skill_with_its_source():
+    text = view_skill("marketing-strategy")
+    assert "Match an existing portfolio to segments" in text
+    assert "Jobs to Be Done, pp. 113–115" in text
+

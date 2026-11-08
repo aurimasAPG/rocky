@@ -123,6 +123,30 @@ def test_no_ads_blocks():
     assert _codes(_check(pack, images={}), "block") == ["no_ads"]
 
 
+def _portfolio(*products):
+    pack = _pack()
+    pack["ads"] = [
+        {**pack["ads"][0], "audience": f"Segmentas {i}", "mix": {"product": product, "price": "1", "place": "2"}}
+        for i, product in enumerate(products, 1)
+    ]
+    return normalize(pack)
+
+
+def test_ads_for_different_products_get_a_guide_to_who_gets_what():
+    page = render(_portfolio("Meta reklama", "SEO auditas"), [], {})
+    assert "Kam ką siūlyti" in page
+    assert "<td>Nr. 2</td><td>Segmentas 2</td><td>SEO auditas</td>" in page
+
+
+def test_a_single_product_needs_no_guide():
+    assert "Kam ką siūlyti" not in render(_portfolio("Meta reklama", "Meta reklama"), [], {})
+
+
+def test_the_recipe_matches_each_product_to_a_segment():
+    steps = {step["title"]: step["detail"] for step in load_recipes()["ads"].render_steps("goal")}
+    assert "`Match: `" in steps["Facts"] and "what the Match line gives" in steps["Ads"]
+
+
 def _stakes(*statuses):
     pack = _pack()
     pack["table_stakes"] = [{"outcome": f"Rezultatas {s}", "minimum": "Minimumas", "status": s} for s in statuses]
