@@ -21,19 +21,23 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from rocky.adboard import BOARD_PATH, current_checks, fix_instruction
 from rocky.config import allowed_workspaces, api_key, serve_token
 from rocky.job import spawn_worker
+from rocky.playbook import FIX_CAP_EUR, for_code
 from rocky.runs import (
     TERMINAL,
     EventCursor,
     create_run,
     list_runs,
+    load_resume_state,
     read_ask,
     refresh_meta,
     run_dir,
     stop_run,
     write_answer,
 )
+from rocky.tools import WorkspaceTools
 
 STATIC = Path(__file__).parent / "static"
 POLL = 0.3
@@ -60,6 +64,14 @@ class AnswerRequest(BaseModel):
 
 class StopRequest(BaseModel):
     workspace: str = ""
+
+
+class FixRequest(BaseModel):
+    workspace: str = ""
+    ad: int = Field(default=0, ge=0)
+    code: str
+    field: str = ""
+    value: str = ""
 
 
 def _auth(request: Request) -> None:
@@ -198,6 +210,67 @@ def stop(run_id: str, body: StopRequest, request: Request):
     workspace = _workspace_for(run_id, body.workspace)
     meta = stop_run(workspace, run_id)
     return _row(meta)
+
+
+def _follow_up(workspace: Path, run_id: str, instruction: str) -> dict[str, str]:
+    """One capped follow-up on a finished run. Two at once would overwrite each other's page."""
+    if not api_key():
+        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY is missing on the server.")
+    if any(str(row.get("status") or "") not in TERMINAL for row in list_runs(workspace)):
+        raise HTTPException(status_code=409, detail="A run is still going in this folder.")
+    try:
+        state = load_resume_state(run_dir(workspace, run_id), follow_up=instruction)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    meta = create_run(
+        workspace=workspace,
+        goal=instruction,
+        budget_eur=FIX_CAP_EUR,
+        max_loops=1,
+        include_server_tools=bool(state.get("include_server_tools", True)),
+        resume_from=run_id,
+        follow_up=instruction,
+    )
+    spawn_worker(meta)
+    with _lock:
+        _started[meta["id"]] = workspace
+    return {"id": meta["id"], "workspace": str(workspace)}
+
+
+@app.post("/api/runs/{run_id}/fix")
+def fix(run_id: str, body: FixRequest, request: Request):
+    """Fix one finding. It must still be on the page, so the request cannot carry its own instruction."""
+    _auth(request)
+    workspace = _workspace_for(run_id, body.workspace)
+    element = for_code(body.code)
+    if element is None or not element.fixable(body.code):
+        raise HTTPException(status_code=400, detail="Rocky cannot fix this one.")
+    target = (body.ad, body.code, body.field, body.value)
+    found = next(
+        (c for c in current_checks(WorkspaceTools(workspace)) or [] if (c.ad, c.code, c.field, c.value) == target),
+        None,
+    )
+    if found is None:
+        raise HTTPException(status_code=409, detail="That point is no longer on the page.")
+    return _follow_up(workspace, run_id, fix_instruction(found))
+
+
+@app.get("/api/runs/{run_id}/board")
+def board(run_id: str, request: Request, workspace: str = ""):
+    """The ad page for the viewer in the web UI. Its text comes from models and websites, so it is sandboxed."""
+    _auth(request)
+    ws = _workspace_for(run_id, workspace)
+    path = ws / BOARD_PATH
+    if refresh_meta(run_dir(ws, run_id)).get("deliverable_path") != BOARD_PATH or not path.is_file():
+        raise HTTPException(status_code=404, detail="This run has no ad page.")
+    return FileResponse(
+        path,
+        media_type="text/html",
+        headers={
+            "Content-Security-Policy": "sandbox allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.get("/api/runs/{run_id}/events")

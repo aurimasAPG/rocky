@@ -208,3 +208,7 @@ button.secondary:disabled { opacity: 0.35; cursor: default; }
 .runs-list .status.passed, .runs-list .status.passed_with_notes { border-color: var(--teal); }
 .runs-list .status.unmet, .runs-list .status.error, .runs-list .status.crashed { border-color: var(--fail); }
 .runs-list .status.running, .runs-list .status.waiting { border-color: var(--copper); }
+
+.result { padding: 24px 32px; }
+.result h2 { font-family: var(--display); margin: 0 0 12px; }
+.result iframe { display: block; width: 100%; min-height: 640px; border: 0; background: var(--paper); }

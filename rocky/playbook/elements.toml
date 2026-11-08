@@ -1,0 +1,191 @@
+# One record per marketing element: the plain question a marketer sees, when it
+# applies, how Rocky enforces it, and where it comes from.
+# number 0 is a Rocky check that comes from no book.
+# enforced: check (code measures the output) | recipe (a step does the work) | rule (a skill the worker loads).
+# codes are the board findings this element produces; manual lists those Rocky cannot fix by itself.
+
+[[element]]
+number = 1
+title = "Check the four Ps of the marketing mix"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["mix_missing"]
+source = "Principles of Marketing, pp. 32–35"
+question.en = "Can buyers actually get what the ad promises?"
+question.lt = "Ar pirkėjai tikrai gali gauti tai, ką žada reklama?"
+why.en = "An ad sells a promise, but the product, the price and where to get it decide the purchase. If any of them falls short, you pay for the click and lose the sale."
+why.lt = "Reklama parduoda pažadą, o pirkimą lemia produktas, kaina ir vieta, kur jį gauti. Jei kuris nors iš jų pažado neatitinka, už paspaudimą sumokėsite, o pirkimo nebus."
+
+[[element]]
+number = 2
+title = "Define the market around a durable job"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "recipe"
+source = "Jobs to Be Done, pp. 54–56"
+question.en = "What is the customer really trying to get done?"
+question.lt = "Ką klientas iš tikrųjų nori pasiekti?"
+why.en = "Features age with the technology, while what people want done lasts. Ads built on that goal keep working when the tool changes."
+why.lt = "Funkcijos sensta kartu su technologija, o tai, ko žmonės siekia, išlieka. Tuo tikslu paremtos reklamos veikia ir pasikeitus įrankiui."
+
+[[element]]
+number = 3
+title = "Segment by patterns of unmet needs"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "recipe"
+source = "Jobs to Be Done, pp. 97–98"
+question.en = "Is the audience defined by its problem rather than its age?"
+question.lt = "Ar auditoriją apibrėžia jos problema, o ne amžius?"
+why.en = "Age and job title describe people but do not say why they would buy. A shared struggle does, and it can be turned into targeting."
+why.lt = "Amžius ir pareigos apibūdina žmones, bet nepasako, kodėl jie pirktų. Bendra problema tai pasako, ir ją galima paversti taikymu."
+
+[[element]]
+number = 4
+title = "Test repositioning before changing the product"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["no_test"]
+source = "Jobs to Be Done, pp. 99–101"
+question.en = "Is the new message tested against the current one?"
+question.lt = "Ar nauja žinutė lyginama su dabartine?"
+why.en = "A new message costs far less than a new product. Without the current pitch as a control, you cannot tell whether the new one is better."
+why.lt = "Nauja žinutė kainuoja daug mažiau nei naujas produktas. Be dabartinės žinutės kaip kontrolės nesužinosite, ar nauja yra geresnė."
+
+[[element]]
+number = 5
+title = "Protect category table stakes"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["stake_unmet", "no_stakes"]
+manual = ["stake_unmet"]
+source = "Jobs to Be Done, pp. 105–106"
+question.en = "Do you meet the minimum buyers expect?"
+question.lt = "Ar pasiekiate minimumą, kurio tikisi pirkėjai?"
+why.en = "An ad cannot make up for what buyers expect from everyone. Below the minimum, the budget brings people to an offer they will not take."
+why.lt = "Reklama neatstos to, ko pirkėjai tikisi iš visų. Nepasiekus minimumo, biudžetas atves žmones prie pasiūlymo, kurio jie nepriims."
+
+[[element]]
+number = 6
+title = "Match an existing portfolio to segments"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "recipe"
+source = "Jobs to Be Done, pp. 113–115"
+question.en = "Does each group get the product that suits it best?"
+question.lt = "Ar kiekviena grupė gauna jai tinkamiausią produktą?"
+why.en = "Pushing one product at everybody wastes the rest of the range. A match tells whoever answers a lead what to recommend."
+why.lt = "Vieno produkto siūlymas visiems nepanaudoja likusio asortimento. Atitikmuo pasako, ką rekomenduoti atsakant į užklausą."
+
+[[element]]
+number = 7
+title = "Use the BCG growth-share matrix to question investment choices"
+topic = "Market strategy and positioning"
+applies = ["marketing"]
+enforced = "rule"
+source = "Principles of Marketing, pp. 71–73"
+question.en = "Does the investment fit the product's position in its market?"
+question.lt = "Ar investicija atitinka produkto padėtį rinkoje?"
+why.en = "Market growth and relative share show how much cash a product line needs and what it returns. A proposal that ignores this may fund the wrong line."
+why.lt = "Rinkos augimas ir santykinė dalis parodo, kiek pinigų produkto linijai reikia ir kiek ji grąžina. Į tai neatsižvelgus galima finansuoti ne tą liniją."
+
+[[element]]
+number = 8
+title = "Separate market development from market penetration"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["no_reach"]
+source = "Principles of Marketing, pp. 75–76"
+question.en = "Can the buyers in a new market actually be reached?"
+question.lt = "Ar naujos rinkos pirkėjus tikrai galima pasiekti?"
+why.en = "A new market carries a risk an existing one does not: those buyers may be out of reach. You need evidence that your channel and language get to them."
+why.lt = "Nauja rinka turi riziką, kurios neturi esama: tų pirkėjų galite apskritai nepasiekti. Reikia įrodymų, kad jūsų kanalas ir kalba juos pasiekia."
+
+[[element]]
+number = 9
+title = "Check whether a segment is commercially usable"
+topic = "Market strategy and positioning"
+applies = ["ads"]
+enforced = "check"
+codes = ["segment_gap"]
+source = "Principles of Marketing, pp. 188–189"
+question.en = "Is the audience big enough to pay back?"
+question.lt = "Ar auditorija pakankamai didelė, kad atsipirktų?"
+why.en = "A segment can be real and still too small. Lithuania is a small market, so a niche may be only a few hundred buyers."
+why.lt = "Segmentas gali būti tikras ir vis tiek per mažas. Lietuva yra nedidelė rinka, tad niša gali reikšti vos kelis šimtus pirkėjų."
+
+[[element]]
+number = 10
+title = "Build a perceptual map from buyers' judgments"
+topic = "Market strategy and positioning"
+applies = ["marketing"]
+enforced = "rule"
+source = "Principles of Marketing, pp. 197–199"
+question.en = "Does the positioning rest on what buyers think, not on your opinion?"
+question.lt = "Ar pozicionavimą pagrindžia pirkėjų, o ne jūsų nuomonė?"
+why.en = "A map drawn from your own view only restates it. Buyers choose the axes, and an empty corner may be empty for a reason."
+why.lt = "Pagal savo požiūrį nubraižytas žemėlapis jį tik pakartoja. Ašis nustato pirkėjai, o tuščias kampas gali būti tuščias ne be priežasties."
+
+[[element]]
+number = 0
+title = "Every number needs a source"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["number_unsourced", "source_bad", "source_unknown"]
+question.en = "Does every number have a source?"
+question.lt = "Ar kiekvienas skaičius turi šaltinį?"
+why.en = "A number in an ad is a promise. Without a source you cannot defend it when a customer or the platform asks."
+why.lt = "Skaičius reklamoje yra pažadas. Be šaltinio negalėsite jo apginti, kai paklaus klientas ar platforma."
+
+[[element]]
+number = 0
+title = "Copy fits the feed"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["too_long"]
+question.en = "Does the text fit what the feed shows?"
+question.lt = "Ar tekstas telpa į tai, ką rodo srautas?"
+why.en = "The feed shows only the start of the text and hides the rest. The main point has to fit in the visible part."
+why.lt = "Srautas rodo tik teksto pradžią, o likusią dalį paslepia. Pagrindinė mintis turi tilpti į matomą dalį."
+
+[[element]]
+number = 0
+title = "Promises you can prove"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["promise"]
+question.en = "Can you prove every promise?"
+question.lt = "Ar galite įrodyti kiekvieną pažadą?"
+why.en = "Words like guaranteed or best raise expectations and carry legal risk. If you cannot prove them, soften them."
+why.lt = "Žodžiai „garantuojame“ ar „geriausias“ kelia lūkesčius ir teisinę riziką. Jei negalite jų įrodyti, verta juos sušvelninti."
+
+[[element]]
+number = 0
+title = "A complete ad"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["missing_field", "bad_url", "no_ads"]
+question.en = "Does the ad have everything it needs to launch?"
+question.lt = "Ar reklamoje yra viskas, ko reikia ją paleidžiant?"
+why.en = "Ads Manager will not accept an ad without these fields, or a link that does not work."
+why.lt = "„Ads Manager“ nepriims reklamos be šių laukų ar su neveikiančia nuoroda."
+
+[[element]]
+number = 0
+title = "A visual for every ad"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["no_image"]
+question.en = "Does every ad have a visual?"
+question.lt = "Ar kiekviena reklama turi vizualą?"
+why.en = "An ad needs a visual to run in the feed. Without one it is only copy."
+why.lt = "Kad reklama rodytųsi sraute, jai reikia vizualo. Be jo tai tik tekstas."

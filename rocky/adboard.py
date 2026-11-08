@@ -14,12 +14,14 @@ import html
 import json
 import mimetypes
 import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 from rocky.lang import detect_language
+from rocky.playbook import FIX_CAP_EUR, for_code
 from rocky.tools import ToolError, WorkspaceTools
 
 BOARD_PATH = "deliverables/ads.html"
@@ -105,6 +107,8 @@ _LABELS = {
         "description": "Description", "download": "Download visual", "no_visual": "No visual yet",
         "evidence": "Evidence", "evidence_note": "Where every number in these ads comes from.", "claim": "Claim",
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
+        "why": "Why?", "fix_action": "Fix it (up to €{cap})", "ignore": "Ignore", "handled": "Mark as handled", "undo": "Undo",
+        "fixing": "Fixing…", "command_copied": "Command copied: run it in the campaign folder",
         "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
         "role_control": "Control: current pitch", "role_challenger": "Challenger",
         "seg_size": "Size", "seg_buying_power": "Buying power", "seg_reach_cost": "Cost to reach", "seg_distinct": "Why it differs",
@@ -124,6 +128,8 @@ _LABELS = {
         "download": "Atsisiųsti vizualą", "no_visual": "Vizualas dar nesukurtas", "evidence": "Įrodymai",
         "evidence_note": "Iš kur paimtas kiekvienas skaičius šiose reklamose.", "claim": "Teiginys",
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
+        "why": "Kodėl?", "fix_action": "Taisyti (iki {cap} €)", "ignore": "Ignoruoti", "handled": "Pažymėti kaip sutvarkytą", "undo": "Grąžinti",
+        "fixing": "Taisoma…", "command_copied": "Komanda nukopijuota: paleiskite ją kampanijos aplanke",
         "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
         "role_control": "Kontrolinė: dabartinė žinutė", "role_challenger": "Nauja žinutė",
         "seg_size": "Dydis", "seg_buying_power": "Perkamoji galia", "seg_reach_cost": "Kaina pasiekti", "seg_distinct": "Kuo skiriasi",
@@ -316,6 +322,13 @@ def _attach(pack: dict, tools: WorkspaceTools) -> dict[int, str]:
     return images
 
 
+def _keep_earlier_visuals(pack: dict, tools: WorkspaceTools) -> None:
+    """A follow-up resends the copy without the image paths; ad numbers keep their visuals."""
+    earlier = (_load_pack(tools) or {}).get("ads") or []
+    for ad, old in zip(pack["ads"], earlier):
+        ad["image"] = ad["image"] or str(old.get("image") or "")
+
+
 def _publish(tools: WorkspaceTools, pack: dict) -> list[Check]:
     images = _attach(pack, tools)
     checks = check_pack(pack, _facts(tools), images)
@@ -327,6 +340,7 @@ def _publish(tools: WorkspaceTools, pack: dict) -> list[Check]:
 def ad_board_tool(tools: WorkspaceTools, args: dict) -> str:
     """Backs the worker-facing ``ad_board`` tool. Always leaves a page, and says what is still wrong."""
     pack = normalize(args)
+    _keep_earlier_visuals(pack, tools)
     checks = _publish(tools, pack)
     blocking = [message(c) for c in checks if c.level == "block"]
     warnings = [message(c) for c in checks if c.level == "warn" and c.code != "no_image"]
@@ -338,6 +352,36 @@ def ad_board_tool(tools: WorkspaceTools, args: dict) -> str:
     if warnings:
         out += "\nShown on the page, fix them if you can:\n- " + "\n- ".join(warnings)
     return out
+
+
+def fix_instruction(check: Check) -> str:
+    where = f"Ad {check.ad}" if check.ad else "The ad page"
+    return f"Fix one point on the ad page. {where}: {message(check)}"
+
+
+def fix_plan(plan: dict, instruction: str) -> dict:
+    """A follow-up on the page is one known edit, so it needs one worker and no planner."""
+    step = {
+        "id": 1,
+        "title": "Fix",
+        "detail": (
+            f"{instruction}\nRead runs/notes/ads.json and runs/notes/facts.md. Change only what this asks and keep "
+            "every other ad and field as it is. If you need a new fact, web_fetch it and add it to runs/notes/facts.md "
+            "with its URL. Then call ad_board with the whole corrected pack."
+        ),
+        "depends_on": [],
+        "writes": [BOARD_PATH],
+    }
+    return {**{k: v for k, v in plan.items() if k != "resumed"}, "summary": instruction, "steps": [step]}
+
+
+def current_checks(tools: WorkspaceTools) -> list[Check] | None:
+    """What code finds on the saved pack right now, or None when there is no pack."""
+    pack = _load_pack(tools)
+    if pack is None:
+        return None
+    images = {n: "" for n, ad in enumerate(pack["ads"], 1) if _data_uri(tools, ad.get("image") or "")}
+    return check_pack(pack, _facts(tools), images)
 
 
 def _load_pack(tools: WorkspaceTools) -> dict | None:
@@ -364,11 +408,10 @@ def refresh(plan: dict, tools: WorkspaceTools) -> None:
 
 def verifier_brief(tools: WorkspaceTools) -> dict | None:
     """The pack and the code's findings, in place of a page that is mostly CSS and images."""
-    pack = _load_pack(tools)
-    if pack is None:
+    checks = current_checks(tools)
+    if checks is None:
         return None
-    images = {n: "" for n, ad in enumerate(pack["ads"], 1) if _data_uri(tools, ad.get("image") or "")}
-    checks = check_pack(pack, _facts(tools), images)
+    pack = _load_pack(tools)
     return {
         "pack": json.dumps(pack, ensure_ascii=False, indent=2),
         "automatic_checks": {
@@ -431,6 +474,36 @@ def _feed_card(pack: dict, ad: dict, image: str | None, labels: dict) -> str:
     )
 
 
+def _finding(check: Check, language: str) -> str:
+    """One thing code found, with why it matters and what can be done about it."""
+    e = html.escape
+    labels = _LABELS[language]
+    element = for_code(check.code)
+    fixable = element is None or element.fixable(check.code)
+    reason = ""
+    why_button = ""
+    if element is not None:
+        source = f" <cite>{e(element.source)}</cite>" if element.source else ""
+        reason = f'<p class="why-text" hidden>{e(element.why[language])}{source}</p>'
+        why_button = f'<button type="button" class="why">{e(labels["why"])}</button>'
+    fix_button = ""
+    if fixable:
+        cap = f"{FIX_CAP_EUR:.2f}".replace(".", "," if language == "lt" else ".")
+        target = json.dumps({"ad": check.ad, "code": check.code, "field": check.field, "value": check.value}, ensure_ascii=False)
+        command = f"rocky resume --budget {FIX_CAP_EUR} {shlex.quote(fix_instruction(check))}"
+        fix_button = (
+            f'<button type="button" class="fix" data-fix="{e(target, quote=True)}" data-command="{e(command, quote=True)}">'
+            f'{e(labels["fix_action"].format(cap=cap))}</button>'
+        )
+    dismiss_label = labels["ignore"] if fixable else labels["handled"]
+    key = f"{check.ad}:{check.code}:{check.field}:{check.value}"
+    return (
+        f'<li class="{e(check.level)}" data-key="{e(key, quote=True)}"><span class="found">{e(message(check, language))}</span>'
+        f'<span class="acts">{why_button}{fix_button}'
+        f'<button type="button" class="dismiss" data-label="{e(dismiss_label, quote=True)}">{e(dismiss_label)}</button></span>{reason}</li>'
+    )
+
+
 def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: str) -> str:
     e = html.escape
     labels = _LABELS[language]
@@ -441,11 +514,7 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
         stamp, kind = labels["stamp_image"], "wait"
     else:
         stamp, kind = labels["stamp_ok"], "ok"
-    items = "".join(
-        f'<li class="{e(c.level)}">{e(message(c, language))}</li>'
-        for c in sorted(mine, key=lambda c: c.level)
-        if c.code != "no_image"
-    )
+    items = "".join(_finding(c, language) for c in sorted(mine, key=lambda c: c.level))
     audience = (
         f'<p class="audience"><small>{e(labels["audience"])}</small>{e(ad["audience"])}</p>' if ad["audience"] else ""
     )
@@ -514,7 +583,7 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
     blocked = {c.ad for c in checks if c.level == "block" and c.ad}
     fix = len(blocked)
     ready_count = sum(1 for n in range(1, len(pack["ads"]) + 1) if n not in blocked and n in images)
-    alerts = "".join(f"<li>{e(message(c, language))}</li>" for c in checks if not c.ad)
+    alerts = "".join(_finding(c, language) for c in checks if not c.ad)
     alerts = f'<ul class="alerts">{alerts}</ul>' if alerts else ""
     site = (
         f'<a href="{e(pack["url"], quote=True)}" target="_blank" rel="noopener">{e(_bare_url(pack["url"]))}</a>'
@@ -559,7 +628,8 @@ def render(pack: dict, checks: list[Check], images: dict[int, str]) -> str:
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; '
         "style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\">"
         f'<title>{e(pack["brand"])} · {e(labels["slug"])}</title><style>{_STYLE}</style></head>'
-        f'<body data-copied="{e(labels["copied"], quote=True)}">'
+        f'<body data-copied="{e(labels["copied"], quote=True)}" data-undo="{e(labels["undo"], quote=True)}" '
+        f'data-fixing="{e(labels["fixing"], quote=True)}" data-command-copied="{e(labels["command_copied"], quote=True)}">'
         f'<header class="mast"><p class="slug">{e(labels["slug"])}</p><h1>{e(pack["brand"])}</h1>{site}'
         f'<dl class="tally"><div><dt>{e(labels["ads"])}</dt><dd>{len(pack["ads"])}</dd></div>'
         f'<div><dt>{e(labels["ready"])}</dt><dd>{ready_count}</dd></div>'
@@ -625,6 +695,12 @@ outline:1px solid var(--rule);animation:rise .55s cubic-bezier(.2,.75,.25,1) bot
 .checks li{padding:8px 0 8px 14px;border-top:1px solid var(--rule);position:relative}
 .checks li::before{content:"";position:absolute;left:0;top:15px;width:7px;height:7px;background:var(--hold)}
 .checks li.block{color:var(--stop)}.checks li.block::before{background:var(--stop)}
+.acts{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px}
+.acts button{border:0;background:none;padding:2px 0;font:600 13px/1.3 var(--sans);color:var(--soft);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.acts .fix{color:var(--ink)}.acts button:hover{color:var(--stop)}
+.why-text{margin:8px 0 2px;font-size:14px;line-height:1.45;color:var(--soft)}.why-text cite{display:block;margin-top:4px;font:12px var(--mono)}
+.dismissed .found{text-decoration:line-through;opacity:.55}.dismissed .why,.dismissed .fix,.dismissed .why-text{display:none}
+.alerts li{margin-bottom:8px}.alerts .acts button,.alerts .why-text{color:inherit}
 .copies>small{display:block;margin-bottom:7px}
 .copies div{display:flex;flex-wrap:wrap;gap:8px}
 .copies button,.download{font:600 14px/1 var(--sans);color:var(--ink);background:none;border:1px solid var(--ink);padding:10px 14px;cursor:pointer;text-decoration:none;transition:background .12s,color .12s}
@@ -653,9 +729,46 @@ async function put(text){
   const box=document.createElement('textarea');box.value=text;document.body.append(box);box.select();
   document.execCommand('copy');box.remove();
 }
+const framed=window.parent!==window;
+const body=document.body.dataset;
+const memory='rocky-board:'+document.title;
+let gone=new Set();
+function paint(){
+  document.querySelectorAll('li[data-key]').forEach(function(row){
+    const off=gone.has(row.dataset.key);
+    row.classList.toggle('dismissed',off);
+    const button=row.querySelector('.dismiss');
+    button.textContent=off?body.undo:button.dataset.label;
+  });
+}
+function remember(){
+  const list=Array.from(gone);
+  try{localStorage.setItem(memory,JSON.stringify(list))}catch(_){}
+  if(framed)parent.postMessage({type:'rocky-dismissed',list:list},'*');
+}
+function height(){if(framed)parent.postMessage({type:'rocky-height',h:document.documentElement.scrollHeight},'*')}
+try{gone=new Set(JSON.parse(localStorage.getItem(memory)||'[]'))}catch(_){}
+paint();
+window.addEventListener('message',function(event){
+  if(event.source!==parent||!event.data||event.data.type!=='rocky-restore')return;
+  gone=new Set(event.data.list||[]);paint();height();
+});
+window.addEventListener('resize',height);
+if(framed)parent.postMessage({type:'rocky-ready'},'*');
+height();
 document.addEventListener('click',async function(event){
   const more=event.target.closest('.more');
-  if(more){more.previousElementSibling.hidden=false;more.remove();return}
+  if(more){more.previousElementSibling.hidden=false;more.remove();height();return}
+  const why=event.target.closest('.why');
+  if(why){const text=why.closest('li').querySelector('.why-text');text.hidden=!text.hidden;height();return}
+  const dismiss=event.target.closest('.dismiss');
+  if(dismiss){const key=dismiss.closest('li').dataset.key;gone.has(key)?gone.delete(key):gone.add(key);paint();remember();return}
+  const fix=event.target.closest('.fix');
+  if(fix){
+    if(framed){parent.postMessage(Object.assign({type:'rocky-fix'},JSON.parse(fix.dataset.fix)),'*');fix.textContent=body.fixing;fix.disabled=true}
+    else{await put(fix.dataset.command);fix.textContent=body.commandCopied}
+    return;
+  }
   const button=event.target.closest('[data-copy]');
   if(!button)return;
   await put(button.dataset.copy);

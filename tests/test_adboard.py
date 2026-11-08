@@ -178,7 +178,7 @@ def test_the_page_names_the_market_and_flags_missing_reach():
     pack = normalize(_growth("development"))
     page = render(pack, check_pack(pack, None, {1: "x"}), {1: "x"})
     assert '<p class="growth">Nauja rinka</p>' in page
-    assert "<li>Nauja rinka: nėra įrodymų" in page
+    assert '<span class="found">Nauja rinka: nėra įrodymų' in page
 
 
 def test_the_page_shows_how_a_new_market_is_reached():
@@ -244,7 +244,8 @@ def test_an_unknown_stake_status_counts_as_unknown():
 def test_a_missed_minimum_is_flagged_at_the_top_and_listed_before_the_evidence():
     pack = normalize(_stakes("unmet"))
     page = render(pack, check_pack(pack, None, {1: "x"}), {1: "x"})
-    assert '<ul class="alerts"><li>„Rezultatas unmet“' in page
+    assert '<span class="found">„Rezultatas unmet“' in page
+    assert page.index('<ul class="alerts">') < page.index("<main>")
     assert page.index("Prieš leidžiant biudžetą") < page.index("Įrodymai")
     assert '<td class="unmet">Nepasiekta</td>' in page
 

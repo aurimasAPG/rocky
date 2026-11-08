@@ -92,7 +92,7 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
     resume = None
     if meta.get("resume_from"):
         try:
-            resume = load_resume_state(run_dir(workspace, str(meta["resume_from"])))
+            resume = load_resume_state(run_dir(workspace, str(meta["resume_from"])), follow_up=str(meta.get("follow_up") or ""))
         except (FileNotFoundError, OSError, ValueError) as exc:
             emit(Event(type="error", payload={"message": f"cannot resume {meta['resume_from']}: {exc}"}))
             resume = None

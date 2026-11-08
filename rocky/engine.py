@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from rocky.adboard import BOARD_PATH, is_board, ready as board_ready, refresh as refresh_board, verifier_brief
+from rocky.adboard import BOARD_PATH, fix_plan, is_board, ready as board_ready, refresh as refresh_board, verifier_brief
 from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
 from rocky.budget import BudgetedClient
 from rocky.config import forced_language, preferred_worker
@@ -440,7 +440,10 @@ def orchestrate(
         plan = _normalize_steps(dict(resume.get("plan") or {}), goal)
         if not plan.get("deliverable_path"):
             plan["deliverable_path"] = assessment.get("deliverable") or f"{DELIVERABLES_DIR}/output.md"
-        if resume.get("replan"):
+        if resume.get("replan") and is_board(plan) and resume.get("follow_up"):
+            plan = fix_plan(plan, str(resume["follow_up"]))
+            fire("plan", resumed=True, **plan)
+        elif resume.get("replan"):
             plan = _make_plan(
                 client,
                 cast.planner,

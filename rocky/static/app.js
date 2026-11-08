@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const BOARD_PATH = "deliverables/ads.html";
 
 let current = { id: null, workspace: "", source: null, running: false };
 
@@ -182,11 +183,52 @@ function handle(event) {
     }
     if (p.notes && p.notes.length) card("fail", "notes", p.notes.join("\n"));
     if (p.summary) card(p.passed ? "pass" : "fail", "summary", p.summary);
+    if (p.deliverable_exists && p.deliverable_path === BOARD_PATH) showResult();
     setActive(p.passed ? "verifier" : "planner");
     setRunning(false);
     refreshRuns();
   }
 }
+
+function showResult() {
+  $("result").classList.remove("hidden");
+  $("result-frame").src = `/api/runs/${encodeURIComponent(current.id)}/board?workspace=${encodeURIComponent(current.workspace)}&v=${Date.now()}`;
+}
+
+function dismissedKey() {
+  return `rocky-dismissed:${current.workspace}`;
+}
+
+function readDismissed() {
+  try { return JSON.parse(localStorage.getItem(dismissedKey()) || "[]"); } catch { return []; }
+}
+
+async function fixFinding(finding) {
+  try {
+    const data = await api(`/api/runs/${encodeURIComponent(current.id)}/fix`, {
+      method: "POST",
+      body: JSON.stringify({ workspace: current.workspace, ad: finding.ad, code: finding.code, field: finding.field, value: finding.value }),
+    });
+    clearBoard();
+    listen(data.id, data.workspace);
+    refreshRuns();
+  } catch (err) {
+    workLine(`fix failed: ${err.message}`, "warn");
+    showResult();
+  }
+}
+
+window.addEventListener("message", (ev) => {
+  const frame = $("result-frame");
+  if (ev.source !== frame.contentWindow || !ev.data) return;
+  const d = ev.data;
+  if (d.type === "rocky-height") frame.style.height = `${Math.min(Number(d.h) || 0, 30000)}px`;
+  if (d.type === "rocky-ready") frame.contentWindow.postMessage({ type: "rocky-restore", list: readDismissed() }, "*");
+  if (d.type === "rocky-dismissed") {
+    try { localStorage.setItem(dismissedKey(), JSON.stringify(d.list || [])); } catch { /* private window */ }
+  }
+  if (d.type === "rocky-fix") fixFinding(d);
+});
 
 function clearBoard() {
   $("plan-log").innerHTML = "";
