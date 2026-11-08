@@ -497,3 +497,381 @@ def test_the_tool_spec_advertises_the_pricing_blocks():
     props = spec["function"]["parameters"]["properties"]
     for key in ("plans", "bundle", "variants", "chain", "obligations", "sales_mix", "markup_pct"):
         assert key in props, key
+
+
+# --- capacity, ownership, offers, line, retail, media_value, routes ---------------
+
+
+def test_capacity_values_unsold_slots_and_the_shift_break_even():
+    # salon: daytime 30 slots at 40 % → 12 occupied, 18 unsold × 45 = 810 at list.
+    # off-peak 33.75: fills contribute 33.75 - 8 = 25.75; a shifted regular costs 45 - 33.75 = 11.25;
+    # break-even shifted share 25.75 / (25.75 + 11.25) = 69.6 %; all 18 new → 18 × 25.75 = 463.50; max discount (45-8)/45 = 82.2 %
+    out = unit_economics({"price": 45, "variable_cost": 8, "capacity": {"period": "day", "bands": [{"band": "daytime", "capacity": 30, "occupancy_pct": 40}], "offpeak_price": 33.75}})["capacity"]
+    band = out["bands"][0]
+    assert band["occupied"] == 12 and band["unsold_units"] == 18 and band["unsold_value_at_list"] == 810 and band["max_gain_per_period"] == 463.5
+    assert out["offer"]["contribution_per_filled_slot"] == 25.75 and out["offer"]["loss_per_shifted_booking"] == 11.25
+    assert out["offer"]["shift_break_even_pct"] == 69.6 and out["break_even_discount_pct"] == 82.2
+    assert "under 69.6 % of off-peak bookings" in out["summary"]
+
+
+def test_capacity_names_missing_occupancy_and_refuses_contradictions():
+    out = unit_economics({"price": 45, "variable_cost": 8, "capacity": {"capacity_units": 60}})["capacity"]
+    assert out["missing"] == ["capacity.bands[0].occupied", "offpeak_price"]
+    assert [r["assumed_occupancy_pct"] for r in out["bands"][0]["conditional"]] == [30.0, 50.0, 70.0]
+    assert out["bands"][0]["conditional"][1]["unsold_units"] == 30
+    with pytest.raises(ToolError, match="must be below the list price"):
+        unit_economics({"price": 45, "variable_cost": 8, "capacity": {"capacity_units": 60, "occupied_units": 30, "offpeak_price": 50}})
+    with pytest.raises(ToolError, match="more than capacity"):
+        unit_economics({"price": 45, "variable_cost": 8, "capacity": {"capacity_units": 60, "occupied_units": 70}})
+    below = unit_economics({"price": 45, "variable_cost": 8, "capacity": {"capacity_units": 60, "occupied_units": 30, "offpeak_price": 7}})["capacity"]
+    assert below["offer"]["shift_break_even_pct"] is None and "no fill is profitable" in below["offer"]["note"]
+    # without a cost the block says so instead of guessing
+    assert unit_economics({"price": 45, "capacity": {"capacity_units": 60, "occupied_units": 30}})["capacity"]["missing"] == ["variable_cost"]
+
+
+def test_ownership_total_cost_consumable_share_and_crossover():
+    # 89 + 2 cups × 1095 days × 0.39 = 89 + 854.10 = 943.10 (90.6 % consumables); competitor 149 + 2190 × 0.29 = 784.10
+    # lines cross when 89 + 0.78 t = 149 + 0.58 t → t = 300 days; tie usage over 3 years: 60 / (0.10 × 1095) = 0.55 cups/day
+    out = unit_economics({"ownership": {"base_price": 89, "consumable_price": 0.39, "consumable_units_per_period": 2, "periods": 1095, "period_label": "day", "alternative": {"name": "competitor", "base_price": 149, "consumable_price": 0.29}}})
+    own = out["ownership"]
+    assert out["inputs"]["price"] is None and "price was not given" in out["note"]
+    assert own["consumable_cost"] == 854.1 and own["total_ownership_cost"] == 943.1 and own["consumable_share_pct"] == 90.6
+    assert own["alternative"]["total_ownership_cost"] == 784.1 and own["alternative"]["difference"] == 159 and own["alternative"]["cheaper"] == "competitor"
+    assert own["alternative"]["crossover_periods"] == 300 and own["alternative"]["tie_usage_per_period"] == 0.55
+    assert "cross after 300.0 days" in own["summary"]
+
+
+def test_ownership_without_usage_names_it_and_never_crosses_when_one_option_dominates():
+    out = unit_economics({"ownership": {"base_price": 89, "consumable_price": 0.39, "periods": 36, "alternative": {"base_price": 60, "consumable_price": 0.29}}})["ownership"]
+    assert out["missing"] == ["consumable_units_per_period"] and "total_ownership_cost" not in out
+    assert out["consumable_cost_per_unit_of_usage"] == 14.04 and out["alternative"]["tie_usage_per_period"] is None
+    with pytest.raises(ToolError, match="consumable_units_per_period must be greater than zero"):
+        unit_economics({"ownership": {"base_price": 89, "consumable_price": 0.39, "consumable_units_per_period": 0, "periods": 36}})
+    with pytest.raises(ToolError, match="price is required"):
+        unit_economics({})
+
+
+def test_offers_compare_trial_then_bill_with_refund_and_name_the_tie_point():
+    # chair 249 / cost 110 / 180 orders. trial +40 % → 252 orders, 12 % returned = 30, 4 % of the rest unpaid = 9, 213 retained:
+    # 213 × 139 − 9 × 110 − 252 × 6 = 29607 − 990 − 1512 = 27105. refund +15 % → 207, 7 % = 14 returned, 193 × 139 − 14 × 18 = 26575.
+    # no offer 180 × 139 = 25020. trial ties refund when its return rate reaches (129.04 − (26575/252 + 6)) / 129.04 = 13.6 %
+    out = unit_economics({"price": 249, "variable_cost": 110, "units": 180, "offers": [
+        {"name": "trial", "kind": "trial_then_bill", "take_up_pct": 40, "return_pct": 12, "non_payment_pct": 4, "collection_cost_per_order": 6},
+        {"name": "refund", "kind": "refund", "take_up_pct": 15, "return_pct": 7, "return_shipping_cost": 18},
+    ]})["offers"]
+    trial, refund = out["offers"]
+    assert (trial["orders"], trial["returned"], trial["unpaid"], trial["retained_customers"], trial["net_contribution"]) == (252, 30, 9, 213, 27105)
+    assert (refund["orders"], refund["returned"], refund["retained_customers"], refund["net_contribution"]) == (207, 14, 193, 26575)
+    assert out["base"]["total_contribution"] == 25020 and out["best_offer"] == "trial"
+    assert out["tie_point"]["return_pct"] == 13.6 and "until its return rate exceeds 13.6 %" in out["summary"]
+
+
+def test_offers_missing_rates_give_a_grid_and_bad_kinds_are_refused():
+    out = unit_economics({"price": 249, "variable_cost": 110, "units": 180, "offers": [{"name": "trial", "kind": "trial_then_bill", "take_up_pct": 40}]})["offers"]
+    assert out["missing"] == ["offers[0].non_payment_pct", "offers[0].return_pct"]
+    grid = out["offers"][0]["conditional"]
+    assert len(grid) == 9 and grid[0]["assumed_return_pct"] == 5 and grid[0]["assumed_non_payment_pct"] == 2
+    # 5 % returns, 2 % unpaid, no other costs: 0.95 × 0.98 × 139 − 0.95 × 0.02 × 110 = 129.41 − 2.09 = 127.32
+    assert grid[0]["net_contribution_per_order"] == 127.32
+    with pytest.raises(ToolError, match="kind must be"):
+        unit_economics({"price": 249, "variable_cost": 110, "offers": [{"kind": "lottery"}]})
+    with pytest.raises(ToolError, match="paid up front"):
+        unit_economics({"price": 249, "variable_cost": 110, "offers": [{"kind": "refund", "return_pct": 5, "non_payment_pct": 3}]})
+    # per-order figures do not need volume; the volume figures name units
+    no_units = unit_economics({"price": 249, "variable_cost": 110, "offers": [{"kind": "refund", "return_pct": 7, "return_shipping_cost": 18}]})["offers"]
+    assert no_units["offers"][0]["net_contribution_per_order"] == 128.01 and "orders" not in no_units["offers"][0] and "units" in no_units["missing"]
+
+
+def test_offers_paid_option_gives_the_conversion_lift_it_must_bring():
+    # AOV 85 at 22 % → 18.70 + 2.99 − 3.50 = 18.19 per standard order; same-day 18.70 + 6.99 − 9.50 = 16.19 (−2.00);
+    # blended at 30 %: 18.19 − 0.6 = 17.59; conversion must rise 18.19/17.59 − 1 = 3.4 % (2.00 % → 2.07 %); neutral option cost 6.99 − 2.99 + 3.50 = 7.50
+    out = unit_economics({"price": 85, "margin_pct": 22, "offers": [{"name": "same-day", "kind": "option", "option_fee": 6.99, "option_cost": 9.50, "take_rate_pct": 30, "standard_fee": 2.99, "standard_cost": 3.50, "baseline_conversion_pct": 2.0, "weekly_visits": 15000}]})["offers"]["option"]
+    assert out["contribution_per_order_standard"] == 18.19 and out["contribution_per_order_with_option"] == 16.19 and out["option_delta_per_order"] == -2.0
+    assert out["blended_contribution_per_order"] == 17.59 and out["required_conversion_lift_pct"] == 3.4 and out["required_conversion_pct"] == 2.07
+    assert out["option_cost_at_which_option_is_neutral"] == 7.5 and [r["take_rate_pct"] for r in out["sensitivity"]] == [10, 25, 50, 100]
+    assert out["sensitivity"][3]["required_conversion_lift_pct"] == 12.4
+    missing = unit_economics({"price": 85, "margin_pct": 22, "offers": [{"kind": "option", "option_fee": 6.99, "take_rate_pct": 30}]})["offers"]
+    assert missing["missing"] == ["offers[0].option_cost"] and "blended_contribution_per_order" not in missing["option"]
+    with pytest.raises(ToolError, match="take_rate_pct must be between 0 and 100"):
+        unit_economics({"price": 85, "margin_pct": 22, "offers": [{"kind": "option", "option_fee": 6.99, "option_cost": 9.5, "take_rate_pct": 130}]})
+
+
+def test_offers_referral_reward_against_the_contribution():
+    # 3000 × 1.5 × 25 % = 1125 referred sales × 40 = 45000; contribution 34 − 40 = −6 per sale; no cap → unbounded liability
+    out = unit_economics({"price": 79, "variable_cost": 45, "offers": [{"kind": "referral", "reward_referrer": 20, "reward_referee": 20, "referrers": 3000, "referrals_per_referrer": 1.5, "referee_conversion_pct": 25}]})
+    ref = out["offers"]["referral"]
+    assert ref["referred_sales"] == 1125 and ref["total_reward_cost"] == 45000 and ref["cost_per_acquired_customer"] == 40
+    assert ref["net_contribution_per_referred_sale"] == -6 and ref["max_total_reward"] == 34 and ref["decision"].startswith("never pays")
+    assert ref["worst_case_liability"] is None and any("unbounded" in w for w in out["warnings"])
+    capped = unit_economics({"price": 79, "variable_cost": 45, "offers": [{"kind": "referral", "reward_referrer": 15, "reward_referee": 15, "referrers": 3000, "payout_cap_per_referrer": 60}]})["offers"]
+    assert capped["referral"]["worst_case_liability"] == 180000 and capped["missing"] == ["offers[0].referee_conversion_pct", "offers[0].referrals_per_referrer"]
+    assert len(capped["referral"]["conditional"]) == 9 and capped["referral"]["conditional"][0]["referred_sales"] == 150
+
+
+def test_line_new_variant_against_the_innovation_hurdle():
+    # oat latte: 12 000 units in 12 months at 6 with 45 % margin → 2.70 × 1000/month = 2700; 20 % cannibalise 2.50 → 500; incremental 2200 × 12 = 26 400
+    # investment 65 000 → net −38 600, ROI −59.4 %, break-even 65 000 / (2.70 − 0.5) = 29 546 units; payback 29.5 months, after the horizon
+    out = unit_economics({"price": 6, "margin_pct": 45, "line": {"horizon_months": 12, "new": {"name": "oat latte", "price": 6, "margin_pct": 45, "forecast_units": 12000, "development_cost": 40000, "launch_cost": 25000, "cannibalisation_pct": 20, "cannibalised_contribution_per_unit": 2.5, "alternative": {"spend": 25000, "expected_incremental_units": 8000, "contribution_per_unit": 2.5}}}})["line"]["new"]
+    assert out["revenue_over_horizon"] == 72000 and out["incremental_contribution_over_horizon"] == 26400 and out["net_over_horizon"] == -38600
+    assert out["roi_pct"] == -59.4 and out["break_even_units"] == 29546 and out["verdict"] == "below_hurdle"
+    assert out["payback_months"] is None and "29.5 months" in out["payback_note"]
+    # 8000 × 2.5 − 25000 = −5000 still beats −38 600
+    assert out["alternative"]["net"] == -5000 and out["alternative"]["better"] == "alternative"
+
+
+def test_line_premium_line_against_repositioning_over_a_horizon():
+    # Reserve: 3000 × 8 = 24 000 − 1200 switchers × 3.50 = 19 800/month; payback 40 000 / 19 800 = 2.0; 24 × 19 800 − 40 000 = 435 200
+    # reposition: 16 000 × 5.50 = 88 000 (+18 000) after 6 months at 14 000 × 5.50 = 77 000 (+7 000): 6 × 7000 + 18 × 18 000 − 25 000 = 341 000;
+    # payback 25 000 / 7 000 = 3.6 months; it adds nothing once volume falls 3.5/5.5 − 1 = −36.4 %
+    out = unit_economics({"price": 8, "variable_cost": 4.5, "units": 20000, "line": {"horizon_months": 24,
+        "new": {"name": "Reserve", "price": 14, "variable_cost": 6, "expected_units_per_month": 3000, "development_cost": 40000, "switching_pct": 40},
+        "reposition": {"new_price": 10, "volume_change_pct": -20, "one_off_cost": 25000, "transition_months": 6, "transition_volume_change_pct": -30}}})["line"]
+    assert out["new"]["incremental_contribution_per_month"] == 19800 and out["new"]["payback_months"] == 2.0 and out["new"]["net_over_horizon"] == 435200
+    assert out["new"]["switching_flip_pct"] is None and "13500.00 per month" in out["new"]["flip_note"]
+    rep = out["reposition"]
+    assert rep["gain_per_month_after"] == 18000 and rep["gain_per_month_in_transition"] == 7000 and rep["net_over_horizon"] == 341000
+    assert rep["payback_months"] == 3.6 and rep["volume_change_flip_pct"] == -36.4
+    assert out["comparison"] == {"better": "Reserve", "gap_over_horizon": 94200}
+
+
+def test_line_periods_decompose_the_change_into_price_volume_and_cost():
+    # 1 530 000 / 180 000 = 8.50 → 1 368 000 / 180 000 = 7.60 (10.6 % depth); contribution 3.30 → 2.40 (38.8 % → 31.6 %); −162 000, all price
+    out = unit_economics({"price": 8.5, "variable_cost": 5.2, "line": {"periods": [{"label": "2024", "revenue": 1530000, "units": 180000}, {"label": "2025", "revenue": 1368000, "units": 180000}]}})["line"]["periods"]
+    a, b = out["rows"]
+    assert (a["realized_price"], b["realized_price"], b["discount_depth_pct"]) == (8.5, 7.6, 10.6)
+    assert (a["contribution_per_unit"], b["contribution_per_unit"], a["margin_pct"], b["margin_pct"]) == (3.3, 2.4, 38.8, 31.6)
+    d = out["decomposition"][0]
+    assert d == {"from": "2024", "to": "2025", "price_effect": -162000, "volume_effect": 0, "cost_effect": 0, "total_change": -162000}
+
+
+def test_line_withholds_verdicts_without_switching_or_volume_change_and_refuses_bad_inputs():
+    out = unit_economics({"price": 8, "variable_cost": 4.5, "units": 20000, "line": {"new": {"price": 14, "variable_cost": 6, "expected_units_per_month": 3000, "development_cost": 40000}, "reposition": {"new_price": 10, "one_off_cost": 25000}}})["line"]
+    assert out["missing"] == ["line.new.switching_pct", "line.reposition.volume_change_pct"]
+    assert [r["assumed_switching_pct"] for r in out["new"]["conditional"]] == [0, 25, 50] and "verdict" not in out["new"]
+    assert out["reposition"]["conditional"][1]["gain_per_month"] == 18000 and "comparison" not in out
+    with pytest.raises(ToolError, match="not both"):
+        unit_economics({"price": 8, "variable_cost": 4.5, "line": {"new": {"price": 14, "variable_cost": 6, "expected_units_per_month": 3000, "forecast_units": 72000}}})
+    with pytest.raises(ToolError, match="revenue or realized_price is required"):
+        unit_economics({"price": 8, "variable_cost": 4.5, "line": {"periods": [{"label": "2024", "units": 100}]}})
+    with pytest.raises(ToolError, match="at least one of new, reposition or periods"):
+        unit_economics({"price": 8, "variable_cost": 4.5, "line": {"horizon_months": 12}})
+
+
+def test_retail_bulk_breaking_and_assortment():
+    # pallet 600 at 150/month → 4 months, 300 units (1230) on average, held 2 months: storage 0.10 + capital 4.10 × 10 %/12 × 2 = 0.07;
+    # picking 6 / 12 = 0.50 → bridge 0.67 (16.3 % of 4.10); distributor 25 % of 7.50 = 1.88 → break-even margin 0.67/7.50 = 8.9 %, in house
+    bulk = unit_economics({"price": 7.5, "retail": {"bulk": {"supplier_lot_units": 600, "unit_cost": 4.10, "monthly_demand_units": 150, "customer_lot_units": 12, "storage_cost_per_unit_month": 0.05, "handling_cost_per_order": 6, "capital_rate_pct_year": 10, "distributor_margin_pct": 25}}})["retail"]["bulk"]
+    assert bulk["months_to_sell_lot"] == 4 and bulk["average_capital_tied"] == 1230 and bulk["carrying_cost_per_unit"] == 0.17 and bulk["handling_cost_per_unit"] == 0.5
+    assert bulk["bridge_cost_per_unit"] == 0.67 and bulk["bridge_cost_pct_of_unit_cost"] == 16.3 and bulk["breakeven_distributor_margin_pct"] == 8.9 and bulk["verdict"] == "in_house"
+    no_storage = unit_economics({"retail": {"bulk": {"supplier_lot_units": 600, "unit_cost": 4.10, "monthly_demand_units": 150, "customer_lot_units": 12, "handling_cost_per_order": 6}}})["retail"]["bulk"]
+    assert no_storage["missing"] == ["retail.bulk.storage_cost_per_unit_month"] and "bridge_cost_per_unit" not in no_storage
+    with pytest.raises(ToolError, match="monthly_demand_units must be greater than zero"):
+        unit_economics({"retail": {"bulk": {"supplier_lot_units": 600, "monthly_demand_units": 0, "customer_lot_units": 12}}})
+    # seeds: 48 000 × 11 % = 5280; 60 000 × 18 % = 10 800 baskets × 32 × 42 % = 145 152; losing 30 % costs 43 545.60; break-even 5280/145152 = 3.6 %
+    seeds = unit_economics({"retail": {"assortment": {"line_revenue": 48000, "line_margin_pct": 11, "baskets_per_period": 60000, "basket_share_pct": 18, "attached_revenue_per_basket": 32, "attached_margin_pct": 42, "lost_basket_share_pct": 30}}})["retail"]["assortment"]
+    assert (seeds["line_contribution"], seeds["anchored_baskets"], seeds["attached_contribution"], seeds["attached_contribution_at_risk"]) == (5280, 10800, 145152, 43545.6)
+    assert seeds["breakeven_lost_share_pct"] == 3.6 and seeds["decision"] == "keep as assortment service"
+    open_ = unit_economics({"retail": {"assortment": {"line_revenue": 48000, "line_margin_pct": 11, "baskets_per_period": 60000, "basket_share_pct": 18, "attached_revenue_per_basket": 32, "attached_margin_pct": 42}}})["retail"]["assortment"]
+    assert open_["missing"] == ["retail.assortment.lost_basket_share_pct"] and [r["assumed_lost_basket_share_pct"] for r in open_["conditional"]] == [0, 25, 50, 100]
+
+
+def test_retail_channel_risk_functions_and_waterfall():
+    # dress 149 / cost 52 / 50 % margin → wholesale 74.50, 22.50 to the brand. 70 % sold, 10 % unsold, 20 % marked down 40 %:
+    # markdown money 0.2 × 0.4 × 74.50 = 5.96 + take-back 0.1 × 74.50 = 7.45 → 13.41 (9.0 margin points), contribution 9.09;
+    # 50 % with take-back = (149 − 52 − 9.09)/149 = 59.0 % without; break-even sell-through 100 − 10 − (22.50 − 7.45)/29.80 × 100 = 39.5 %
+    risk = unit_economics({"price": 149, "variable_cost": 52, "retail": {"channel_risk": {"margin_pct": 50, "sell_through_pct": 70, "markdown_pct": 40, "unsold_pct": 10}}})["retail"]["channel_risk"]
+    assert (risk["wholesale_price"], risk["brand_contribution_no_risk"], risk["risk_cost_per_unit"], risk["risk_cost_margin_points"]) == (74.5, 22.5, 13.41, 9.0)
+    assert risk["brand_contribution_with_risk"] == 9.09 and risk["equivalent_margin_pct_without_risk"] == 59.0 and risk["breakeven_sell_through_pct"] == 39.5
+    retailer_keeps = unit_economics({"price": 149, "variable_cost": 52, "retail": {"channel_risk": {"margin_pct": 50, "sell_through_pct": 70, "markdown_pct": 40, "unsold_pct": 10, "risk": {"markdowns": "retailer", "unsold": "retailer"}}}})["retail"]["channel_risk"]
+    assert retailer_keeps["risk_cost_per_unit"] == 0 and retailer_keeps["brand_contribution_with_risk"] == 22.5
+    no_st = unit_economics({"price": 149, "variable_cost": 52, "retail": {"channel_risk": {"margin_pct": 50, "markdown_pct": 40, "unsold_pct": 10}}})["retail"]["channel_risk"]
+    assert no_st["missing"] == ["retail.channel_risk.sell_through_pct"] and [r["assumed_sell_through_pct"] for r in no_st["conditional"]] == [60, 70, 80, 90]
+    with pytest.raises(ToolError, match="add up to more than 100"):
+        unit_economics({"price": 149, "variable_cost": 52, "retail": {"channel_risk": {"margin_pct": 50, "sell_through_pct": 95, "markdown_pct": 40, "unsold_pct": 10}}})
+    with pytest.raises(ToolError, match="contradict"):
+        unit_economics({"price": 149, "variable_cost": 52, "retail": {"channel_risk": {"margin_pct": 50, "wholesale_price": 80, "sell_through_pct": 70, "markdown_pct": 40}}})
+    # going direct: 32 % of 48 = 15.36 kept; costed functions 0.40 + 1.10 + 3.90 + 0.35 = 5.75 → 9.61 per bottle, 134 540 a year
+    fn = unit_economics({"price": 48, "units": 14000, "retail": {"functions": {"intermediary_margin_pct": 32, "functions": [
+        {"function": "storage", "new_owner": "3pl", "cost_per_unit": 0.40}, {"function": "order handling", "new_owner": "3pl", "cost_per_unit": 1.10},
+        {"function": "delivery", "new_owner": "3pl", "cost_per_unit": 3.90}, {"function": "returns", "new_owner": "us", "cost_per_unit": 0.35},
+        {"function": "credit/collections", "new_owner": "us"}, {"function": "selling/visits to 60 restaurants"}]}}})["retail"]["functions"]
+    assert (fn["margin_kept_per_unit"], fn["direct_cost_per_unit"], fn["net_gain_per_unit"], fn["net_gain_per_period"]) == (15.36, 5.75, 9.61, 134540)
+    assert fn["missing"] == ["credit/collections (no cost)", "selling/visits to 60 restaurants (unassigned)"] and fn["checklist_gaps"] == ["promotion", "stock risk"]
+    with pytest.raises(ToolError, match="cannot compare without price and units"):
+        unit_economics({"price": 48, "retail": {"functions": {"intermediary_margin_pct": 32, "functions": [{"function": "storage"}]}}})
+    # shelf 2.49: Maxima 35 % → 1.6185; distributor 12 % of that → 1.4243 net; − 0.78 = 0.6443; 2-for-1 for 2 of 4 weeks = 0.78 × 0.5 = 0.39 → 0.25 for demand
+    wf = unit_economics({"price": 2.49, "variable_cost": 0.78, "units": 20000, "retail": {"waterfall": {"layers": [{"name": "Maxima", "margin_pct": 35, "margin_base": "selling_price"}, {"name": "distributor", "margin_pct": 12}], "listing_fees": 6000, "promo_units_free_pct": 100, "promo_weeks": 2, "period_weeks": 4}}})["retail"]["waterfall"]
+    assert (wf["net_to_brand"], wf["contribution_after_channel"], wf["promo_cost_per_unit"], wf["demand_budget_per_unit"]) == (1.42, 0.64, 0.39, 0.25)
+    assert wf["demand_budget_per_period"] == 5085.6 and wf["break_even_units"] == 9313 and wf["break_even_units_during_promo"] == 23597
+    assert wf["missing"] == ["retail.waterfall.layers[1].margin_base"] and wf["layers"][0]["takes_per_unit"] == 0.87
+    eaten = unit_economics({"price": 2.49, "variable_cost": 1.8, "retail": {"waterfall": {"layers": [{"name": "Maxima", "margin_pct": 35, "margin_base": "selling_price"}]}}})["retail"]["waterfall"]
+    assert "channel_eats_margin" in eaten["flags"] and eaten["demand_budget_per_unit"] == 0
+    with pytest.raises(ToolError, match="margin_base must be selling_price or cost_plus"):
+        unit_economics({"price": 2.49, "variable_cost": 0.78, "retail": {"waterfall": {"layers": [{"name": "x", "margin_pct": 35, "margin_base": "of_price"}]}}})
+
+
+def test_retail_displacement_handling_promotion_regions_and_terms():
+    # Chocolate 40/2 × 2.29 × 30 % = 13.74 per facing-week vs Original 39.42; barista must do 13.74 / (2.49 × 0.3) = 18.4 units per facing
+    disp = unit_economics({"retail": {"displacement": {"candidates": [{"sku": "Original", "weekly_units": 120, "facings": 2, "retail_price": 2.19, "retailer_margin_pct": 30}, {"sku": "Chocolate", "weekly_units": 40, "facings": 2, "retail_price": 2.29, "retailer_margin_pct": 30}], "new_sku": {"retail_price": 2.49, "retailer_margin_pct": 30, "expected_weekly_units": 15}}}})["retail"]["displacement"]
+    assert disp["likely_displaced"] == "Chocolate" and disp["hurdle"] == 13.74 and disp["new_sku"]["required_weekly_units_per_facing"] == 18.4 and disp["verdict"] == "below_hurdle"
+    unknown = unit_economics({"retail": {"displacement": {"candidates": [{"sku": "Original", "retail_price": 2.19, "retailer_margin_pct": 30}]}}})["retail"]["displacement"]
+    assert unknown["verdict"] == "unknown" and unknown["missing"] == ["retail.displacement.candidates[0].weekly_units"] and "ask the buyer" in unknown["summary"]
+    # chanterelles: Maxima 9.50 × 0.96 − 6.20 = 2.92; Germany 14 × 0.94³ − 6.20 − 2.70 = 2.73; Germany overtakes below 5.5 %/day
+    routes = unit_economics({"retail": {"handling": {"routes": [{"name": "Maxima", "price": 9.5, "cost": 6.2, "transit_days": 1, "fixed_loss_pct": 4}, {"name": "Germany", "price": 14, "cost": 6.2, "handling": 2.7, "transit_days": 3, "loss_pct_per_day": 6}]}}})["retail"]["handling"]
+    a, b = routes["routes"]
+    assert (a["usable_fraction"], a["margin_per_unit_shipped"], b["usable_fraction"], b["margin_per_unit_shipped"]) == (0.96, 2.92, 0.8306, 2.73)
+    assert routes["ranking"] == ["Maxima", "Germany"] and b["breakeven_loss_pct"] == 5.5 and b["breakeven_loss_basis"] == "per day"
+    needs = unit_economics({"retail": {"handling": {"routes": [{"name": "x", "price": 9.5, "cost": 6.2, "transit_days": 1}, {"name": "y", "price": 9, "cost": 6.2, "transit_days": 5, "shelf_life_days": 3}]}}})["retail"]["handling"]
+    assert needs["missing"] == ["x: loss_pct_per_day or fixed_loss_pct"] and needs["routes"][1]["usable_fraction"] == 0 and "unusable route" in needs["routes"][1]["note"]
+    # coupon: 3 % of 40 000 = 1200 × (2 + 0.10) = 2520; stock 300 → shortfall 900, cover 300 / (1200/14) = 3.5 days
+    promo = unit_economics({"retail": {"promotion": {"reach": 40000, "redemption_rate_pct": 3, "face_value": 2, "handling_fee": 0.10, "stock_on_hand": 300, "period_days": 14}}})["retail"]["promotion"]
+    assert (promo["expected_redemptions"], promo["brand_cost"], promo["shortfall_units"], promo["stock_cover_days"]) == (1200, 2520, 900, 3.5)
+    no_rate = unit_economics({"retail": {"promotion": {"reach": 40000, "face_value": 2}}})["retail"]["promotion"]
+    assert no_rate["missing"] == ["retail.promotion.stock_on_hand", "retail.promotion.redemption_rate_pct"] and [r["assumed_redemption_rate_pct"] for r in no_rate["conditional"]] == [1, 3, 5]
+    # pellets: Riga 38/48 = 0.79 → 7.69 landed, +6.8 % on 7.20; seller absorbing freight keeps (6.90 − 4.10 − 0.79)/6.90 = 29.1 %
+    reg = unit_economics({"price": 6.9, "variable_cost": 4.1, "retail": {"regions": {"regions": [{"name": "Riga", "freight_per_shipment": 38, "units_per_shipment": 48, "competitor_price": 7.2}, {"name": "Berlin", "freight_per_shipment": 120, "units_per_shipment": 48, "competitor_price": 8.4}, {"name": "Oslo"}]}}})["retail"]["regions"]
+    assert reg["regions"][0]["landed_price"] == 7.69 and reg["regions"][0]["price_gap_pct"] == 6.8 and reg["regions"][0]["competitive"] is False and reg["regions"][0]["margin_pct_if_seller_absorbs"] == 29.1
+    assert reg["ranking"] == ["Riga", "Berlin"] and reg["regions"][2]["landed_price"] is None and len(reg["missing"]) == 1 and "none of the 2 regions beats" in reg["summary"]
+    # terms: Germany 100 days × 5.40 × 9 %/365 = 0.13 → 9 − 5.40 − 0.13 = 3.47; Vilnius 31 days → 0.04 → 2.76; tie at 0.80 / (5.40 × 69/365) = 78.4 %
+    terms = unit_economics({"variable_cost": 5.4, "retail": {"payment_terms": {"annual_finance_rate_pct": 9, "offers": [{"name": "Germany", "price": 9, "days_to_payment": 90, "days_in_transit": 10, "order_units": 12000}, {"name": "Vilnius", "price": 8.2, "days_to_payment": 30, "days_in_transit": 1, "order_units": 12000}]}}})["retail"]["payment_terms"]
+    g, v = terms["offers"]
+    assert (g["days_financed"], g["financing_cost_per_unit"], g["adjusted_contribution_per_unit"], g["capital_tied_up"]) == (100, 0.13, 3.47, 64800)
+    assert (v["financing_cost_per_unit"], v["adjusted_contribution_per_unit"]) == (0.04, 2.76) and terms["best_offer"] == "Germany" and terms["break_even_rate_pct"] == 78.4
+    no_rate = unit_economics({"variable_cost": 5.4, "retail": {"payment_terms": {"offers": [{"name": "Germany", "price": 9, "days_to_payment": 90}]}}})["retail"]["payment_terms"]
+    assert no_rate["missing"] == ["retail.payment_terms.offers[0].annual_finance_rate_pct"] and [r["assumed_annual_finance_rate_pct"] for r in no_rate["offers"][0]["conditional"]] == [5, 9, 15]
+
+
+def test_retail_gmroi_returns_reserve_and_incentives():
+    # pots: 200 000 × 45 % = 90 000 / 50 000 stock = 1.8 (2.2 turns); seeds 5280 / 20 000 = 0.26
+    g = unit_economics({"retail": {"gmroi": {"target_gmroi": 1, "items": [{"name": "seeds", "average_inventory_at_cost": 20000, "revenue": 48000, "gross_margin_pct": 11}, {"name": "pots", "average_inventory_at_cost": 50000, "revenue": 200000, "gross_margin_pct": 45}]}}})["retail"]["gmroi"]
+    assert g["ranking"] == ["pots", "seeds"] and g["items"][0]["gmroi"] == 1.8 and g["items"][0]["inventory_turns"] == 2.2 and g["items"][1]["gmroi"] == 0.26 and g["below_target"] == ["seeds"]
+    with pytest.raises(ToolError, match="contradict"):
+        unit_economics({"retail": {"gmroi": {"items": [{"name": "x", "average_inventory_at_cost": 100, "revenue": 1000, "cogs": 500, "gross_margin_pct": 20}]}}})
+    # chair: a return loses 139 of contribution + 20 % of 110 written off + 18 handling = 179; at 7 % → 12.53 per unit sold (5.0 % of revenue)
+    rr = unit_economics({"price": 249, "variable_cost": 110, "units": 180, "retail": {"returns_reserve": {"return_rate_pct": 7, "handling_cost_per_return": 18, "resale_recovery_pct": 80}}})["retail"]["returns_reserve"]
+    assert (rr["loss_per_return"], rr["reserve_per_unit_sold"], rr["reserve_pct_of_revenue"], rr["contribution_after_returns"], rr["reserve_per_period"]) == (179, 12.53, 5.0, 126.47, 2255.4)
+    assert unit_economics({"retail": {"returns_reserve": {"return_rate_pct": 7}}})["retail"]["returns_reserve"]["missing"] == ["price", "variable_cost"]
+    # A: 100 price / 20 gross profit; B: 60 / 30. 10 % of revenue pays 10 vs 6 → rep pushes A; 25 % of gross profit pays 5 vs 7.5 → B, which the company wants
+    inc = unit_economics({"retail": {"incentives": {"items": [{"name": "A", "price": 100, "variable_cost": 80}, {"name": "B", "price": 60, "variable_cost": 30}], "revenue_commission_pct": 10, "gross_profit_commission_pct": 25}}})["retail"]["incentives"]
+    assert inc["company_prefers"] == "B" and inc["rep_pushes_on_revenue_scheme"] == "A" and inc["revenue_scheme_aligned"] is False and inc["gross_profit_scheme_aligned"] is True
+    with pytest.raises(ToolError, match="retail needs at least one of"):
+        unit_economics({"retail": {}})
+
+
+def test_media_value_keyword_test_incremental_space_and_catalogue():
+    # 600 / 0.45 = 1333 clicks; contribution 89 − 55.18 = 33.82 → break-even 0.45/33.82 = 1.33 %; 24/1333 = 1.80 %, Wilson 1.21–2.67 %;
+    # 0.61 per visit; ROI (811.68 − 599.85)/599.85 = 35.3 %; SEO 500/month ÷ 0.609 = 822 visits
+    kw = unit_economics({"price": 89, "variable_cost": 55.18, "media_value": {"keyword_test": {"budget": 600, "cpc": 0.45, "observed_clicks": 1333, "observed_orders": 24, "seo_cost": 3000, "seo_months": 6}}})["media_value"]["keyword_test"]
+    assert kw["clicks_affordable"] == 1333 and kw["break_even_cvr_pct"] == 1.33
+    assert kw["read"]["cvr_pct"] == 1.8 and kw["read"]["cvr_ci95_pct"] == [1.21, 2.67] and kw["read"]["contribution_per_visit"] == 0.61 and kw["read"]["paid_roi_pct"] == 35.3
+    assert kw["seo"]["visits_needed_per_month_to_repay"] == 822 and kw["seo"]["verdict"] == "worth_testing_organic"
+    thin = unit_economics({"price": 89, "variable_cost": 55.18, "media_value": {"keyword_test": {"budget": 600, "cpc": 0.45, "observed_clicks": 300, "observed_orders": 3}}})["media_value"]["keyword_test"]
+    assert thin["verdict"] == "insufficient_sample"
+    no_cost = unit_economics({"price": 89, "media_value": {"keyword_test": {"budget": 600, "cpc": 0.45}}})["media_value"]["keyword_test"]
+    assert no_cost["missing"] == ["variable_cost"] and no_cost["clicks_affordable"] == 1333 and "break_even_cvr_pct" not in no_cost
+    with pytest.raises(ToolError, match="cannot exceed observed_clicks"):
+        unit_economics({"price": 89, "variable_cost": 55.18, "media_value": {"keyword_test": {"budget": 600, "cpc": 0.45, "observed_clicks": 10, "observed_orders": 20}}})
+    # full page costs 1400 more; 109 per order → 13 extra orders = 37.1 % over 35
+    inc = unit_economics({"price": 149, "variable_cost": 40, "media_value": {"incremental": {"incremental_cost": 1400, "baseline_units": 35, "expected_uplift_pct": 20}}})["media_value"]["incremental"]
+    assert inc["extra_units_needed"] == 13 and inc["required_lift_pct"] == 37.1 and inc["expected_extra_units"] == 7 and inc["verdict"] == "does_not_pay"
+    cond = unit_economics({"price": 149, "media_value": {"incremental": {"incremental_cost": 1400}}})["media_value"]["incremental"]
+    assert cond["missing"] == ["variable_cost"] and cond["conditional"][1] == {"assumed_margin_pct": 40.0, "extra_units_needed": 24} and cond["verdict"] == "unknown"
+    # catalogue: 42 000 × 1.10 + 9800 = 56 000 (1.33/piece); revenue 1.70/piece; gross 71 400 × 38 % = 27 132; net −28 868 (−0.69); ROAS 1.27; order rate 2.43 %;
+    # break-even 56 000 / (70 × 0.38) = 2106 orders = 5.01 %
+    cat = unit_economics({"media_value": {"campaign": {"pieces_sent": 42000, "print_cost_per_piece": 0.62, "delivery_cost_per_piece": 0.48, "fixed_costs": 9800, "responses": 1350, "attributed_orders": 1020, "attributed_revenue": 71400, "gross_margin_pct": 38}}})["media_value"]["campaign"]
+    assert (cat["cost_all_in"], cat["cost_per_piece_all_in"], cat["revenue_per_piece"], cat["gross_profit"], cat["net"]) == (56000, 1.33, 1.7, 27132, -28868)
+    assert cat["per_piece"]["net"] == -0.69 and cat["roas"] == 1.27 and cat["order_rate_pct"] == 2.43 and cat["cost_per_order"] == 54.9
+    assert cat["break_even"]["order_rate_pct_at_current_aov"] == 5.01 and "did not pay back" in cat["summary"]
+    unattributed = unit_economics({"media_value": {"campaign": {"pieces_sent": 42000, "cost_per_piece": 1.10, "fixed_costs": 9800}}})["media_value"]["campaign"]
+    assert unattributed["missing"] == ["media_value.campaign.attributed_revenue"] and "attribution is unknown" in unattributed["summary"]
+    no_margin = unit_economics({"media_value": {"campaign": {"pieces_sent": 42000, "cost_per_piece": 1.10, "fixed_costs": 9800, "attributed_orders": 1020, "attributed_revenue": 71400}}})["media_value"]["campaign"]
+    assert no_margin["missing"] == ["media_value.campaign.gross_margin_pct"] and [r["assumed_gross_margin_pct"] for r in no_margin["conditional"]] == [30, 40, 50]
+
+
+def test_media_value_spend_levels_outcome_partnership_and_benchmark():
+    # 20k × 4.2 = 84 000 × 38 % = 31 920 − 20 000 = 11 920 (59.6 %); 35k × 3.1 = 108 500 → 41 230 − 35 000 = 6230 (17.8 %)
+    # step: +15 000 → +24 500, marginal ROAS 1.63 < 1/0.38 = 2.63, marginal profit −5690; flips above 15 000/24 500 = 61.2 % margin
+    so = unit_economics({"media_value": {"margin_pct": 38, "spend_options": {"options": [{"label": "35k", "spend": 35000, "roas": 3.1}, {"label": "20k", "spend": 20000, "roas": 4.2}]}}})["media_value"]["spend_options"]
+    low, high = so["options"]
+    assert (low["revenue"], low["gross_profit"], low["net_profit"], low["roi_pct"]) == (84000, 31920, 11920, 59.6) and (high["net_profit"], high["roi_pct"]) == (6230, 17.8)
+    step = so["steps"][0]
+    assert (step["marginal_roas"], step["marginal_breakeven_roas"], step["marginal_profit"], step["flip_margin_pct"]) == (1.63, 2.63, -5690, 61.2)
+    assert so["best_by_profit"] == "20k" and "flips above a 61.2 % margin" in so["summary"]
+    flipped = unit_economics({"media_value": {"margin_pct": 38, "spend_options": {"options": [{"label": "20k", "spend": 20000, "roas": 4.2}, {"label": "35k", "spend": 35000, "roas": 3.6}]}}})["media_value"]["spend_options"]
+    # 35k × 3.6 = 126 000 × 38 % = 47 880 − 35 000 = 12 880, i.e. +960 over 20k despite the lower ROAS
+    assert flipped["best_by_profit"] == "35k" and flipped["best_by_roi"] == "20k" and flipped["steps"][0]["marginal_profit"] == 960
+    cond = unit_economics({"media_value": {"spend_options": {"options": [{"label": "20k", "spend": 20000, "roas": 4.2}, {"label": "35k", "spend": 35000, "roas": 3.1}]}}})["media_value"]["spend_options"]
+    assert cond["missing"] == ["margin_pct"] and cond["conditional"][1]["best_by_profit"] == "20k" and cond["conditional"][3]["best_by_profit"] == "35k"
+    with pytest.raises(ToolError, match="same spend"):
+        unit_economics({"media_value": {"margin_pct": 38, "spend_options": {"options": [{"label": "a", "spend": 20000, "roas": 4.2}, {"label": "b", "spend": 20000, "roas": 3.1}]}}})
+    # donors: 40 000 / 1600 = 25.00; 700 incremental → 57.14 against 120 → pays; break-even 334 outcomes
+    oc = unit_economics({"media_value": {"outcome": {"budget": 40000, "target_outcomes": 1600, "baseline_outcomes": 900, "value_per_outcome": 120, "outcome_unit": "donor"}}})["media_value"]["outcome"]
+    assert (oc["cost_per_outcome"], oc["incremental_outcomes"], oc["cost_per_incremental_outcome"], oc["breakeven_outcomes"], oc["decision"]) == (25, 700, 57.14, 334, "pays")
+    unknown = unit_economics({"media_value": {"outcome": {"budget": 40000, "target_outcomes": 1600}}})["media_value"]["outcome"]
+    assert unknown["missing"] == ["value_per_outcome"] and unknown["decision"] == "unknown"
+    # partnership: 12 000 cash; 8 × 1500 + 40 × 150 = 18 000 in kind; 212 orders → 56.60 on cash, 141.51 all in; never one total
+    pt = unit_economics({"media_value": {"partnership": {"cash_paid": 12000, "in_kind": [{"item": "LED board", "quantity": 8, "unit_value": 1500, "basis": "rate_card"}, {"item": "IG stories", "quantity": 40, "unit_value": 150, "basis": "own_estimate"}], "outcomes": [{"metric": "orders", "value": 212, "attribution": "promo_code"}, {"metric": "visits", "value": 3100, "attribution": "none"}]}}})["media_value"]["partnership"]
+    assert pt["cash_total"] == 12000 and pt["in_kind_total"] == 18000 and pt["in_kind_by_basis"]["own_estimate"] == 6000
+    assert pt["cost_per_outcome_cash"]["orders"] == 56.6 and pt["cost_per_outcome_all_in"]["orders"] == 141.51 and "total_value" not in pt
+    assert pt["outcomes"][1]["label"] == "observed, not attributed" and len(pt["report_lines"]) == 5
+    unknown_kind = unit_economics({"media_value": {"partnership": {"cash_paid": 12000, "in_kind": [{"item": "LED", "basis": "quote"}], "outcomes": [{"metric": "orders", "value": 212}]}}})["media_value"]["partnership"]
+    assert unknown_kind["in_kind_total"] is None and unknown_kind["cost_per_outcome_all_in"]["orders"] is None and unknown_kind["missing"] == ["media_value.partnership.in_kind[0].estimated_value"]
+    with pytest.raises(ToolError, match="basis must be"):
+        unit_economics({"media_value": {"partnership": {"cash_paid": 1, "in_kind": [{"item": "x", "estimated_value": 5, "basis": "guess"}]}}})
+    # benchmark: two B2B annual SaaS figures match (1.5–2.4×); the retail figure differs on four keys and is excluded; 5× on 15 000 = 75 000 revenue, 60 000 at 80 %
+    bm = unit_economics({"media_value": {"margin_pct": 80, "benchmark": {"context": {"sector": "saas", "b2b_or_b2c": "b2b", "contract": "annual", "price_position": "mid"}, "figures": [
+        {"return_multiple": 1.5, "context": {"sector": "saas", "b2b_or_b2c": "b2b", "contract": "annual"}, "source_url": "u1"},
+        {"return_multiple": 2.4, "context": {"sector": "saas", "b2b_or_b2c": "b2b", "contract": "annual", "price_position": "mid"}, "source_url": "u2"},
+        {"return_multiple": 5.2, "context": {"sector": "retail", "b2b_or_b2c": "b2c", "contract": "one_off", "price_position": "budget"}, "source_url": "pigu"}],
+        "expected_return_multiple": 5, "campaign_spend": 15000, "revenue_per_customer": 348}}})["media_value"]["benchmark"]
+    assert bm["matched_range"] == [1.5, 2.4] and bm["expected_vs_range"] == "above" and bm["mismatched_figures"][0]["source_url"] == "pigu"
+    assert bm["implied"] == {"revenue": 75000, "contribution": 60000, "customers": 216}
+    none = unit_economics({"media_value": {"benchmark": {"context": {"sector": "saas", "b2b_or_b2c": "b2b"}, "figures": [{"return_multiple": 5.2, "context": {"sector": "retail", "b2b_or_b2c": "b2c"}}], "expected_return_multiple": 5}}})["media_value"]["benchmark"]
+    assert none["matched_range"] is None and none["expected_vs_range"] == "no_match" and "own break-even is the only reference" in none["summary"]
+
+
+def test_routes_score_options_against_ranked_outcomes():
+    # improvement 5×2 + 5×2 + 2×0 = 20 → 35 000/20 = 1750 per point; platform 5 + 5 + 4 = 14 → 12 857.14; platform costs 5.1× and adds less → eliminated
+    args = {"routes": {"outcomes": [{"name": "close month faster", "weight": 5}, {"name": "fewer VAT errors", "weight": 5}, {"name": "nicer dashboards", "weight": 2}], "routes": [
+        {"name": "new platform", "cost": 180000, "months": 12, "effects": {"close month faster": 1, "fewer VAT errors": 1, "nicer dashboards": 2}},
+        {"name": "improvement", "cost": 35000, "months": 3, "effects": {"close month faster": 2, "fewer VAT errors": 2, "nicer dashboards": 0}}]}}
+    out = unit_economics(args)["routes"]
+    platform, improvement = out["routes"]
+    assert (platform["weighted_gain"], platform["cost_per_gain_point"], improvement["weighted_gain"], improvement["cost_per_gain_point"]) == (14, 12857.14, 20, 1750)
+    assert out["eliminate"] == ["new platform"] and out["status"] == "ok" and "5.1× more" in out["summary"]
+    incomplete = json.loads(json.dumps(args))
+    del incomplete["routes"]["routes"][0]["effects"]["nicer dashboards"]
+    out = unit_economics(incomplete)["routes"]
+    assert out["status"] == "insufficient" and out["missing"] == ["routes.routes[0].effects[nicer dashboards]"] and out["routes"][0]["weighted_gain"] is None and out["eliminate"] == []
+    with pytest.raises(ToolError, match="weight must be between 1 and 5"):
+        unit_economics({"routes": {"outcomes": [{"name": "a", "weight": 7}], "routes": [{"name": "r", "cost": 1, "effects": {"a": 1}}]}})
+    with pytest.raises(ToolError, match="must be 0, 1 or 2"):
+        unit_economics({"routes": {"outcomes": [{"name": "a", "weight": 3}], "routes": [{"name": "r", "cost": 1, "effects": {"a": 3}}]}})
+    with pytest.raises(ToolError, match="not one of the outcomes"):
+        unit_economics({"routes": {"outcomes": [{"name": "a", "weight": 3}], "routes": [{"name": "r", "cost": 1, "effects": {"a": 1, "b": 1}}]}})
+
+
+def test_new_blocks_are_additive_and_the_tool_wrapper_carries_them():
+    plain = unit_economics({"price": 100, "variable_cost": 60, "units": 100, "new_price": 90})
+    assert set(plain) == {"currency", "inputs", "missing", "assumptions", "contribution_per_unit", "margin_pct", "markup_pct", "total_contribution", "revenue", "change", "sensitivity", "summary"}
+    with_block = unit_economics({"price": 100, "variable_cost": 60, "units": 100, "new_price": 90, "ownership": {"base_price": 10, "consumable_price": 1, "consumable_units_per_period": 1, "periods": 12}})
+    assert {k: v for k, v in with_block.items() if k not in ("ownership", "summary")} == {k: v for k, v in plain.items() if k != "summary"}
+    assert with_block["summary"].startswith(plain["summary"]) and "Total cost of ownership 22.00" in with_block["summary"]
+    # a price change still needs a price even when a standalone block is present
+    with pytest.raises(ToolError, match="price is required to judge"):
+        unit_economics({"new_price": 90, "routes": {"outcomes": [{"name": "a", "weight": 3}], "routes": [{"name": "r", "cost": 1, "effects": {"a": 1}}]}})
+    text = unit_economics_tool({"price": "45", "variable_cost": "8", "capacity": json.dumps({"capacity_units": 30, "occupancy_pct": 40, "offpeak_price": 33.75})})
+    assert json.loads(text)["capacity"]["offer"]["shift_break_even_pct"] == 69.6
+
+
+
+def test_dispatch_unit_economics_blocks_without_price(tmp_path):
+    import json as _json
+
+    from rocky.tools import WorkspaceTools, dispatch, worker_tools
+
+    out = _json.loads(dispatch(WorkspaceTools(tmp_path), "unit_economics", {"ownership": {"base_price": 100, "consumable_price": 0.5, "consumable_units_per_period": 2, "periods": 365, "period_label": "day"}}))
+    assert "ownership" in out
+    spec = next(t for t in worker_tools(False) if t["function"]["name"] == "unit_economics")
+    assert spec["function"]["parameters"]["required"] == []
+    assert "retail" in spec["function"]["parameters"]["properties"]

@@ -1338,6 +1338,7 @@ def _run_subtask(
                 "mental availability, benchmark fit and respondent coverage go through campaign_calc. "
                 "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
                 "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
+                "Unsold capacity by time band, total cost of ownership, trial-vs-refund or referral offers, a new line against a repositioning, retail and channel arithmetic (bulk, waterfall, shelf, coupon, payment terms, GMROI), media money against its return and route scoring are unit_economics blocks, never prose. "
                 "Willingness-to-pay answers, a concept test readout, a test-market plan, a conjoint or choice study, a recruit screener and every creative test design (holdout, copy test, diff-in-diff, crossover, portfolio, factorial, stated vs observed) go through experiment_plan with the matching mode. "
                 "A name's spellings, brand mentions, a shop's delivery or returns policy, directory listings, search intent, orphan pages, "
                 "ranking competitors, link prospects, locale formats, a press kit or email authentication headers go through web_check. "

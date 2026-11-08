@@ -448,44 +448,1458 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "unit_economics",
-            "description": (
-                "Calculate contribution, margin and markup, break-even and what a price change must win back. "
-                "Call it for every pricing, discount, promotion, bundle, tier, channel-price or acquisition-cost question "
-                "instead of doing the arithmetic yourself; give per-unit numbers in one currency. Optional blocks on the "
-                "same call: several plans ranked by net contribution (plans), realized price after markdowns (sales_mix "
-                "or markdown_pct), a bundle against separate purchases (bundle), tiers blended against the baseline with "
-                "the cannibalization break-even (variants), the price buildup through a distribution chain with a "
-                "back-solve to a shelf target (chain), and fixed/per-unit obligations with payback (obligations). If "
-                "variable_cost is unknown the result lists it under missing with a conditional table: ask the user "
-                "(clarify) or state the assumption."
-            ),
+            "description": "Calculate contribution, margin and markup, break-even and what a price change must win back. Call it for every pricing, discount, promotion, bundle, tier, channel-price or acquisition-cost question instead of doing the arithmetic yourself; give per-unit numbers in one currency. Optional blocks on the same call: several plans ranked by net contribution (plans), realized price after markdowns (sales_mix or markdown_pct), a bundle against separate purchases (bundle), tiers blended against the baseline with the cannibalization break-even (variants), the price buildup through a distribution chain with a back-solve to a shelf target (chain), and fixed/per-unit obligations with payback (obligations). If variable_cost is unknown the result lists it under missing with a conditional table: ask the user (clarify) or state the assumption. Further blocks, each switched on by its own object: capacity (unsold slots by time band and the shift break-even of an off-peak price), ownership (total cost of a base product plus its consumable against an alternative), offers (trial-then-bill vs refund, a paid option such as express delivery, a referral reward), line (a new variant or premium line and a repositioning over a horizon, a price history decomposed into price, volume and cost effects), retail (bulk breaking, assortment, channel risk, channel functions, the price waterfall, shelf displacement, routes with transit losses, a coupon promotion, delivered prices, payment terms, GMROI, a returns reserve, sales incentives), media_value (keyword test, incremental space, a catalogue drop, spend levels on profit, a public outcome, a partnership's three figures, a context-checked benchmark) and routes (options scored against ranked outcomes); price may be omitted when only ownership, retail, media_value or routes is asked for.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "price": {"type": "number", "description": "current price per unit"},
-                    "variable_cost": {"type": "number", "description": "cost per unit that scales with sales"},
-                    "units": {"type": "number", "description": "current sales per period"},
-                    "fixed_costs": {"type": "number", "description": "costs per period that do not scale, for break-even"},
-                    "new_price": {"type": "number", "description": "the price being considered"},
-                    "discount_pct": {"type": "number", "description": "alternative to new_price: percent off"},
-                    "new_variable_cost": {"type": "number", "description": "cost per unit after the change, if it moves"},
-                    "expected_uplift_pct": {"type": "number", "description": "the volume gain the marketer expects, to get a decision"},
-                                        "margin_pct": {"type": "number", "description": "alternative to variable_cost: margin in percent of price; the cost is derived and stated under assumptions"},
-                    "markup_pct": {"type": "number", "description": "alternative to variable_cost: markup in percent on cost; the cost is derived and stated under assumptions"},
-                    "sales_mix": {"type": "array", "description": "units actually sold at each price point, for the realized price and markup after markdowns", "items": {"type": "object", "properties": {"price": {"type": "number"}, "units": {"type": "number"}}, "required": ["price", "units"]}},
-                    "markdown_pct": {"type": "number", "description": "alternative to sales_mix: depth of the markdown in percent; needs markdown_share_pct"},
-                    "markdown_share_pct": {"type": "number", "description": "share of units (percent) sold at the markdown"},
-                    "target_contribution": {"type": "number", "description": "contribution per period to reach; returns units_for_target today and per plan"},
-                    "plans": {"type": "array", "description": "several price plans evaluated against price/variable_cost/units and ranked by net contribution", "items": {"type": "object", "properties": {"name": {"type": "string"}, "new_price": {"type": "number"}, "discount_pct": {"type": "number", "description": "alternative to new_price"}, "expected_volume_change_pct": {"type": "number", "description": "volume change the marketer expects, for a decision"}, "expected_units": {"type": "number", "description": "alternative to expected_volume_change_pct"}, "promo_cost": {"type": "number", "description": "one-off cost of the plan per period"}, "added_variable_cost": {"type": "number", "description": "extra cost per unit the plan brings (gift, shipping)"}}}},
-                    "bundle": {"type": "object", "description": "a bundle judged against the items bought separately", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "price": {"type": "number"}, "variable_cost": {"type": "number"}, "would_buy_anyway_pct": {"type": "number", "description": "share of baseline buyers who would buy this item at full price anyway; default 100 for the baseline item, 0 for others"}}, "required": ["name", "price"]}}, "bundle_price": {"type": "number"}, "expected_attach_rate_pct": {"type": "number", "description": "share of baseline buyers expected to take the bundle"}, "baseline_item": {"type": "string", "description": "the item sold alone today; default the first item"}}, "required": ["items", "bundle_price"]},
-                    "variants": {"type": "array", "description": "tiers or variants blended against the base price/cost; share_pct is each one's share of all buyers, the rest stay at the base price", "items": {"type": "object", "properties": {"name": {"type": "string"}, "price": {"type": "number"}, "share_pct": {"type": "number"}, "extra_variable_cost": {"type": "number", "description": "cost added on top of the base variable_cost"}, "variable_cost": {"type": "number", "description": "full cost per unit if it differs from base + extra"}, "effort_note": {"type": "string", "description": "what the buyer gives up or does, e.g. '25-min round trip'; carried into the output"}}, "required": ["name", "price", "share_pct"]}},
-                    "chain": {"type": "object", "description": "price buildup from production cost through distribution stages to the shelf", "properties": {"production_cost": {"type": "number"}, "stages": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "added_cost": {"type": "number"}, "margin_pct": {"type": "number"}, "basis": {"type": "string", "enum": ["of_price", "on_cost"], "description": "of_price = margin as share of selling price (default); on_cost = markup on cost"}}, "required": ["name", "margin_pct"]}}, "vat_pct": {"type": "number"}, "target_shelf_price": {"type": "number", "description": "consumer price (gross when vat_pct is given) to back-solve the production cost for"}}, "required": ["production_cost", "stages"]},
-                    "obligations": {"type": "array", "description": "fixed, per-period and per-unit commitments added to the base economics; price may be 0 (free tier) when these or variants carry the economics", "items": {"type": "object", "properties": {"name": {"type": "string"}, "one_off": {"type": "number"}, "per_period": {"type": "number"}, "per_unit": {"type": "number"}}, "required": ["name"]}},
-                    "currency": {"type": "string", "description": "EUR by default"},
+                    "price": {
+                        "type": "number",
+                        "description": "current price per unit; required unless only ownership, retail, media_value or routes is asked for"
+                    },
+                    "variable_cost": {
+                        "type": "number",
+                        "description": "cost per unit that scales with sales"
+                    },
+                    "units": {
+                        "type": "number",
+                        "description": "current sales per period"
+                    },
+                    "fixed_costs": {
+                        "type": "number",
+                        "description": "costs per period that do not scale, for break-even"
+                    },
+                    "new_price": {
+                        "type": "number",
+                        "description": "the price being considered"
+                    },
+                    "discount_pct": {
+                        "type": "number",
+                        "description": "alternative to new_price: percent off"
+                    },
+                    "new_variable_cost": {
+                        "type": "number",
+                        "description": "cost per unit after the change, if it moves"
+                    },
+                    "expected_uplift_pct": {
+                        "type": "number",
+                        "description": "the volume gain the marketer expects, to get a decision"
+                    },
+                    "margin_pct": {
+                        "type": "number",
+                        "description": "alternative to variable_cost: margin in percent of price; the cost is derived and stated under assumptions"
+                    },
+                    "markup_pct": {
+                        "type": "number",
+                        "description": "alternative to variable_cost: markup in percent on cost; the cost is derived and stated under assumptions"
+                    },
+                    "sales_mix": {
+                        "type": "array",
+                        "description": "units actually sold at each price point, for the realized price and markup after markdowns",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "price": {
+                                    "type": "number"
+                                },
+                                "units": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "price",
+                                "units"
+                            ]
+                        }
+                    },
+                    "markdown_pct": {
+                        "type": "number",
+                        "description": "alternative to sales_mix: depth of the markdown in percent; needs markdown_share_pct"
+                    },
+                    "markdown_share_pct": {
+                        "type": "number",
+                        "description": "share of units (percent) sold at the markdown"
+                    },
+                    "target_contribution": {
+                        "type": "number",
+                        "description": "contribution per period to reach; returns units_for_target today and per plan"
+                    },
+                    "plans": {
+                        "type": "array",
+                        "description": "several price plans evaluated against price/variable_cost/units and ranked by net contribution",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "new_price": {
+                                    "type": "number"
+                                },
+                                "discount_pct": {
+                                    "type": "number",
+                                    "description": "alternative to new_price"
+                                },
+                                "expected_volume_change_pct": {
+                                    "type": "number",
+                                    "description": "volume change the marketer expects, for a decision"
+                                },
+                                "expected_units": {
+                                    "type": "number",
+                                    "description": "alternative to expected_volume_change_pct"
+                                },
+                                "promo_cost": {
+                                    "type": "number",
+                                    "description": "one-off cost of the plan per period"
+                                },
+                                "added_variable_cost": {
+                                    "type": "number",
+                                    "description": "extra cost per unit the plan brings (gift, shipping)"
+                                }
+                            }
+                        }
+                    },
+                    "bundle": {
+                        "type": "object",
+                        "description": "a bundle judged against the items bought separately",
+                        "properties": {
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "price": {
+                                            "type": "number"
+                                        },
+                                        "variable_cost": {
+                                            "type": "number"
+                                        },
+                                        "would_buy_anyway_pct": {
+                                            "type": "number",
+                                            "description": "share of baseline buyers who would buy this item at full price anyway; default 100 for the baseline item, 0 for others"
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "price"
+                                    ]
+                                }
+                            },
+                            "bundle_price": {
+                                "type": "number"
+                            },
+                            "expected_attach_rate_pct": {
+                                "type": "number",
+                                "description": "share of baseline buyers expected to take the bundle"
+                            },
+                            "baseline_item": {
+                                "type": "string",
+                                "description": "the item sold alone today; default the first item"
+                            }
+                        },
+                        "required": [
+                            "items",
+                            "bundle_price"
+                        ]
+                    },
+                    "variants": {
+                        "type": "array",
+                        "description": "tiers or variants blended against the base price/cost; share_pct is each one's share of all buyers, the rest stay at the base price",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "price": {
+                                    "type": "number"
+                                },
+                                "share_pct": {
+                                    "type": "number"
+                                },
+                                "extra_variable_cost": {
+                                    "type": "number",
+                                    "description": "cost added on top of the base variable_cost"
+                                },
+                                "variable_cost": {
+                                    "type": "number",
+                                    "description": "full cost per unit if it differs from base + extra"
+                                },
+                                "effort_note": {
+                                    "type": "string",
+                                    "description": "what the buyer gives up or does, e.g. '25-min round trip'; carried into the output"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "price",
+                                "share_pct"
+                            ]
+                        }
+                    },
+                    "chain": {
+                        "type": "object",
+                        "description": "price buildup from production cost through distribution stages to the shelf",
+                        "properties": {
+                            "production_cost": {
+                                "type": "number"
+                            },
+                            "stages": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "added_cost": {
+                                            "type": "number"
+                                        },
+                                        "margin_pct": {
+                                            "type": "number"
+                                        },
+                                        "basis": {
+                                            "type": "string",
+                                            "enum": [
+                                                "of_price",
+                                                "on_cost"
+                                            ],
+                                            "description": "of_price = margin as share of selling price (default); on_cost = markup on cost"
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "margin_pct"
+                                    ]
+                                }
+                            },
+                            "vat_pct": {
+                                "type": "number"
+                            },
+                            "target_shelf_price": {
+                                "type": "number",
+                                "description": "consumer price (gross when vat_pct is given) to back-solve the production cost for"
+                            }
+                        },
+                        "required": [
+                            "production_cost",
+                            "stages"
+                        ]
+                    },
+                    "obligations": {
+                        "type": "array",
+                        "description": "fixed, per-period and per-unit commitments added to the base economics; price may be 0 (free tier) when these or variants carry the economics",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "one_off": {
+                                    "type": "number"
+                                },
+                                "per_period": {
+                                    "type": "number"
+                                },
+                                "per_unit": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ]
+                        }
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "EUR by default"
+                    },
+                    "exposures": {
+                        "type": "number",
+                        "description": "people or sessions exposed per period; with offers gives net contribution per 1 000 exposures"
+                    },
+                    "baseline_conversion_pct": {
+                        "type": "number",
+                        "description": "current conversion in percent; used by the offers option row and, with exposures, to derive base orders"
+                    },
+                    "capacity": {
+                        "type": "object",
+                        "description": "perishable capacity (slots, seats, chairs) by time band: unsold units, their value at list price, and for an off-peak price the contribution per filled slot, the loss per shifted regular and the share of off-peak bookings that may be shifted before the offer loses money; needs price and variable_cost",
+                        "properties": {
+                            "period": {
+                                "type": "string",
+                                "description": "label, e.g. day or week"
+                            },
+                            "bands": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "band": {
+                                            "type": "string"
+                                        },
+                                        "capacity": {
+                                            "type": "number",
+                                            "description": "slots per period"
+                                        },
+                                        "occupied": {
+                                            "type": "number",
+                                            "description": "slots filled per period"
+                                        },
+                                        "occupancy_pct": {
+                                            "type": "number",
+                                            "description": "alternative to occupied"
+                                        }
+                                    },
+                                    "required": [
+                                        "band",
+                                        "capacity"
+                                    ]
+                                }
+                            },
+                            "capacity_units": {
+                                "type": "number",
+                                "description": "single-band alternative to bands"
+                            },
+                            "occupied_units": {
+                                "type": "number"
+                            },
+                            "occupancy_pct": {
+                                "type": "number"
+                            },
+                            "offpeak_price": {
+                                "type": "number",
+                                "description": "the lower price being considered; must be below price"
+                            }
+                        }
+                    },
+                    "ownership": {
+                        "type": "object",
+                        "description": "total cost of ownership of a base product plus its consumable over a horizon, consumable share, cost per period, and against an alternative the difference, the crossover period and the usage at which they tie; price may be omitted",
+                        "properties": {
+                            "base_price": {
+                                "type": "number"
+                            },
+                            "consumable_price": {
+                                "type": "number",
+                                "description": "per consumable unit"
+                            },
+                            "consumable_units_per_period": {
+                                "type": "number"
+                            },
+                            "periods": {
+                                "type": "number"
+                            },
+                            "period_label": {
+                                "type": "string",
+                                "description": "day, month, year"
+                            },
+                            "alternative": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "base_price": {
+                                        "type": "number"
+                                    },
+                                    "consumable_price": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "base_price",
+                                    "consumable_price"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "base_price",
+                            "consumable_price",
+                            "periods"
+                        ]
+                    },
+                    "offers": {
+                        "type": "array",
+                        "description": "offer mechanics on the base price/variable_cost/units: kind trial_then_bill or refund (orders, returned, unpaid, retained customers, net contribution, the return rate at which the best offer ties the next), kind option (a paid extra such as same-day delivery that costs more than its fee: blended contribution per order and the conversion lift it must bring, sensitivity over take rates), kind referral (reward per referred sale against the contribution, cost per acquired customer, liability)",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                        "trial_then_bill",
+                                        "refund",
+                                        "option",
+                                        "referral"
+                                    ]
+                                },
+                                "take_up_pct": {
+                                    "type": "number",
+                                    "description": "trial/refund: change in orders against today's units"
+                                },
+                                "return_pct": {
+                                    "type": "number"
+                                },
+                                "non_payment_pct": {
+                                    "type": "number",
+                                    "description": "trial only: share of kept orders never paid"
+                                },
+                                "collection_cost_per_order": {
+                                    "type": "number"
+                                },
+                                "return_shipping_cost": {
+                                    "type": "number"
+                                },
+                                "refund_handling_cost": {
+                                    "type": "number"
+                                },
+                                "returned_unit_loss": {
+                                    "type": "number",
+                                    "description": "value lost per returned unit; default 0 (restocked)"
+                                },
+                                "option_fee": {
+                                    "type": "number",
+                                    "description": "option: what the buyer pays for it per order"
+                                },
+                                "option_cost": {
+                                    "type": "number",
+                                    "description": "option: what it costs per order"
+                                },
+                                "take_rate_pct": {
+                                    "type": "number",
+                                    "description": "option: share of orders choosing it"
+                                },
+                                "standard_fee": {
+                                    "type": "number",
+                                    "description": "option: fee of the standard service it replaces"
+                                },
+                                "standard_cost": {
+                                    "type": "number"
+                                },
+                                "baseline_conversion_pct": {
+                                    "type": "number"
+                                },
+                                "weekly_visits": {
+                                    "type": "number"
+                                },
+                                "reward_referrer": {
+                                    "type": "number",
+                                    "description": "referral: paid to the referrer per converted referral"
+                                },
+                                "reward_referee": {
+                                    "type": "number"
+                                },
+                                "referrers": {
+                                    "type": "number"
+                                },
+                                "referrals_per_referrer": {
+                                    "type": "number"
+                                },
+                                "referee_conversion_pct": {
+                                    "type": "number"
+                                },
+                                "payout_cap_per_referrer": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "kind"
+                            ]
+                        }
+                    },
+                    "line": {
+                        "type": "object",
+                        "description": "a new variant or premium line and/or a repositioning of the base over horizon_months (monthly figures, development and launch costs, switching from the base, transition months, payback, break-even units, flip points, clears_hurdle/below_hurdle), and a period-by-period price history with realized price, discount depth and a price/volume/cost decomposition; needs price and variable_cost (units for reposition)",
+                        "properties": {
+                            "horizon_months": {
+                                "type": "number",
+                                "description": "default 24"
+                            },
+                            "new": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "price": {
+                                        "type": "number"
+                                    },
+                                    "variable_cost": {
+                                        "type": "number"
+                                    },
+                                    "margin_pct": {
+                                        "type": "number",
+                                        "description": "alternative to variable_cost"
+                                    },
+                                    "expected_units_per_month": {
+                                        "type": "number"
+                                    },
+                                    "forecast_units": {
+                                        "type": "number",
+                                        "description": "alternative: total units over the horizon"
+                                    },
+                                    "development_cost": {
+                                        "type": "number"
+                                    },
+                                    "launch_cost": {
+                                        "type": "number"
+                                    },
+                                    "switching_pct": {
+                                        "type": "number",
+                                        "description": "share of the line's buyers who come from the base (cannibalisation_pct is accepted as an alias); without it the verdict is withheld"
+                                    },
+                                    "cannibalised_contribution_per_unit": {
+                                        "type": "number",
+                                        "description": "default: the base contribution"
+                                    },
+                                    "alternative": {
+                                        "type": "object",
+                                        "description": "the same money on the existing product",
+                                        "properties": {
+                                            "spend": {
+                                                "type": "number"
+                                            },
+                                            "expected_incremental_units": {
+                                                "type": "number"
+                                            },
+                                            "contribution_per_unit": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "price"
+                                ]
+                            },
+                            "reposition": {
+                                "type": "object",
+                                "properties": {
+                                    "new_price": {
+                                        "type": "number"
+                                    },
+                                    "new_variable_cost": {
+                                        "type": "number"
+                                    },
+                                    "volume_change_pct": {
+                                        "type": "number",
+                                        "description": "steady-state volume change; without it the verdict is withheld"
+                                    },
+                                    "one_off_cost": {
+                                        "type": "number"
+                                    },
+                                    "transition_months": {
+                                        "type": "number"
+                                    },
+                                    "transition_volume_change_pct": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "new_price"
+                                ]
+                            },
+                            "periods": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "label": {
+                                            "type": "string"
+                                        },
+                                        "units": {
+                                            "type": "number"
+                                        },
+                                        "revenue": {
+                                            "type": "number"
+                                        },
+                                        "realized_price": {
+                                            "type": "number",
+                                            "description": "alternative to revenue"
+                                        },
+                                        "list_price": {
+                                            "type": "number",
+                                            "description": "default: price"
+                                        },
+                                        "variable_cost": {
+                                            "type": "number",
+                                            "description": "default: variable_cost"
+                                        }
+                                    },
+                                    "required": [
+                                        "label",
+                                        "units"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "retail": {
+                        "type": "object",
+                        "description": "channel and shelf arithmetic; each sub-object is computed only when present: bulk (breaking a supplier lot into customer lots: carrying, handling, bridge cost per unit, break-even distributor margin), assortment (a low-margin line valued by the baskets it anchors, break-even lost share), channel_risk (who carries markdowns, unsold stock and damage; risk cost per unit shipped, the retailer-margin equivalence, break-even sell-through; needs price and variable_cost), functions (going direct: intermediary margin kept against the channel functions with owner and cost, checklist gaps; needs price and units), waterfall (shelf price through channel layers to net-to-brand, promo cost, demand budget per unit, break-even incl. listing fees; needs price and variable_cost), displacement (retailer gross profit per facing-week per SKU and the hurdle a new SKU must clear), handling (routes to market with transit losses: margin per unit shipped, break-even loss), promotion (coupon: redemptions, brand cost, who pays, stock cover and shortfall), regions (landed price and margin per region against the local price), payment_terms (financing cost of payment days, adjusted contribution per offer, break-even rate; needs variable_cost), gmroi (turns × margin per line), returns_reserve (loss per return and the reserve per unit sold; needs price and variable_cost), incentives (commission on revenue vs on gross profit and whether the rep's pick matches the company's); price may be omitted",
+                        "properties": {
+                            "bulk": {
+                                "type": "object",
+                                "properties": {
+                                    "supplier_lot_units": {
+                                        "type": "number"
+                                    },
+                                    "unit_cost": {
+                                        "type": "number",
+                                        "description": "default: variable_cost"
+                                    },
+                                    "monthly_demand_units": {
+                                        "type": "number"
+                                    },
+                                    "customer_lot_units": {
+                                        "type": "number"
+                                    },
+                                    "storage_cost_per_unit_month": {
+                                        "type": "number"
+                                    },
+                                    "handling_cost_per_order": {
+                                        "type": "number"
+                                    },
+                                    "capital_rate_pct_year": {
+                                        "type": "number"
+                                    },
+                                    "distributor_margin_pct": {
+                                        "type": "number"
+                                    },
+                                    "wholesale_price": {
+                                        "type": "number",
+                                        "description": "default: price"
+                                    }
+                                },
+                                "required": [
+                                    "supplier_lot_units",
+                                    "monthly_demand_units",
+                                    "customer_lot_units"
+                                ]
+                            },
+                            "assortment": {
+                                "type": "object",
+                                "properties": {
+                                    "line_revenue": {
+                                        "type": "number"
+                                    },
+                                    "line_margin_pct": {
+                                        "type": "number"
+                                    },
+                                    "baskets_per_period": {
+                                        "type": "number"
+                                    },
+                                    "basket_share_pct": {
+                                        "type": "number",
+                                        "description": "baskets containing the line, percent of all"
+                                    },
+                                    "attached_revenue_per_basket": {
+                                        "type": "number",
+                                        "description": "rest of the basket"
+                                    },
+                                    "attached_margin_pct": {
+                                        "type": "number"
+                                    },
+                                    "lost_basket_share_pct": {
+                                        "type": "number",
+                                        "description": "share of anchored baskets lost if the line goes; without it a 0/25/50/100 table"
+                                    }
+                                },
+                                "required": [
+                                    "line_revenue",
+                                    "line_margin_pct",
+                                    "baskets_per_period",
+                                    "basket_share_pct",
+                                    "attached_revenue_per_basket",
+                                    "attached_margin_pct"
+                                ]
+                            },
+                            "channel_risk": {
+                                "type": "object",
+                                "properties": {
+                                    "margin_pct": {
+                                        "type": "number",
+                                        "description": "retailer margin on the retail price (or give wholesale_price)"
+                                    },
+                                    "wholesale_price": {
+                                        "type": "number"
+                                    },
+                                    "sell_through_pct": {
+                                        "type": "number",
+                                        "description": "share sold at full price; without it a 60/70/80/90 table"
+                                    },
+                                    "markdown_pct": {
+                                        "type": "number",
+                                        "description": "percent off for the remainder"
+                                    },
+                                    "unsold_pct": {
+                                        "type": "number"
+                                    },
+                                    "damage_pct": {
+                                        "type": "number"
+                                    },
+                                    "salvage_value_per_unit": {
+                                        "type": "number"
+                                    },
+                                    "risk": {
+                                        "type": "object",
+                                        "description": "who bears each: brand (default), retailer, or the brand's share in percent",
+                                        "properties": {
+                                            "markdowns": {
+                                                "type": "string"
+                                            },
+                                            "unsold": {
+                                                "type": "string"
+                                            },
+                                            "damage": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "functions": {
+                                "type": "object",
+                                "properties": {
+                                    "intermediary_margin_pct": {
+                                        "type": "number"
+                                    },
+                                    "functions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "function": {
+                                                    "type": "string",
+                                                    "description": "storage, order handling, delivery, credit/collections, returns, selling/visits, promotion, stock risk or free text"
+                                                },
+                                                "current_owner": {
+                                                    "type": "string"
+                                                },
+                                                "new_owner": {
+                                                    "type": "string",
+                                                    "description": "us, 3pl, retailer or unassigned"
+                                                },
+                                                "cost_per_unit": {
+                                                    "type": "number"
+                                                },
+                                                "cost_per_period": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "function"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "intermediary_margin_pct",
+                                    "functions"
+                                ]
+                            },
+                            "waterfall": {
+                                "type": "object",
+                                "properties": {
+                                    "layers": {
+                                        "type": "array",
+                                        "description": "from the shelf downwards",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "margin_pct": {
+                                                    "type": "number"
+                                                },
+                                                "margin_base": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "selling_price",
+                                                        "cost_plus"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "name",
+                                                "margin_pct"
+                                            ]
+                                        }
+                                    },
+                                    "listing_fees": {
+                                        "type": "number"
+                                    },
+                                    "promo_units_free_pct": {
+                                        "type": "number",
+                                        "description": "free units per 100 paid (2-for-1 = 100)"
+                                    },
+                                    "promo_weeks": {
+                                        "type": "number"
+                                    },
+                                    "period_weeks": {
+                                        "type": "number",
+                                        "description": "default 4"
+                                    }
+                                },
+                                "required": [
+                                    "layers"
+                                ]
+                            },
+                            "displacement": {
+                                "type": "object",
+                                "properties": {
+                                    "candidates": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string"
+                                                },
+                                                "weekly_units": {
+                                                    "type": "number"
+                                                },
+                                                "facings": {
+                                                    "type": "number"
+                                                },
+                                                "retail_price": {
+                                                    "type": "number"
+                                                },
+                                                "retailer_margin_pct": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "sku",
+                                                "retail_price",
+                                                "retailer_margin_pct"
+                                            ]
+                                        }
+                                    },
+                                    "new_sku": {
+                                        "type": "object",
+                                        "properties": {
+                                            "retail_price": {
+                                                "type": "number"
+                                            },
+                                            "retailer_margin_pct": {
+                                                "type": "number"
+                                            },
+                                            "expected_weekly_units": {
+                                                "type": "number"
+                                            },
+                                            "facings": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "candidates"
+                                ]
+                            },
+                            "handling": {
+                                "type": "object",
+                                "properties": {
+                                    "routes": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "price": {
+                                                    "type": "number"
+                                                },
+                                                "cost": {
+                                                    "type": "number",
+                                                    "description": "default: variable_cost"
+                                                },
+                                                "handling": {
+                                                    "type": "number",
+                                                    "description": "freight and packing per unit"
+                                                },
+                                                "transit_days": {
+                                                    "type": "number"
+                                                },
+                                                "loss_pct_per_day": {
+                                                    "type": "number"
+                                                },
+                                                "fixed_loss_pct": {
+                                                    "type": "number"
+                                                },
+                                                "shelf_life_days": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "name",
+                                                "price"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "routes"
+                                ]
+                            },
+                            "promotion": {
+                                "type": "object",
+                                "properties": {
+                                    "reach": {
+                                        "type": "number"
+                                    },
+                                    "redemption_rate_pct": {
+                                        "type": "number",
+                                        "description": "without it a 1/3/5 table"
+                                    },
+                                    "face_value": {
+                                        "type": "number"
+                                    },
+                                    "handling_fee": {
+                                        "type": "number"
+                                    },
+                                    "stock_on_hand": {
+                                        "type": "number"
+                                    },
+                                    "period_days": {
+                                        "type": "number"
+                                    },
+                                    "retailer_margin_pct": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "reach",
+                                    "face_value"
+                                ]
+                            },
+                            "regions": {
+                                "type": "object",
+                                "properties": {
+                                    "regions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "freight_per_shipment": {
+                                                    "type": "number"
+                                                },
+                                                "units_per_shipment": {
+                                                    "type": "number"
+                                                },
+                                                "freight_per_unit": {
+                                                    "type": "number",
+                                                    "description": "alternative"
+                                                },
+                                                "duty_pct": {
+                                                    "type": "number"
+                                                },
+                                                "extra_cost_per_unit": {
+                                                    "type": "number"
+                                                },
+                                                "competitor_price": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "name"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "regions"
+                                ]
+                            },
+                            "payment_terms": {
+                                "type": "object",
+                                "properties": {
+                                    "annual_finance_rate_pct": {
+                                        "type": "number"
+                                    },
+                                    "offers": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "price": {
+                                                    "type": "number"
+                                                },
+                                                "days_to_payment": {
+                                                    "type": "number"
+                                                },
+                                                "days_in_transit": {
+                                                    "type": "number"
+                                                },
+                                                "order_units": {
+                                                    "type": "number"
+                                                },
+                                                "annual_finance_rate_pct": {
+                                                    "type": "number"
+                                                },
+                                                "freight_per_unit": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "name",
+                                                "price"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "offers"
+                                ]
+                            },
+                            "gmroi": {
+                                "type": "object",
+                                "properties": {
+                                    "target_gmroi": {
+                                        "type": "number"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "average_inventory_at_cost": {
+                                                    "type": "number"
+                                                },
+                                                "revenue": {
+                                                    "type": "number"
+                                                },
+                                                "cogs": {
+                                                    "type": "number"
+                                                },
+                                                "gross_margin_pct": {
+                                                    "type": "number",
+                                                    "description": "alternative to cogs"
+                                                }
+                                            },
+                                            "required": [
+                                                "name",
+                                                "average_inventory_at_cost",
+                                                "revenue"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "items"
+                                ]
+                            },
+                            "returns_reserve": {
+                                "type": "object",
+                                "properties": {
+                                    "return_rate_pct": {
+                                        "type": "number"
+                                    },
+                                    "handling_cost_per_return": {
+                                        "type": "number"
+                                    },
+                                    "resale_recovery_pct": {
+                                        "type": "number",
+                                        "description": "share of the unit cost recovered on resale"
+                                    },
+                                    "units": {
+                                        "type": "number",
+                                        "description": "default: units"
+                                    }
+                                },
+                                "required": [
+                                    "return_rate_pct"
+                                ]
+                            },
+                            "incentives": {
+                                "type": "object",
+                                "properties": {
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "price": {
+                                                    "type": "number"
+                                                },
+                                                "variable_cost": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "name",
+                                                "price",
+                                                "variable_cost"
+                                            ]
+                                        }
+                                    },
+                                    "revenue_commission_pct": {
+                                        "type": "number"
+                                    },
+                                    "gross_profit_commission_pct": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "items"
+                                ]
+                            }
+                        }
+                    },
+                    "media_value": {
+                        "type": "object",
+                        "description": "media money against what it brings back; each sub-object is computed only when present: keyword_test (a paid click sample before SEO: clicks the budget buys, break-even conversion, Wilson interval on the read, contribution per visit, paid ROI, organic visits needed to repay seo_cost; needs price and variable_cost), incremental (a bigger format or an illustration: extra orders the extra cost needs and the lift over baseline_units), campaign (a catalogue, mailing or sampling drop per piece issued: all-in cost, revenue and net per piece, ROAS, cost per order, break-even order rate), spend_options (two or more spend levels on absolute profit, marginal ROAS against 1/margin, the margin at which the ranking flips), outcome (a public-interest campaign: cost per outcome and per incremental outcome against value_per_outcome), partnership (cash, in-kind estimate with its basis, and observed outcomes as three separate figures, cost per outcome on cash and all-in; never one total), benchmark (an expected return multiple against figures sharing the context; a figure differing on two or more context keys is excluded); margin comes from margin_pct here or from price and variable_cost; price may be omitted",
+                        "properties": {
+                            "margin_pct": {
+                                "type": "number",
+                                "description": "gross margin in percent when price/variable_cost are not given"
+                            },
+                            "keyword_test": {
+                                "type": "object",
+                                "properties": {
+                                    "budget": {
+                                        "type": "number"
+                                    },
+                                    "cpc": {
+                                        "type": "number"
+                                    },
+                                    "expected_cvr_pct": {
+                                        "type": "number"
+                                    },
+                                    "observed_clicks": {
+                                        "type": "number"
+                                    },
+                                    "observed_orders": {
+                                        "type": "number"
+                                    },
+                                    "seo_cost": {
+                                        "type": "number"
+                                    },
+                                    "seo_months": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "budget",
+                                    "cpc"
+                                ]
+                            },
+                            "incremental": {
+                                "type": "object",
+                                "properties": {
+                                    "incremental_cost": {
+                                        "type": "number",
+                                        "description": "extra spend for the bigger option per insertion or period"
+                                    },
+                                    "baseline_units": {
+                                        "type": "number",
+                                        "description": "orders the smaller option brings"
+                                    },
+                                    "expected_uplift_pct": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "incremental_cost"
+                                ]
+                            },
+                            "campaign": {
+                                "type": "object",
+                                "properties": {
+                                    "pieces_sent": {
+                                        "type": "number"
+                                    },
+                                    "cost_per_piece": {
+                                        "type": "number"
+                                    },
+                                    "print_cost_per_piece": {
+                                        "type": "number"
+                                    },
+                                    "delivery_cost_per_piece": {
+                                        "type": "number"
+                                    },
+                                    "fixed_costs": {
+                                        "type": "number"
+                                    },
+                                    "responses": {
+                                        "type": "number"
+                                    },
+                                    "inquiry_cost_per_response": {
+                                        "type": "number"
+                                    },
+                                    "attributed_orders": {
+                                        "type": "number"
+                                    },
+                                    "attributed_revenue": {
+                                        "type": "number"
+                                    },
+                                    "gross_margin_pct": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "pieces_sent"
+                                ]
+                            },
+                            "spend_options": {
+                                "type": "object",
+                                "properties": {
+                                    "options": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "label": {
+                                                    "type": "string"
+                                                },
+                                                "spend": {
+                                                    "type": "number"
+                                                },
+                                                "revenue": {
+                                                    "type": "number"
+                                                },
+                                                "roas": {
+                                                    "type": "number",
+                                                    "description": "alternative to revenue"
+                                                },
+                                                "margin_pct": {
+                                                    "type": "number"
+                                                },
+                                                "fixed_costs": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "label",
+                                                "spend"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "options"
+                                ]
+                            },
+                            "outcome": {
+                                "type": "object",
+                                "properties": {
+                                    "budget": {
+                                        "type": "number"
+                                    },
+                                    "target_outcomes": {
+                                        "type": "number"
+                                    },
+                                    "baseline_outcomes": {
+                                        "type": "number"
+                                    },
+                                    "value_per_outcome": {
+                                        "type": "number"
+                                    },
+                                    "outcome_unit": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "budget",
+                                    "target_outcomes"
+                                ]
+                            },
+                            "partnership": {
+                                "type": "object",
+                                "properties": {
+                                    "cash_paid": {
+                                        "type": "number"
+                                    },
+                                    "in_kind": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "item": {
+                                                    "type": "string"
+                                                },
+                                                "estimated_value": {
+                                                    "type": "number"
+                                                },
+                                                "quantity": {
+                                                    "type": "number"
+                                                },
+                                                "unit_value": {
+                                                    "type": "number"
+                                                },
+                                                "basis": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "rate_card",
+                                                        "quote",
+                                                        "analogue",
+                                                        "own_estimate"
+                                                    ]
+                                                },
+                                                "source": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "item",
+                                                "basis"
+                                            ]
+                                        }
+                                    },
+                                    "outcomes": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "metric": {
+                                                    "type": "string"
+                                                },
+                                                "value": {
+                                                    "type": "number"
+                                                },
+                                                "unit": {
+                                                    "type": "string"
+                                                },
+                                                "attribution": {
+                                                    "type": "string",
+                                                    "description": "promo_code, qr, geo_lift, survey or none"
+                                                }
+                                            },
+                                            "required": [
+                                                "metric",
+                                                "value"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "cash_paid"
+                                ]
+                            },
+                            "benchmark": {
+                                "type": "object",
+                                "properties": {
+                                    "context": {
+                                        "type": "object",
+                                        "description": "sector, b2b_or_b2c, contract (one_off|subscription|annual), price_position (budget|mid|premium), cycle_days"
+                                    },
+                                    "figures": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "return_multiple": {
+                                                    "type": "number",
+                                                    "description": "revenue over spend"
+                                                },
+                                                "context": {
+                                                    "type": "object"
+                                                },
+                                                "source_url": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "return_multiple"
+                                            ]
+                                        }
+                                    },
+                                    "expected_return_multiple": {
+                                        "type": "number"
+                                    },
+                                    "campaign_spend": {
+                                        "type": "number"
+                                    },
+                                    "revenue_per_customer": {
+                                        "type": "number"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "routes": {
+                        "type": "object",
+                        "description": "routes (a rebuild, an improvement, a platform) scored against the outcomes the segment ranks: weighted gain, cost per gain point, and the routes to eliminate (cost at least 2× another and under 20 % more gain); a missing weight or effect gives status insufficient, never a default; price may be omitted",
+                        "properties": {
+                            "outcomes": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "weight": {
+                                            "type": "number",
+                                            "description": "1–5"
+                                        },
+                                        "source": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "weight"
+                                    ]
+                                }
+                            },
+                            "routes": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "cost": {
+                                            "type": "number"
+                                        },
+                                        "months": {
+                                            "type": "number"
+                                        },
+                                        "effects": {
+                                            "type": "object",
+                                            "description": "outcome name → 0, 1 or 2"
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "cost",
+                                        "effects"
+                                    ]
+                                }
+                            }
+                        },
+                        "required": [
+                            "outcomes",
+                            "routes"
+                        ]
+                    }
                 },
-                "required": ["price"],
-            },
-        },
+                "required": []
+            }
+        }
     },
     {
         "type": "function",
