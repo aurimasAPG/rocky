@@ -491,48 +491,510 @@ CLIENT_TOOL_SPECS = [
         "type": "function",
         "function": {
             "name": "experiment_plan",
-            "description": (
-                "Plan or read out an A/B test. mode plan (default) or plan_rate: sample per variant, duration from "
-                "weekly_traffic and a decision rule for a rate given in percent; plan_rate also writes guardrails and a "
-                "segment into the rule. mode plan_means: the same for a measured quantity (order value, time, score) from "
-                "sd or baseline_mean + cv_pct and minimum_difference; paired designs with correlation need fewer people. "
-                "mode evaluate: give arms with n and conversions (or mean and sd) and get per challenger the difference, "
-                "95 % interval, p-value and a verdict — winner, loser, no difference detected, or underpowered: keep "
-                "running when the planned sample was not reached; guardrail breaches are named. Use it instead of "
-                "guessing how long to run or whether a result is real."
-            ),
+            "description": "Plan or read out an A/B test. mode plan (default) or plan_rate: sample per variant, duration from weekly_traffic and a decision rule for a rate given in percent; plan_rate also writes guardrails and a segment into the rule. mode plan_means: the same for a measured quantity (order value, time, score) from sd or baseline_mean + cv_pct and minimum_difference; paired designs with correlation need fewer people. mode evaluate: give arms with n and conversions (or mean and sd) and get per challenger the difference, 95 % interval, p-value and a verdict — winner, loser, no difference detected, or underpowered: keep running when the planned sample was not reached; guardrail breaches are named. Use it instead of guessing how long to run or whether a result is real. Research modes read fielded data or lay out a study without running it: wtp (Van Westendorp PMC/OPP/IPP/PME and a fake-door price page with its disclosure), concept (comprehension share before top-two-box intent, Wilson intervals, proceed / rework message / rework concept), test_market (mix completeness, income and share flags, KPI readout dates), conjoint_design / conjoint_analyze (balanced tasks inline; count-based part-worths labelled as such), screener (purchase window, question in lt/en, gross invites), choice_study (equally described cards, invented-brand disclosure, switch share with Wilson CI, brand lift). creative_test takes design holdout (lift, incremental conversions, not_comparable when the holdout is not matched), qualified_readout (cost per qualified response and a z-test), copy_test (fixed stopping rule), diff_in_diff (parallel trends stated), crossover (creative vs market effect, carryover check), portfolio (seed/reserve split and the reallocation rule), factorial (cells, weeks, reduction options) and stated_vs_observed (forecast rate = observed, never the survey share); page-speed tests are declined because they need a browser.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                                        "mode": {"type": "string", "enum": ["plan", "plan_rate", "plan_means", "evaluate"], "description": "plan (default) sizes a test on a rate; plan_rate = plan plus guardrails and segment; plan_means sizes a test on a measured quantity; evaluate reads out a finished test from arms"},
-                    "arms": {"type": "array", "description": "evaluate: 2+ arms; the arm named control (or the first) is the control. Rates: {name, n, conversions}; means: {name, n, mean, sd}", "items": {"type": "object", "properties": {"name": {"type": "string"}, "n": {"type": "number", "description": "units exposed"}, "conversions": {"type": "number"}, "mean": {"type": "number"}, "sd": {"type": "number", "description": "standard deviation of that arm, required with mean"}}, "required": ["name", "n"]}},
-                    "control": {"type": "string", "description": "evaluate: name of the control arm if it is not called control or first"},
-                    "lower_is_better": {"type": "boolean", "description": "evaluate: true for bounce, refund or cost metrics"},
-                    "guardrails": {"type": "array", "description": "plan_rate: names or {name, max_drop_pct}; evaluate: {name, arms (same shape as arms), max_drop_pct, lower_is_better} — a breach is named against the winner", "items": {"type": "object", "properties": {"name": {"type": "string"}, "max_drop_pct": {"type": "number", "description": "largest tolerated worsening, percent of the control value"}, "lower_is_better": {"type": "boolean"}, "arms": {"type": "array", "items": {"type": "object"}}}, "required": ["name"]}},
-                    "planned": {"type": "object", "description": "evaluate: the plan written before the test; without it 'no difference' cannot be told from 'too little data'", "properties": {"sample_per_variant": {"type": "number"}, "minimum_effect": {"type": "number"}, "effect_kind": {"type": "string", "enum": ["relative", "absolute"]}}},
-                    "sd": {"type": "number", "description": "plan_means: standard deviation of the metric in one arm, same units as the metric (or give baseline_mean and cv_pct)"},
-                    "baseline_mean": {"type": "number", "description": "plan_means: current mean, used with cv_pct to derive sd"},
-                    "cv_pct": {"type": "number", "description": "plan_means: spread as percent of the mean"},
-                    "minimum_difference": {"type": "number", "description": "plan_means: smallest difference in means worth detecting, same units"},
-                    "weekly_units": {"type": "number", "description": "plan_means: measured units per week across all variants"},
-                    "units": {"type": "string", "description": "plan_means: unit label, e.g. EUR or seconds"},
-                    "paired": {"type": "boolean", "description": "plan_means: true when every participant is measured under every variant (within-subject)"},
-                    "correlation": {"type": "number", "description": "plan_means, paired: correlation between a participant's two measurements, default 0.5"},
-                    "segment": {"type": "string", "description": "plan_rate: the population the test runs in, e.g. returning visitors; written into the decision rule"},
-                    "baseline_rate": {"type": "number", "description": "current rate in percent, e.g. 3.2"},
-                    "minimum_effect": {"type": "number", "description": "smallest lift worth detecting"},
-                    "effect_kind": {"type": "string", "enum": ["relative", "absolute"], "description": "relative = percent of baseline (default); absolute = percentage points"},
-                    "weekly_traffic": {"type": "number", "description": "eligible visitors or orders per week across all variants"},
-                    "variants": {"type": "integer", "description": "arms including control, default 2"},
-                    "alpha": {"type": "number", "description": "significance level, default 0.05"},
-                    "power": {"type": "number", "description": "default 0.8"},
-                    "two_sided": {"type": "boolean"},
-                    "max_weeks": {"type": "number", "description": "how long the marketer can wait; returns what is detectable in that time"},
-                    "metric": {"type": "string", "description": "what the rate measures, e.g. checkout conversion"},
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "plan",
+                            "plan_rate",
+                            "plan_means",
+                            "evaluate",
+                            "wtp",
+                            "concept",
+                            "test_market",
+                            "conjoint_design",
+                            "conjoint_analyze",
+                            "screener",
+                            "choice_study",
+                            "creative_test"
+                        ],
+                        "description": "plan (default) sizes a test on a rate; plan_rate = plan plus guardrails and segment; plan_means sizes a test on a measured quantity; evaluate reads out a finished test; wtp = Van Westendorp price points from responses and/or a fake-door plan; concept = read out a fielded concept test (comprehension before intent); test_market = structured pilot plan with representativeness flags; conjoint_design / conjoint_analyze = balanced choice tasks and count-based part-worths; screener = purchase-window screener and gross invites; choice_study = second-choice presence test (design or analyze); creative_test = holdout, qualified_readout, copy_test, diff_in_diff, crossover, portfolio, factorial or stated_vs_observed (pick with design)"
+                    },
+                    "arms": {
+                        "type": "array",
+                        "description": "evaluate: 2+ arms; the arm named control (or the first) is the control. Rates: {name, n, conversions}; means: {name, n, mean, sd}",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "n": {
+                                    "type": "number",
+                                    "description": "units exposed"
+                                },
+                                "conversions": {
+                                    "type": "number"
+                                },
+                                "mean": {
+                                    "type": "number"
+                                },
+                                "sd": {
+                                    "type": "number",
+                                    "description": "standard deviation of that arm, required with mean"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "n"
+                            ]
+                        }
+                    },
+                    "control": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "object"
+                            }
+                        ],
+                        "description": "evaluate: name of the control arm if it is not called control or first; creative_test holdout: {exposed, converted}; diff_in_diff: {pre, post, pre_series?}"
+                    },
+                    "lower_is_better": {
+                        "type": "boolean",
+                        "description": "evaluate: True for bounce, refund or cost metrics"
+                    },
+                    "guardrails": {
+                        "type": "array",
+                        "description": "plan_rate: names or {name, max_drop_pct}; evaluate: {name, arms (same shape as arms), max_drop_pct, lower_is_better} — a breach is named against the winner",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "max_drop_pct": {
+                                    "type": "number",
+                                    "description": "largest tolerated worsening, percent of the control value"
+                                },
+                                "lower_is_better": {
+                                    "type": "boolean"
+                                },
+                                "arms": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ]
+                        }
+                    },
+                    "planned": {
+                        "type": "object",
+                        "description": "evaluate: the plan written before the test; without it 'no difference' cannot be told from 'too little data'",
+                        "properties": {
+                            "sample_per_variant": {
+                                "type": "number"
+                            },
+                            "minimum_effect": {
+                                "type": "number"
+                            },
+                            "effect_kind": {
+                                "type": "string",
+                                "enum": [
+                                    "relative",
+                                    "absolute"
+                                ]
+                            }
+                        }
+                    },
+                    "sd": {
+                        "type": "number",
+                        "description": "plan_means: standard deviation of the metric in one arm, same units as the metric (or give baseline_mean and cv_pct)"
+                    },
+                    "baseline_mean": {
+                        "type": "number",
+                        "description": "plan_means: current mean, used with cv_pct to derive sd"
+                    },
+                    "cv_pct": {
+                        "type": "number",
+                        "description": "plan_means: spread as percent of the mean"
+                    },
+                    "minimum_difference": {
+                        "type": "number",
+                        "description": "plan_means: smallest difference in means worth detecting, same units"
+                    },
+                    "weekly_units": {
+                        "type": "number",
+                        "description": "plan_means: measured units per week across all variants"
+                    },
+                    "units": {
+                        "type": "string",
+                        "description": "plan_means: unit label, e.g. EUR or seconds"
+                    },
+                    "paired": {
+                        "type": "boolean",
+                        "description": "plan_means: True when every participant is measured under every variant (within-subject)"
+                    },
+                    "correlation": {
+                        "type": "number",
+                        "description": "plan_means, paired: correlation between a participant's two measurements, default 0.5"
+                    },
+                    "segment": {
+                        "type": "string",
+                        "description": "plan_rate: the population the test runs in, e.g. returning visitors; written into the decision rule"
+                    },
+                    "baseline_rate": {
+                        "type": "number",
+                        "description": "current rate in percent, e.g. 3.2"
+                    },
+                    "minimum_effect": {
+                        "type": "number",
+                        "description": "smallest lift worth detecting"
+                    },
+                    "effect_kind": {
+                        "type": "string",
+                        "enum": [
+                            "relative",
+                            "absolute"
+                        ],
+                        "description": "relative = percent of baseline (default); absolute = percentage points"
+                    },
+                    "weekly_traffic": {
+                        "type": "number",
+                        "description": "eligible visitors or orders per week across all variants"
+                    },
+                    "variants": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "object"
+                                }
+                            }
+                        ],
+                        "description": "arms including control, default 2; creative_test copy_test: the ads as [{name, headline, offer_lead free|price|none, angle}] — a free-led ad without a price-led twin warns free_lead_untested"
+                    },
+                    "alpha": {
+                        "type": "number",
+                        "description": "significance level, default 0.05"
+                    },
+                    "power": {
+                        "type": "number",
+                        "description": "default 0.8"
+                    },
+                    "two_sided": {
+                        "type": "boolean"
+                    },
+                    "max_weeks": {
+                        "type": "number",
+                        "description": "how long the marketer can wait; returns what is detectable in that time"
+                    },
+                    "metric": {
+                        "type": "string",
+                        "description": "what the rate measures, e.g. checkout conversion"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": [
+                            "lt",
+                            "en"
+                        ],
+                        "description": "wtp, screener, choice_study: language of the generated questions and cards; detected from the text when absent"
+                    },
+                    "responses": {
+                        "type": "array",
+                        "description": "wtp: [{too_cheap, cheap, expensive, too_expensive}] one row per respondent (prices); concept: [{concept?, understood (bool, 0/1, yes/no/taip/ne or the open benefit answer), intent 1-5}]",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "cumulative": {
+                        "type": "object",
+                        "description": "wtp alternative to responses: {prices[], too_cheap[], cheap[], expensive[], too_expensive[], n} with shares in percent per price"
+                    },
+                    "offer": {
+                        "type": "string",
+                        "description": "wtp: the service or product being priced, used in the questions and decision rule"
+                    },
+                    "fake_door": {
+                        "type": "object",
+                        "description": "wtp: plan a fake-door price page; sized with the rate plan across price cells and returned with the disclosure sentence the page must carry",
+                        "properties": {
+                            "baseline_rate": {
+                                "type": "number",
+                                "description": "expected click-to-waitlist rate in percent"
+                            },
+                            "minimum_effect": {
+                                "type": "number",
+                                "description": "relative lift worth detecting, default 25"
+                            },
+                            "weekly_traffic": {
+                                "type": "number"
+                            },
+                            "price_points": {
+                                "type": "array",
+                                "items": {
+                                    "type": "number"
+                                }
+                            },
+                            "delivery_cost": {
+                                "type": "number",
+                                "description": "cost to deliver; price points below it get a below_cost warning"
+                            }
+                        }
+                    },
+                    "benefit_keywords": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "concept: words that code an open benefit answer as understood"
+                    },
+                    "min_comprehension": {
+                        "type": "number",
+                        "description": "concept: fraction who must restate the benefit, default 0.7"
+                    },
+                    "top_two_box_min": {
+                        "type": "number",
+                        "description": "concept: fraction of those who understood answering 4-5, default 0.4"
+                    },
+                    "market": {
+                        "type": "object",
+                        "description": "test_market: {name, population, population_share_pct, income_index (national = 100)}"
+                    },
+                    "mix": {
+                        "type": "object",
+                        "description": "test_market: {product, price, place[], promotion[]}; any empty element flags mix_incomplete"
+                    },
+                    "duration_weeks": {
+                        "type": "number",
+                        "description": "test_market: length of the pilot; under 4 flags short_duration"
+                    },
+                    "start_date": {
+                        "type": "string",
+                        "description": "test_market: ISO date; readout dates at week 0, midpoint, end and end + 4"
+                    },
+                    "kpis": {
+                        "type": "array",
+                        "description": "test_market: [{name, target, unit}] fixed before launch",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "local_conditions": {
+                        "type": "array",
+                        "description": "test_market: [{factor, local_value, national_value, source_url}]; rows without source_url flag unsourced_condition",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "attributes": {
+                        "type": "object",
+                        "description": "conjoint_design: {attribute: [levels]} with 2+ levels each, 2+ attributes"
+                    },
+                    "n_respondents": {
+                        "type": "integer",
+                        "description": "conjoint_design"
+                    },
+                    "tasks_per_respondent": {
+                        "type": "integer",
+                        "description": "conjoint_design, default 10"
+                    },
+                    "alternatives": {
+                        "type": "integer",
+                        "description": "conjoint_design: alternatives per task, default 2"
+                    },
+                    "max_rows": {
+                        "type": "integer",
+                        "description": "conjoint_design: rows returned inline, default 600; the full design regenerates from seed"
+                    },
+                    "choices": {
+                        "type": "array",
+                        "description": "conjoint_analyze: [{respondent, task, alternative, chosen 0/1, levels {attribute: level}}]",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "screener: what is bought, in the accusative for Lithuanian (naują automobilį)"
+                    },
+                    "purchase_cycle_days": {
+                        "type": "integer",
+                        "description": "screener and crossover: typical days between purchases"
+                    },
+                    "target_n": {
+                        "type": "integer",
+                        "description": "screener: completed qualified interviews wanted"
+                    },
+                    "incidence_pct": {
+                        "type": "number",
+                        "description": "screener: share of contacts that qualify; missing = gross invites not estimated"
+                    },
+                    "window_days": {
+                        "type": "integer",
+                        "description": "screener: purchase window asked about; defaults to the cycle, shorter warns"
+                    },
+                    "response_rate_pct": {
+                        "type": "number",
+                        "description": "screener: panel completes per invite"
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "design",
+                            "analyze"
+                        ],
+                        "description": "choice_study: forced when results are not obvious"
+                    },
+                    "favourite_brands": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "choice_study design"
+                    },
+                    "alternative": {
+                        "type": "object",
+                        "description": "choice_study design: {name, price, size, attributes[], invented}; must match the incumbent's price and attribute count"
+                    },
+                    "incumbent": {
+                        "type": "object",
+                        "description": "choice_study design: the favourite brand's card {name, price, size, attributes[]}"
+                    },
+                    "n_target": {
+                        "type": "integer",
+                        "description": "choice_study design: respondents planned; under 30 warns"
+                    },
+                    "n_shown": {
+                        "type": "integer",
+                        "description": "choice_study analyze shorthand with n_switched"
+                    },
+                    "n_switched": {
+                        "type": "integer"
+                    },
+                    "by_favourite": {
+                        "type": "object",
+                        "description": "choice_study analyze: {brand: {shown, switched}}"
+                    },
+                    "design": {
+                        "type": "string",
+                        "enum": [
+                            "holdout",
+                            "qualified_readout",
+                            "copy_test",
+                            "diff_in_diff",
+                            "crossover",
+                            "portfolio",
+                            "factorial",
+                            "stated_vs_observed"
+                        ],
+                        "description": "creative_test: which design to plan or read"
+                    },
+                    "treatment": {
+                        "type": "object",
+                        "description": "creative_test holdout: {exposed, converted}; diff_in_diff: {pre, post, pre_series?}"
+                    },
+                    "comparable": {
+                        "type": "boolean",
+                        "description": "creative_test holdout: True only if the holdout was a random split of the same population; false or absent = not_comparable, no lift"
+                    },
+                    "split": {
+                        "type": "string",
+                        "enum": [
+                            "geo",
+                            "audience"
+                        ],
+                        "description": "creative_test holdout"
+                    },
+                    "results": {
+                        "type": "array",
+                        "description": "creative_test qualified_readout: [{name, spend, responses, qualified?, impressions?}]; first arm is the control",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "element": {
+                        "type": "string",
+                        "description": "creative_test copy_test: the one element that differs, default 'headline lead'"
+                    },
+                    "cells": {
+                        "type": "array",
+                        "description": "creative_test crossover: [{market, period, creative, value}]; without them only the swap schedule is returned",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "markets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "creative_test crossover"
+                    },
+                    "creatives": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "creative_test crossover: exactly two"
+                    },
+                    "period_days": {
+                        "type": "number",
+                        "description": "creative_test crossover: length of each period"
+                    },
+                    "carryover_tolerance_pct": {
+                        "type": "number",
+                        "description": "creative_test crossover: period-total shift tolerated, default 10"
+                    },
+                    "total_budget": {
+                        "type": "number",
+                        "description": "creative_test portfolio"
+                    },
+                    "ideas": {
+                        "type": "integer",
+                        "description": "creative_test portfolio: creative ideas, 2+"
+                    },
+                    "reserve_share": {
+                        "type": "number",
+                        "description": "creative_test portfolio: 0-0.9, default 0.4"
+                    },
+                    "cpm": {
+                        "type": "number",
+                        "description": "creative_test portfolio: expected cost per 1 000 impressions; never estimated"
+                    },
+                    "cpc": {
+                        "type": "number",
+                        "description": "creative_test portfolio: alternative to cpm with baseline_rate"
+                    },
+                    "elements": {
+                        "type": "array",
+                        "description": "creative_test factorial: [{name, levels >= 2}]; cells = product of levels",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "stated_rate": {
+                        "type": "number",
+                        "description": "creative_test stated_vs_observed: survey share in percent"
+                    },
+                    "stated_n": {
+                        "type": "integer",
+                        "description": "creative_test stated_vs_observed: survey sample"
+                    },
+                    "observed": {
+                        "type": "object",
+                        "description": "creative_test stated_vs_observed: {exposures, purchases} at the real price"
+                    },
+                    "price": {
+                        "type": "number",
+                        "description": "creative_test stated_vs_observed: label only"
+                    }
                 },
-                "required": [],
-            },
-        },
+                "required": []
+            }
+        }
     },
     {
         "type": "function",
@@ -4693,7 +5155,7 @@ def dispatch(
             return unit_economics_tool(args)
         if name == "experiment_plan":
             mode = str(args.get("mode") or "plan").strip().lower()
-            if mode in {"evaluate", "plan_means", "plan_rate"}:
+            if mode != "plan":
                 from rocky.experiments import experiments_tool
 
                 return experiments_tool(args)
