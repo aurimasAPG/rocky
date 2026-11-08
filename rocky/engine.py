@@ -1319,7 +1319,7 @@ def _run_subtask(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
                 "Margins, break-even, discounts, promotions and acquisition costs go through unit_economics; "
                 "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
-                "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan. "
+                "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan; a finished test is read out with its mode evaluate, never by comparing two percentages by eye. "
                 "A CSV or XLSX of campaign, order or event data goes through funnel_analyze; never read its percentages by eye. "
                 "A channel comparison, media budget or combined reach goes through reach_overlap; never add reaches up yourself. "
                 "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "

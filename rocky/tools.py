@@ -476,13 +476,33 @@ CLIENT_TOOL_SPECS = [
         "function": {
             "name": "experiment_plan",
             "description": (
-                "Plan an A/B test on a rate: sample size per variant, duration from weekly traffic, and the decision rule. "
-                "Use it whenever a brief proposes testing a page, ad, price, email or offer, instead of guessing how long "
-                "to run it. Rates are percentages. Without weekly_traffic the duration is reported as unknown; ask for it."
+                "Plan or read out an A/B test. mode plan (default) or plan_rate: sample per variant, duration from "
+                "weekly_traffic and a decision rule for a rate given in percent; plan_rate also writes guardrails and a "
+                "segment into the rule. mode plan_means: the same for a measured quantity (order value, time, score) from "
+                "sd or baseline_mean + cv_pct and minimum_difference; paired designs with correlation need fewer people. "
+                "mode evaluate: give arms with n and conversions (or mean and sd) and get per challenger the difference, "
+                "95 % interval, p-value and a verdict — winner, loser, no difference detected, or underpowered: keep "
+                "running when the planned sample was not reached; guardrail breaches are named. Use it instead of "
+                "guessing how long to run or whether a result is real."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
+                                        "mode": {"type": "string", "enum": ["plan", "plan_rate", "plan_means", "evaluate"], "description": "plan (default) sizes a test on a rate; plan_rate = plan plus guardrails and segment; plan_means sizes a test on a measured quantity; evaluate reads out a finished test from arms"},
+                    "arms": {"type": "array", "description": "evaluate: 2+ arms; the arm named control (or the first) is the control. Rates: {name, n, conversions}; means: {name, n, mean, sd}", "items": {"type": "object", "properties": {"name": {"type": "string"}, "n": {"type": "number", "description": "units exposed"}, "conversions": {"type": "number"}, "mean": {"type": "number"}, "sd": {"type": "number", "description": "standard deviation of that arm, required with mean"}}, "required": ["name", "n"]}},
+                    "control": {"type": "string", "description": "evaluate: name of the control arm if it is not called control or first"},
+                    "lower_is_better": {"type": "boolean", "description": "evaluate: true for bounce, refund or cost metrics"},
+                    "guardrails": {"type": "array", "description": "plan_rate: names or {name, max_drop_pct}; evaluate: {name, arms (same shape as arms), max_drop_pct, lower_is_better} — a breach is named against the winner", "items": {"type": "object", "properties": {"name": {"type": "string"}, "max_drop_pct": {"type": "number", "description": "largest tolerated worsening, percent of the control value"}, "lower_is_better": {"type": "boolean"}, "arms": {"type": "array", "items": {"type": "object"}}}, "required": ["name"]}},
+                    "planned": {"type": "object", "description": "evaluate: the plan written before the test; without it 'no difference' cannot be told from 'too little data'", "properties": {"sample_per_variant": {"type": "number"}, "minimum_effect": {"type": "number"}, "effect_kind": {"type": "string", "enum": ["relative", "absolute"]}}},
+                    "sd": {"type": "number", "description": "plan_means: standard deviation of the metric in one arm, same units as the metric (or give baseline_mean and cv_pct)"},
+                    "baseline_mean": {"type": "number", "description": "plan_means: current mean, used with cv_pct to derive sd"},
+                    "cv_pct": {"type": "number", "description": "plan_means: spread as percent of the mean"},
+                    "minimum_difference": {"type": "number", "description": "plan_means: smallest difference in means worth detecting, same units"},
+                    "weekly_units": {"type": "number", "description": "plan_means: measured units per week across all variants"},
+                    "units": {"type": "string", "description": "plan_means: unit label, e.g. EUR or seconds"},
+                    "paired": {"type": "boolean", "description": "plan_means: true when every participant is measured under every variant (within-subject)"},
+                    "correlation": {"type": "number", "description": "plan_means, paired: correlation between a participant's two measurements, default 0.5"},
+                    "segment": {"type": "string", "description": "plan_rate: the population the test runs in, e.g. returning visitors; written into the decision rule"},
                     "baseline_rate": {"type": "number", "description": "current rate in percent, e.g. 3.2"},
                     "minimum_effect": {"type": "number", "description": "smallest lift worth detecting"},
                     "effect_kind": {"type": "string", "enum": ["relative", "absolute"], "description": "relative = percent of baseline (default); absolute = percentage points"},
@@ -494,7 +514,7 @@ CLIENT_TOOL_SPECS = [
                     "max_weeks": {"type": "number", "description": "how long the marketer can wait; returns what is detectable in that time"},
                     "metric": {"type": "string", "description": "what the rate measures, e.g. checkout conversion"},
                 },
-                "required": ["baseline_rate", "minimum_effect"],
+                "required": [],
             },
         },
     },
@@ -1181,9 +1201,14 @@ def dispatch(
 
             return unit_economics_tool(args)
         if name == "experiment_plan":
+            mode = str(args.get("mode") or "plan").strip().lower()
+            if mode in {"evaluate", "plan_means", "plan_rate"}:
+                from rocky.experiments import experiments_tool
+
+                return experiments_tool(args)
             from rocky.calc import experiment_plan_tool
 
-            return experiment_plan_tool(args)
+            return experiment_plan_tool({k: v for k, v in args.items() if k != "mode"})
         if name == "funnel_analyze":
             from rocky.funnel import funnel_analyze_tool
 
