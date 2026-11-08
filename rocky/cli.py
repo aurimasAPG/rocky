@@ -465,7 +465,7 @@ def _open(workspace: Path, ident: str | None) -> int:
         if files:
             console.print("[dim]files it did write:[/] " + ", ".join(files))
         return 1
-    console.print(f"[bold]{path}[/]")
+    console.print(f"[bold]{path}[/]", soft_wrap=True)
     opened = open_path(path)
     if not opened:
         console.print("[dim]could not launch an opener on this system — the path above is the file[/]")

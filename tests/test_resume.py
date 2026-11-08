@@ -328,7 +328,7 @@ def test_cli_open_prints_the_deliverable_or_the_partial_files(tmp_path, monkeypa
     run_id, folder = _passed_run(tmp_path)
     assert main(["open", "-d", str(tmp_path)]) == 0
     assert launched == [tmp_path / "deliverables/article.md"]
-    assert "deliverables/article.md" in capsys.readouterr().out
+    assert str(tmp_path / "deliverables/article.md") in capsys.readouterr().out, "the path must stay on one line"
     (tmp_path / "deliverables/article.md").unlink()
     (tmp_path / "notes.md").write_text("x")
     from rocky.runs import read_meta
