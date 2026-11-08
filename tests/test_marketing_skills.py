@@ -82,3 +82,20 @@ def test_the_usable_segment_rule_is_in_the_skill_with_its_source():
     assert "Check whether a segment is commercially usable" in text
     assert "Principles of Marketing, pp. 188–189" in text
 
+
+def test_a_worker_mapping_competitors_can_find_the_skill():
+    row = next(r for r in catalog_for_prompt() if r["name"] == "marketing-strategy")
+    assert "mapping competitors" in row["description"]
+
+
+def test_marketing_research_applies_the_perceptual_map_rule_when_positioning_is_the_question():
+    research = load_recipes()["marketing"].render_steps("goal")[0]["detail"]
+    assert "positioning or a comparison with competitors" in research and "perceptual-map rule" in research
+
+
+def test_the_perceptual_map_rule_refuses_to_pass_opinion_off_as_buyers():
+    text = view_skill("marketing-strategy")
+    assert "Build a perceptual map from buyers' judgments" in text
+    assert "Label the map a hypothesis" in text and "An empty corner is a question" in text
+    assert "Principles of Marketing, pp. 197–199" in text
+

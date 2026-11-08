@@ -1,6 +1,6 @@
 ---
 name: marketing-strategy
-description: Market, segment and portfolio rules. Use before ads, campaigns or positioning, and when choosing which product lines get investment.
+description: Market, segment and portfolio rules. Use before ads, campaigns or positioning, when mapping competitors, and when choosing which product lines get investment.
 ---
 
 # Rocky · Market strategy and positioning
@@ -85,3 +85,14 @@ A segment can be real and still not be worth an ad. Lithuania is a small market,
 - A separate offer is justified only if the segment would respond differently. If two segments want the same thing for the same reason, merge them.
 
 Source: Principles of Marketing, pp. 188–189.
+
+## Build a perceptual map from buyers' judgments
+
+A positioning map is only worth having if the axes and the placements come from buyers. A map drawn from the marketer's own opinion just restates it.
+
+- Take the axes from what buyers say decides their choice: reviews, forums, comparison sites. Quote where each came from.
+- Place each competing brand from those same sources, in a table a reader can check.
+- Rocky cannot survey buyers. Label the map a hypothesis until real buyers have confirmed it, and name who to ask.
+- An empty corner is a question, not a position. Before recommending it, look for signs of demand: search interest, buyers asking for it, a competitor that tried. No sign of demand means the corner may be empty for a reason, so say that.
+
+Source: Principles of Marketing, pp. 197–199.
