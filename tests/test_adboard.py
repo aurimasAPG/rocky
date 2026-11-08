@@ -38,6 +38,7 @@ def _pack(**ad):
                 "angle": "Rezultatas",
                 "audience": "E. parduotuvių vadovai",
                 "mix": {"product": "Reklamos valdymas", "price": "Nuo 990 € per mėnesį", "place": "Internetu, Lietuvoje"},
+                "segment": {"size": "Apie 3 000 įmonių (įvertis)", "buying_power": "Vidutinė", "reach_cost": "Žema", "distinct": "Kita problema"},
                 **ad,
             }
         ],
@@ -121,6 +122,34 @@ def test_no_ads_blocks():
     pack = _pack()
     pack["ads"] = []
     assert _codes(_check(pack, images={}), "block") == ["no_ads"]
+
+
+def test_a_segment_nobody_sized_warns_for_each_gap():
+    checks = _check(_pack(segment={"size": "Apie 500 įmonių"}))
+    assert _codes(checks, "warn") == ["segment_gap", "segment_gap"]
+    assert [c.field for c in checks] == ["buying_power", "reach_cost"]
+
+
+def test_with_several_ads_each_segment_must_say_why_it_differs():
+    pack = _pack()
+    pack["ads"] = [
+        {**pack["ads"][0], "test_role": role, "segment": {"size": "a", "buying_power": "b", "reach_cost": "c"}}
+        for role in ("control", "challenger")
+    ]
+    checks = _check(pack, images={1: "x", 2: "x"})
+    assert _codes(checks, "warn") == ["segment_gap", "segment_gap"]
+    assert {c.field for c in checks} == {"distinct"}
+
+
+def test_the_page_shows_whether_the_segment_is_worth_it():
+    page = render(normalize(_pack()), [], {})
+    assert "Perkamoji galia" in page and "Apie 3 000 įmonių (įvertis)" in page and "Kaina pasiekti" in page
+
+
+def test_the_recipe_sizes_segments_and_drops_the_ones_that_cannot_pay_back():
+    steps = {step["title"]: step["detail"] for step in load_recipes()["ads"].render_steps("goal")}
+    assert "rough size, buying power and cost to reach" in steps["Facts"] and "Drop a segment" in steps["Facts"]
+    assert "Fill segment for each ad" in steps["Ads"]
 
 
 def _growth(kind, reach=""):

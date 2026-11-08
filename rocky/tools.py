@@ -558,6 +558,16 @@ CLIENT_TOOL_SPECS = [
                                     "enum": ["control", "challenger"],
                                     "description": "control is the site's current pitch as an ad; challenger is a new message",
                                 },
+                                "segment": {
+                                    "type": "object",
+                                    "description": "whether this ad's segment is worth a distinct offer; mark estimates as estimates",
+                                    "properties": {
+                                        "size": {"type": "string", "description": "how many such buyers there are"},
+                                        "buying_power": {"type": "string"},
+                                        "reach_cost": {"type": "string"},
+                                        "distinct": {"type": "string", "description": "why this segment would respond differently"},
+                                    },
+                                },
                                 "mix": {
                                     "type": "object",
                                     "description": "the offer that makes this ad's promise true, from the facts",

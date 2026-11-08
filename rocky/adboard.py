@@ -36,6 +36,8 @@ TEST_ROLES = ("control", "challenger")
 STAKE_STATUSES = ("met", "unmet", "unknown")
 # Selling more where the brand already sells, or taking it to new buyers, which needs proof they can be reached (Principles of Marketing, pp. 75–76).
 GROWTH_KINDS = ("penetration", "development")
+# Whether a segment is worth a distinct offer; "distinct" only matters with several ads (Principles of Marketing, pp. 188–189).
+SEGMENT_FIELDS = ("size", "buying_power", "reach_cost", "distinct")
 # What the feed shows before it cuts the text.
 FEED_LIMITS = {"primary_text": 125, "headline": 40, "description": 30}
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
@@ -49,10 +51,14 @@ _FIELD_NAMES = {
     "en": {
         "primary_text": "primary text", "headline": "headline", "description": "description", "cta": "button",
         "product": "what the buyer gets", "price": "what it costs", "place": "where the buyer gets it",
+        "size": "how many such buyers there are", "buying_power": "whether they can afford it",
+        "reach_cost": "what it costs to reach them", "distinct": "why they would respond differently",
     },
     "lt": {
         "primary_text": "pagrindinis tekstas", "headline": "antraštė", "description": "aprašymas", "cta": "mygtukas",
         "product": "ką pirkėjas gauna", "price": "kiek tai kainuoja", "place": "kur pirkėjas tai gauna",
+        "size": "kiek yra tokių pirkėjų", "buying_power": "ar jie gali tai sau leisti",
+        "reach_cost": "kiek kainuoja juos pasiekti", "distinct": "kodėl jie reaguotų kitaip",
     },
 }
 _MESSAGES = {
@@ -67,6 +73,7 @@ _MESSAGES = {
         "promise": "Absolute promise “{value}”: make sure you can prove it.",
         "no_image": "No visual yet.",
         "mix_missing": "The promise needs an offer behind it: add {field}.",
+        "segment_gap": "This segment is not checked yet: add {field}.",
         "no_reach": "New market: there is no evidence these buyers can be reached.",
         "stake_unmet": "“{value}” is below the minimum buyers expect. Fix it before spending on ads.",
         "no_stakes": "Table stakes are not listed: say what buyers expect from anyone in this category.",
@@ -83,6 +90,7 @@ _MESSAGES = {
         "promise": "Absoliutus pažadas „{value}“: patikrinkite, ar galite jį įrodyti.",
         "no_image": "Vizualas dar nesukurtas.",
         "mix_missing": "Pažadą turi palaikyti pasiūlymas: nurodykite, {field}.",
+        "segment_gap": "Segmentas dar nepatikrintas: nurodykite, {field}.",
         "no_reach": "Nauja rinka: nėra įrodymų, kad šiuos pirkėjus galima pasiekti.",
         "stake_unmet": "„{value}“: nepasiektas minimumas, kurio pirkėjai tikisi. Pirma sutvarkykite tai, tik tada leiskite biudžetą.",
         "no_stakes": "Nenurodyta, ko pirkėjai tikisi iš bet kurio šios srities pardavėjo.",
@@ -99,6 +107,7 @@ _LABELS = {
         "source": "Source", "no_claims": "These ads make no claims that need a source.",
         "mix_product": "What they get", "mix_price": "What it costs", "mix_place": "Where they get it",
         "role_control": "Control: current pitch", "role_challenger": "Challenger",
+        "seg_size": "Size", "seg_buying_power": "Buying power", "seg_reach_cost": "Cost to reach", "seg_distinct": "Why it differs",
         "growth_penetration": "Existing market", "growth_development": "New market", "growth_reach": "How we reach them",
         "guide": "Who gets what", "guide_note": "When a lead comes from an ad, this says which product to offer.",
         "guide_ad": "Ad", "guide_for": "For", "guide_offer": "Offer",
@@ -117,6 +126,7 @@ _LABELS = {
         "source": "Šaltinis", "no_claims": "Šiose reklamose nėra teiginių, kuriems reikėtų šaltinio.",
         "mix_product": "Ką gauna", "mix_price": "Kiek kainuoja", "mix_place": "Kur gauna",
         "role_control": "Kontrolinė: dabartinė žinutė", "role_challenger": "Nauja žinutė",
+        "seg_size": "Dydis", "seg_buying_power": "Perkamoji galia", "seg_reach_cost": "Kaina pasiekti", "seg_distinct": "Kuo skiriasi",
         "growth_penetration": "Esama rinka", "growth_development": "Nauja rinka", "growth_reach": "Kaip pasieksime",
         "guide": "Kam ką siūlyti", "guide_note": "Kai užklausa ateina iš reklamos, šis sąrašas pasako, kurį produktą siūlyti.",
         "guide_ad": "Reklama", "guide_for": "Kam", "guide_offer": "Ką siūlyti",
@@ -178,6 +188,7 @@ def normalize(args: dict) -> dict:
             {
                 **{name: _text(ad.get(name)) for name in fields},
                 "mix": {name: _text(_object(ad.get("mix")).get(name), 300) for name in MIX_FIELDS},
+                "segment": {name: _text(_object(ad.get("segment")).get(name), 300) for name in SEGMENT_FIELDS},
                 "test_role": role if (role := _text(ad.get("test_role")).lower()) in TEST_ROLES else "",
             }
             for ad in _dicts(args.get("ads"))[:MAX_ADS]
@@ -259,6 +270,10 @@ def check_pack(pack: dict, facts: str | None, images: dict[int, str]) -> list[Ch
         for name in MIX_FIELDS:
             if not mix.get(name):
                 checks.append(Check("warn", "mix_missing", ad=n, field=name))
+        segment = ad.get("segment") or {}
+        for name in SEGMENT_FIELDS if len(pack["ads"]) > 1 else SEGMENT_FIELDS[:-1]:
+            if not segment.get(name):
+                checks.append(Check("warn", "segment_gap", ad=n, field=name))
         if n not in images:
             checks.append(Check("warn", "no_image", ad=n))
     return checks
@@ -440,6 +455,11 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
         f'<div><dt>{e(labels["mix_" + name])}</dt><dd>{e(mix[name])}</dd></div>' for name in MIX_FIELDS if mix.get(name)
     )
     offer = f'<dl class="offer">{offer}</dl>' if offer else ""
+    segment = ad.get("segment") or {}
+    fit = "".join(
+        f'<div><dt>{e(labels["seg_" + name])}</dt><dd>{e(segment[name])}</dd></div>' for name in SEGMENT_FIELDS if segment.get(name)
+    )
+    fit = f'<dl class="offer">{fit}</dl>' if fit else ""
     buttons = "".join(
         f'<button type="button" data-copy="{e(ad[name], quote=True)}">{e(labels[label])}</button>'
         for name, label in (("primary_text", "text"), ("headline", "headline"), ("description", "description"))
@@ -453,7 +473,7 @@ def _note(n: int, ad: dict, image: str | None, checks: list[Check], language: st
         '<aside class="note">'
         f'<div class="stamp {kind}">{e(stamp)}</div>'
         f'<h2><small>{e(labels["number"])} {n}{role}</small>{e(ad["angle"])}</h2>'
-        f"{audience}{offer}"
+        f"{audience}{fit}{offer}"
         f'<ul class="checks">{items}</ul>'
         f'<div class="copies"><small>{e(labels["copy"])}</small><div>{buttons}</div>{download}</div>'
         "</aside>"

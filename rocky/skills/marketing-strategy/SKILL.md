@@ -75,3 +75,13 @@ Selling more to the market a brand already serves is penetration. Taking the sam
 - If you cannot find that evidence, leave `reach` empty. The page warns the marketer, which is better than an invented answer.
 
 Source: Principles of Marketing, pp. 75–76.
+
+## Check whether a segment is commercially usable
+
+A segment can be real and still not be worth an ad. Lithuania is a small market, so a niche that works elsewhere may be a few hundred buyers here.
+
+- Estimate each segment's size, its buying power and what it costs to reach. Say where the number came from, or label it an estimate.
+- Drop a segment that is too small or too poor to pay back, and say so in the facts.
+- A separate offer is justified only if the segment would respond differently. If two segments want the same thing for the same reason, merge them.
+
+Source: Principles of Marketing, pp. 188–189.

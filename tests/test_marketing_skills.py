@@ -76,3 +76,9 @@ def test_the_growth_direction_rule_is_in_the_skill_with_its_source():
     assert "Separate market development from market penetration" in text
     assert "Principles of Marketing, pp. 75–76" in text
 
+
+def test_the_usable_segment_rule_is_in_the_skill_with_its_source():
+    text = view_skill("marketing-strategy")
+    assert "Check whether a segment is commercially usable" in text
+    assert "Principles of Marketing, pp. 188–189" in text
+
