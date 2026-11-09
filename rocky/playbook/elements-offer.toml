@@ -1,0 +1,316 @@
+# Offer elements: product experience, pricing and ad copy, enforced by rocky/adchecks/offer.py.
+# One record per 500list concept; number is the concept id. Codes are the board findings the module produces.
+
+[[element]]
+number = 124
+title = "Audit the complete product"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["complement_missing", "complement_unknown", "complement_unsourced"]
+manual = ["complement_missing"]
+source = "The Macintosh Way, p. 64"
+question.en = "Does the buyer get everything the promise needs?"
+question.lt = "Ar pirkėjas gauna viską, ko reikia pažadui išpildyti?"
+why.en = "A capable product still fails when the guide, the installer or the accessory is missing. The ad then sells a result the box alone cannot deliver."
+why.lt = "Geras produktas vis tiek nesuveikia, kai trūksta vadovo, montuotojo ar priedo. Tada reklama parduoda rezultatą, kurio vien dėžė nesuteiks."
+
+[[element]]
+number = 125
+title = "Map the work of ownership"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["ownership_stage_missing", "ownership_gap_unused", "ownership_unsourced"]
+source = "Jobs to Be Done, pp. 59–60"
+question.en = "Where does owning ours take less work than owning theirs?"
+question.lt = "Kur mūsų produktą turėti lengviau nei konkurento?"
+why.en = "Two products can perform the same in use and differ in cleaning, storage or repair. A stage where ours is clearly faster is an ad angle buyers feel every week."
+why.lt = "Du produktai gali veikti vienodai, bet skirtis valymu, laikymu ar remontu. Etapas, kuriame mūsų produktas aiškiai greitesnis, yra reklamos kampas, kurį pirkėjai jaučia kas savaitę."
+
+[[element]]
+number = 139
+title = "Offer an upgrade when the need appears"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["upgrade_no_trigger", "upgrade_no_unlocks", "upgrade_unlocks_unsourced", "upgrade_blocks_work"]
+source = "Getting Real, p. 115"
+question.en = "Does the upgrade prompt name the limit, what it unlocks, and what still works?"
+question.lt = "Ar pranešimas apie planą įvardija ribą, ką atrakina ir kas dar veikia?"
+why.en = "A paid option shown at the moment a real limit is hit sells itself. One that locks the user out instead makes them leave."
+why.lt = "Mokamas planas, parodytas tą akimirką, kai pasiekiama tikra riba, parsiduoda pats. Toks, kuris užrakina vartotoją, priverčia jį išeiti."
+
+[[element]]
+number = 142
+title = "Design for customers who grow more capable"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["depth_gap"]
+source = "The Macintosh Way, pp. 62–64"
+question.en = "Is there evidence for both the simple start and the depth the pros need?"
+question.lt = "Ar yra įrodymų ir dėl paprastos pradžios, ir dėl gylio, kurio reikia profesionalams?"
+why.en = "An audience of beginners and professionals is two promises. Without evidence for one side, that half of the audience pays for a click into the wrong product."
+why.lt = "Pradedančiųjų ir profesionalų auditorija – tai du pažadai. Be įrodymų vienai pusei ta auditorijos dalis sumoka už paspaudimą į netinkamą produktą."
+
+[[element]]
+number = 143
+title = "Check compatibility with existing routines"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["switch_unhandled", "switch_claim"]
+source = "Principles of Marketing, p. 376"
+question.en = "What must the buyer replace, relearn or reorganize, and who handles the biggest change?"
+question.lt = "Ką pirkėjas turi pakeisti, išmokti iš naujo ar pertvarkyti, ir kas sprendžia didžiausią pokytį?"
+why.en = "An easy-switch promise with no plan behind it is the first thing a buyer disproves. Naming the largest change and its remedy turns the promise into an onboarding step."
+why.lt = "Lengvo perėjimo pažadas be plano yra pirmas dalykas, kurį pirkėjas paneigs. Įvardytas didžiausias pokytis ir jo sprendimas paverčia pažadą įdiegimo žingsniu."
+
+[[element]]
+number = 146
+title = "Locate the service-quality gap"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["delivered_promise_gap", "delivered_missing", "delivered_unsourced"]
+manual = ["delivered_promise_gap"]
+source = "Principles of Marketing, pp. 404–406"
+question.en = "Does the ad promise what the brand actually delivers?"
+question.lt = "Ar reklama žada tai, ką prekės ženklas iš tikrųjų pristato?"
+why.en = "Five days in the ad and fifteen on the terms page is a gap the customer finds after paying. Either the ad or the delivery has to change before the budget goes out."
+why.lt = "Penkios dienos reklamoje ir penkiolika taisyklėse – spraga, kurią klientas randa jau sumokėjęs. Prieš leidžiant biudžetą turi pasikeisti arba reklama, arba pristatymas."
+
+[[element]]
+number = 173
+title = "Guide product evaluation"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["eval_cue_missing", "eval_cue_unobservable"]
+source = "The Book of Advertising Tests, pp. 131–132"
+question.en = "What can a first-time buyer see, smell or measure to recognize the quality?"
+question.lt = "Ką pirmą kartą perkantis gali pamatyti, užuosti ar išmatuoti, kad atpažintų kokybę?"
+why.en = "A quality word does nothing at the moment of use unless the buyer knows what to look for. A certificate is not a cue; a colour, a smell or a time is."
+why.lt = "Kokybės žodis naudojimo akimirką nieko nereiškia, jei pirkėjas nežino, ko ieškoti. Sertifikatas nėra požymis, o spalva, kvapas ar laikas – yra."
+
+[[element]]
+number = 174
+title = "Purchase-route comprehension"
+topic = "Product experience and conversion"
+applies = ["ads"]
+enforced = "check"
+codes = ["route_missing", "route_not_in_copy"]
+source = "The Psychology of Advertising, pp. 114–116"
+question.en = "Would a stranger know how to get the product?"
+question.lt = "Ar nepažįstamas žmogus suprastų, kaip įsigyti produktą?"
+why.en = "A link with a button is a route online. A market stall or a phone number is a route only if it is in the copy itself."
+why.lt = "Nuoroda su mygtuku yra kelias internete. Turgaus prekystalis ar telefonas – kelias tik tada, kai jie įrašyti pačiame tekste."
+
+[[element]]
+number = 189
+title = "Test a premium against a specific improvement"
+topic = "Pricing, offers and promotions"
+applies = ["ads"]
+enforced = "check"
+codes = ["premium_without_improvement", "premium_hidden", "offer_missing"]
+source = "Jobs to Be Done, pp. 71–73"
+question.en = "Does the dearer arm show the better outcome and the premium together?"
+question.lt = "Ar brangesnė versija rodo geresnį rezultatą ir priemoką kartu?"
+why.en = "A premium is only tested when buyers see both sides of the trade. A dearer ad that hides the price or never names the improvement measures nothing."
+why.lt = "Priemoka patikrinama tik tada, kai pirkėjai mato abi mainų puses. Brangesnė reklama, slepianti kainą ar neįvardijanti pagerinimo, nieko neišmatuoja."
+
+[[element]]
+number = 200
+title = "Absolute versus relative price"
+topic = "Pricing, offers and promotions"
+applies = ["ads"]
+enforced = "check"
+codes = ["price_position_risk_unaddressed", "price_position_premium_unjustified", "price_position_value_hidden", "price_position_unsourced", "price_position_missing"]
+source = "Effectiveness in Context, pp. 39–41"
+question.en = "Is the price a big outlay for the buyer, and where does it sit in the category?"
+question.lt = "Ar kaina pirkėjui yra didelė išlaida ir kur ji yra kategorijoje?"
+why.en = "A costly purchase can be cheap for its category. The buyer's risk calls for reassurance; the category position decides whether to show the price as value."
+why.lt = "Brangus pirkinys gali būti pigus savo kategorijoje. Pirkėjo rizikai reikia nuraminimo, o padėtis kategorijoje lemia, ar kainą rodyti kaip vertę."
+
+[[element]]
+number = 205
+title = "Scarcity cues"
+topic = "Pricing, offers and promotions"
+applies = ["ads"]
+enforced = "check"
+codes = ["scarcity_unsourced", "scarcity_stale", "scarcity_count_mismatch"]
+source = "Decoding Decisions, pp. 49–50"
+question.en = "Does every scarcity cue rest on a real, dated supply limit?"
+question.lt = "Ar kiekviena stygiaus užuomina remiasi tikru, datuotu pasiūlos limitu?"
+why.en = "Only six rooms left is a fact on the day it was checked and a lie a week later. The cue needs a source and a date to check it again."
+why.lt = "„Liko tik 6 kambariai“ yra faktas tą dieną, kai patikrinta, ir melas po savaitės. Užuominai reikia šaltinio ir datos, kada tikrinti iš naujo."
+
+[[element]]
+number = 207
+title = "Combined challenger offer"
+topic = "Pricing, offers and promotions"
+applies = ["ads"]
+enforced = "check"
+codes = ["combo_incomplete", "combo_single_mixed", "combo_no_combined"]
+source = "Decoding Decisions, pp. 68–71"
+question.en = "Does the combined arm carry every attribute the single arms test?"
+question.lt = "Ar jungtinė versija turi visas savybes, kurias testuoja pavienės?"
+why.en = "The test asks whether the whole package or one feature moves people. It only answers if the combined ad holds everything and each single ad holds one thing."
+why.lt = "Testas klausia, ar žmones veikia visas paketas, ar viena savybė. Jis atsako tik tada, kai jungtinė reklama turi viską, o kiekviena pavienė – po vieną."
+
+[[element]]
+number = 217
+title = "Headline as audience selector"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["headline_generic", "headline_no_qualifier"]
+source = "Scientific Advertising, pp. 26–27"
+question.en = "Does the headline let the intended buyer recognize their situation at a glance?"
+question.lt = "Ar antraštė leidžia pirkėjui iš karto atpažinti savo situaciją?"
+why.en = "A headline that speaks to everyone stops no one. The word that names the buyer selects them, and a qualifier shows the respondents really have the need."
+why.lt = "Antraštė, skirta visiems, nesustabdo nieko. Pirkėją įvardijantis žodis jį atrenka, o patikslinimas parodo, kad atsiliepusieji tikrai turi poreikį."
+
+[[element]]
+number = 219
+title = "Benefit-headline test"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["headline_test_confound", "headline_benefit_duplicate", "headline_benefit_missing"]
+source = "Scientific Advertising, pp. 28–29"
+question.en = "In a headline test, is everything but the headline held constant?"
+question.lt = "Ar antraščių teste viskas, išskyrus antraštę, lieka nepakitę?"
+why.en = "A headline test learns which motivation deserves the budget. If the body copy also changes, the winner tells you nothing about the headline."
+why.lt = "Antraščių testas parodo, kuri motyvacija verta biudžeto. Jei kartu keičiasi ir tekstas, nugalėtoja nieko nepasako apie antraštę."
+
+[[element]]
+number = 220
+title = "Process evidence for a quality claim"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["proof_quality_unproven", "proof_false_exclusivity", "proof_exclusivity_unchecked", "proof_unsourced"]
+source = "Scientific Advertising, pp. 39–40"
+question.en = "Is there one verifiable step behind the quality promise, and is it really ours alone?"
+question.lt = "Ar už kokybės pažado yra vienas patikrinamas žingsnis, ir ar jis tikrai tik mūsų?"
+why.en = "Premium and natural are opinions until a manufacturing step explains them. Claiming that step as exclusive when the whole category does it is the lie competitors will point out."
+why.lt = "„Premium“ ir „natūralus“ yra nuomonės, kol jų nepaaiškina gamybos žingsnis. Skelbti tą žingsnį išskirtiniu, kai jį daro visa kategorija, yra melas, kurį konkurentai parodys."
+
+[[element]]
+number = 221
+title = "Self-contained advertisements"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_not_self_contained"]
+source = "Scientific Advertising, pp. 41–42"
+question.en = "Does each ad make sense as the only one the buyer sees?"
+question.lt = "Ar kiekviena reklama suprantama kaip vienintelė, kurią pamatys pirkėjas?"
+why.en = "Most people see one ad, not the series. An ad that refers to another one leaves them without the offer."
+why.lt = "Dauguma pamato vieną reklamą, o ne seriją. Reklama, nurodanti į kitą, palieka juos be pasiūlymo."
+
+[[element]]
+number = 223
+title = "Magnify an otherwise invisible feature"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_scale_missing", "copy_scale_not_stated"]
+source = "My Life in Advertising, p. 152"
+question.en = "When the visual enlarges a feature, does the copy state the scale?"
+question.lt = "Kai vizualas padidina savybę, ar tekste nurodytas mastelis?"
+why.en = "An enlarged view shows what a feed photo cannot. Without the scale in the copy the buyer takes the picture for actual size and feels misled on delivery."
+why.lt = "Padidintas vaizdas parodo tai, ko nerodo srauto nuotrauka. Be mastelio tekste pirkėjas palaiko paveikslą tikru dydžiu ir gavęs prekę jaučiasi apgautas."
+
+[[element]]
+number = 226
+title = "Repetition with variation"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_series_break", "copy_series_missing"]
+source = "The Psychology of Advertising, pp. 27–28"
+question.en = "Does every ad in the series carry the one feature that links it to the others?"
+question.lt = "Ar kiekviena serijos reklama turi tą vieną elementą, kuris ją sieja su kitomis?"
+why.en = "A series works when a viewer links the fifth execution to the first. Drop the cue in one ad and that ad spends its budget as a stranger."
+why.lt = "Serija veikia, kai žiūrovas penktą reklamą susieja su pirma. Praleiskite elementą vienoje reklamoje, ir ji išleis biudžetą kaip svetima."
+
+[[element]]
+number = 228
+title = "Emotional recall and product preference"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_engagement_primary", "copy_recall_metric_missing"]
+source = "The Psychology of Advertising, pp. 33–34"
+question.en = "Is the creative judged on a buying metric, with recall reported beside it?"
+question.lt = "Ar kūryba vertinama pagal pirkimo matą, šalia nurodant prisiminimą?"
+why.en = "A joke people retell can leave them indifferent to the product. Shares measure the joke; purchases measure the ad."
+why.lt = "Pokštas, kurį žmonės perpasakoja, gali palikti juos abejingus produktui. Dalijimaisi matuoja pokštą, pirkimai – reklamą."
+
+[[element]]
+number = 235
+title = "Test layouts with realistic copy"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_placeholder", "copy_long_real_name"]
+source = "Getting Real, pp. 99–100"
+question.en = "Is the layout tested with real names and instructions, not placeholders?"
+question.lt = "Ar maketas tikrinamas su tikrais pavadinimais ir instrukcijomis, o ne vietaženkliais?"
+why.en = "Lorem ipsum fits every box. The real plan name with its contract term is what breaks the headline, and that is what the buyer will see."
+why.lt = "„Lorem ipsum“ telpa visur. Antraštę sulaužo tikras plano pavadinimas su sutarties terminu, ir būtent jį pamatys pirkėjas."
+
+[[element]]
+number = 243
+title = "Inbox preview test"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_inbox_cut", "copy_inbox_repeat", "copy_inbox_boilerplate", "copy_inbox_detail_hidden"]
+source = "eMarketing, pp. 502–503"
+question.en = "On a phone, do the sender, subject and preview show the useful detail?"
+question.lt = "Ar telefone siuntėjas, tema ir peržiūra parodo svarbiausią detalę?"
+why.en = "The three lines are read together and cut short. A brand name repeated three times and a view-in-browser line push the offer out of sight."
+why.lt = "Trys eilutės skaitomos kartu ir nukerpamos. Tris kartus pakartotas pavadinimas ir eilutė „peržiūrėkite naršyklėje“ išstumia pasiūlymą iš akių."
+
+[[element]]
+number = 247
+title = "Creative continuity between launches"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_continuity_broken", "copy_fake_news", "copy_no_episode"]
+source = "Effectiveness in Context, pp. 54–55"
+question.en = "Does the campaign keep its established character and give it a new episode, without inventing product news?"
+question.lt = "Ar kampanija išlaiko savo personažą ir duoda jam naują epizodą, neišgalvodama produkto naujienų?"
+why.en = "An asset buyers already know is cheaper than a new one. Change the episode, not the product, and never call something new when nothing is."
+why.lt = "Pirkėjams pažįstamas personažas pigesnis už naują. Keiskite epizodą, ne produktą, ir nevadinkite nauju to, kas nėra nauja."
+
+[[element]]
+number = 251
+title = "Complementary creative roles"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["combo_roles_untested_together", "combo_no_lagged_measure"]
+source = "Media in Focus, pp. 34–35"
+question.en = "Are brand and direct executions tested together as well as apart, with a long window?"
+question.lt = "Ar prekės ženklo ir tiesioginio atsako reklamos testuojamos ir kartu, ir atskirai, su ilgu laikotarpiu?"
+why.en = "The combination may lift immediate response and keep the slower effect. Without a combined cell and a lagged measure the test can only see the quick half."
+why.lt = "Derinys gali padidinti greitą atsaką ir išlaikyti lėtesnį poveikį. Be jungtinės celės ir uždelsto mato testas mato tik greitąją pusę."
+
+[[element]]
+number = 253
+title = "Occupational humor"
+topic = "Advertising copy and creative testing"
+applies = ["ads"]
+enforced = "check"
+codes = ["copy_insider_unsourced"]
+source = "World Wide Rave, pp. 39–42"
+question.en = "Does the in-joke rest on a sourced detail of the buyer's job?"
+question.lt = "Ar pokštas remiasi pagrįsta pirkėjo darbo detale?"
+why.en = "A joke only accountants get spreads in their groups because it is about their day. A generic gag, or a made-up regulation, is just noise."
+why.lt = "Pokštas, kurį supranta tik buhalteriai, plinta jų grupėse, nes yra apie jų dieną. Bendras juokelis ar išgalvotas reglamentas tėra triukšmas."

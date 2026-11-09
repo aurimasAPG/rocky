@@ -146,7 +146,7 @@ On every run Rocky fetches OpenRouter’s `/models` catalog (tool-capable models
 4. **Workers** — one subagent per subtask. Default model: **Google Gemini 3.8 Flash** (`google/gemini-3.8-flash`). Override with `ROCKY_WORKER`. Isolated conversation, shared folder.
 5. **Verifier** judges the **whole** result against the original goal and the critic’s quality bar.
 
-Failures go back to the planner. Marketing / ads / copy goals follow the bundled `marketing` **recipe** (research → VOC → copy → pptx + xlsx → visuals via `image_generate`). Add your own recipes as TOML in `<workspace>/.rocky/recipes/` or `ROCKY_RECIPES`; workers can propose one with the `recipe` tool.
+Failures go back to the planner. Facebook and Instagram ad goals follow the bundled `ads` **recipe** (facts → ads → visuals) and end as one page, `deliverables/ads.html`, showing each ad as it looks in the feed, with copy buttons and a source behind every number. Other marketing goals follow the bundled `marketing` **recipe** (research → VOC → copy → pptx + xlsx → visuals via `image_generate`). Add your own recipes as TOML in `<workspace>/.rocky/recipes/` or `ROCKY_RECIPES`; workers can propose one with the `recipe` tool.
 
 ## Dev setup
 

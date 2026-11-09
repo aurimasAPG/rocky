@@ -581,7 +581,7 @@ def test_verifier_can_open_the_deliverable_with_read_only_tools(tmp_path, monkey
     )
     assert result.passed is True
     assert client.verify_calls == 2
-    assert set(client.verify_tools) == {"read_file", "list_dir", "grep", "office_read"}
+    assert set(client.verify_tools) == {"read_file", "list_dir", "grep", "office_read", "claim_check"}
     calls = [e.payload for e in events if e.type == "tool_call" and e.payload.get("subtask") == "verifier"]
     assert calls and calls[0]["name"] == "read_file"
 

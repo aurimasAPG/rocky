@@ -30,6 +30,7 @@ class Recipe:
     cost_multiplier: float = 1.0
     domains: list[str] = field(default_factory=list)
     hints: list[str] = field(default_factory=list)
+    unless: list[str] = field(default_factory=list)  # words that rule this recipe out
     steps: list[dict] = field(default_factory=list)
     source: str = ""
 
@@ -49,13 +50,15 @@ class Recipe:
         return out
 
     def matches(self, goal: str, assessment: dict | None = None) -> bool:
-        domain = str((assessment or {}).get("domain") or "").lower()
-        if domain and domain in {d.lower() for d in self.domains}:
-            return True
         blob = (
             f" {goal} {(assessment or {}).get('goal') or ''} "
             f"{(assessment or {}).get('deliverable') or ''} "
         ).lower()
+        if any(u.lower() in blob for u in self.unless):
+            return False
+        domain = str((assessment or {}).get("domain") or "").lower()
+        if domain and domain in {d.lower() for d in self.domains}:
+            return True
         return any(h.lower() in blob for h in self.hints)
 
     def _matching_plan_step(self, recipe_step: dict, plan_steps: list[dict], taken: set[int]) -> int | None:
@@ -103,7 +106,9 @@ class Recipe:
         if self.covered_by(plan):
             want = Path(self.deliverable_path).suffix
             have = Path(str(plan.get("deliverable_path") or "")).suffix
-            if want and have != want:
+            # A deliverable a recipe step writes is the file the user gets, whatever the planner named.
+            pinned = any(self.deliverable_path in (s.get("writes") or []) for s in self.steps)
+            if want and (pinned or have != want):
                 plan["deliverable_path"] = self.deliverable_path
             return self.merge_writes(plan)
         plan["steps"] = self.render_steps(goal)
@@ -121,7 +126,7 @@ class Recipe:
             "deliverable_path": self.deliverable_path,
             "notes": self.notes,
             "cost_multiplier": self.cost_multiplier,
-            "match": {"domains": list(self.domains), "hints": list(self.hints)},
+            "match": {"domains": list(self.domains), "hints": list(self.hints), "unless": list(self.unless)},
             "steps": [dict(s) for s in self.steps],
         }
 
@@ -180,6 +185,7 @@ def from_dict(raw: dict, source: str = "") -> Recipe:
         cost_multiplier=mult,
         domains=[str(d) for d in match.get("domains") or []],
         hints=[str(h) for h in match.get("hints") or []],
+        unless=[str(u) for u in match.get("unless") or []],
         steps=steps,
         source=source,
     )
@@ -207,11 +213,14 @@ def find_recipe(
     assessment: dict | None = None,
     recipes: dict[str, Recipe] | None = None,
 ) -> Recipe | None:
-    """Explicit ``recipe:<name>`` in the goal wins; then domain; then hint words."""
+    """Explicit ``recipe:<name>`` wins; then a recipe matched by words alone; then domain; then hint words."""
     recipes = recipes if recipes is not None else load_recipes()
     hit = _EXPLICIT.search(goal or "")
     if hit and hit.group(1).lower() in recipes:
         return recipes[hit.group(1).lower()]
+    for recipe in recipes.values():
+        if not recipe.domains and recipe.matches(goal, assessment):
+            return recipe
     domain = str((assessment or {}).get("domain") or "").lower()
     if domain:
         for recipe in recipes.values():
@@ -244,6 +253,7 @@ def to_toml(recipe: Recipe) -> str:
         "[match]",
         "domains = [" + ", ".join(_q(d) for d in recipe.domains) + "]",
         "hints = [" + ", ".join(_q(h) for h in recipe.hints) + "]",
+        "unless = [" + ", ".join(_q(u) for u in recipe.unless) + "]",
     ]
     for step in recipe.steps:
         lines += [

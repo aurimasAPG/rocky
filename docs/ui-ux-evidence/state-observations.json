@@ -1,0 +1,48 @@
+[
+  {
+    "test": "clearBoard stale content",
+    "resultStillVisible": true,
+    "frameStill": "/api/runs/old-a/board",
+    "modelStill": "old/model",
+    "statusStill": "passed old-a",
+    "activeRoleStill": "verifier"
+  },
+  {
+    "test": "terminal metadata after crash",
+    "status": "running",
+    "runButtonEnabled": true,
+    "stopButtonDisabled": true
+  },
+  {
+    "test": "stop sparse done receipt",
+    "beforeCost": "$0.500 · €0.456 · 1,200 tok",
+    "afterCost": "$0.000 · €0.000 · 0 tok",
+    "status": "stopped · no deliverable",
+    "cardText": [
+      "summary: stopped by the user",
+      "no result: nothing was written\ncontinue with: rocky resume crash-a"
+    ]
+  },
+  {
+    "test": "blank token field on restored authenticated session",
+    "cookieWrite": "rocky_token=; path=/; Max-Age=0; SameSite=Strict",
+    "remainingCookie": ""
+  },
+  {
+    "test": "cross-workspace apply",
+    "displayedWorkspace": "/campaign-b",
+    "selectedRunAfterChange": {
+      "id": "history-a",
+      "workspace": "/campaign-a"
+    },
+    "applyUrl": "/api/runs/history-a/apply",
+    "applyBody": {
+      "workspace": "/campaign-a",
+      "number": 42
+    }
+  },
+  {
+    "test": "replayed event effects",
+    "repeatedEventRenderedCount": 2
+  }
+]

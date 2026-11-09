@@ -1,0 +1,1 @@
+- Loop 1 — Added a result-first delivery desk with in-app file previews, copy and download so users can review and use completed work without hunting through logs or filesystem paths.

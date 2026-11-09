@@ -55,6 +55,7 @@ def create_run(
     max_loops: int,
     include_server_tools: bool,
     resume_from: str | None = None,
+    follow_up: str = "",
 ) -> dict[str, Any]:
     workspace = Path(workspace).expanduser().resolve()
     run_id = new_run_id()
@@ -76,6 +77,8 @@ def create_run(
     }
     if resume_from:
         meta["resume_from"] = str(resume_from)
+    if follow_up:
+        meta["follow_up"] = str(follow_up)
     write_meta(folder, meta)
     return meta
 
@@ -348,6 +351,9 @@ def load_resume_state(folder: Path, follow_up: str = "") -> dict[str, Any]:
         raise FileNotFoundError(
             f"run {meta.get('id')} stopped before it had a plan — nothing to resume, start the goal again"
         )
+    for key in ("assessment", "critique", "plan"):
+        if state[key]:
+            state[key].pop("resumed", None)  # set by the run being resumed; this run sets its own
     state["replan"] = judged
     state["done_steps"] = [] if judged else [i for i in done if i not in incomplete]
     follow_up = (follow_up or "").strip()

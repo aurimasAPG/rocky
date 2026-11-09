@@ -1,0 +1,88 @@
+# Rocky recipe: Facebook / Instagram ads, delivered as a page a marketer opens.
+# No deck, no spreadsheet: the ad_board tool checks the copy with code and
+# writes deliverables/ads.html. A goal that names a deck or a sheet goes to the
+# marketing recipe instead.
+
+name = "ads"
+description = "Facts → ads → visuals, handed over as one page showing each ad in the feed. Facebook, Instagram, Meta ads."
+deliverable_path = "deliverables/ads.html"
+notes = "Facts go to runs/notes/facts.md. The ad_board tool writes deliverables/ads.html and runs/notes/ads.json. Visuals are deliverables/visual-<ad number>.png. No deck or spreadsheet."
+cost_multiplier = 1.0
+
+[match]
+hints = [
+  "facebook ad", "facebook reklam", "fb reklam", "fb ad", "meta ad", "meta reklam",
+  "instagram ad", "instagram reklam", "ad copy", "ad creative", "reklamų kampanij",
+  "reklamų variant", "reklamos variant", "reklamos tekst", "reklamų tekst",
+]
+unless = ["pptx", "skaidr", "pristatym", "deck", "xlsx", "excel"]
+
+[[steps]]
+id = 1
+title = "Facts"
+depends_on = []
+requires = ["fact", "fakt", "research", "tyrim"]
+writes = ["runs/notes/facts.md"]
+detail = """skill_view marketing-strategy. Read the site the goal names with web_fetch: home, services or pricing, about, one case page. \
+Use at most ten tool calls in all and write as soon as you have enough. \
+Write runs/notes/facts.md for: {goal}. Start it with a line `Job: ` saying what the customer is trying to get done, a line `Pitch: ` quoting the main message the site uses today, then two or three `Segment: ` lines, each an outcome a group struggles to reach and the circumstance that identifies them, with its rough size, buying power and cost to reach, marked as estimates unless sourced. Drop a segment too small or too poor to pay back. Then one `Match: ` line per product on sale naming the segment it serves best. Then what is sold, to whom, the offer, prices, where and how buyers get it (delivery, outlets, booking), proof numbers, tone, brand colours as hex: \
+one line per fact, with the URL it came from. Add a `Growth: ` line: penetration if this campaign sells more where the brand already sells, development if it takes the product to new buyers or a new country. For development add a `Reach: ` line with the evidence and URL that those buyers can be reached. Add two or three `Table stake: ` lines: an outcome customers expect from anyone in this category and already get from competitors, its minimum acceptable level, and whether this brand meets it (met, unmet or unknown). If the goal asks about competitors, add two or three with URLs. \
+Mark what you could not confirm. No invented numbers, quotes or reviews. \
+Where the sources give them, add `ZMOT: ` lines (where buyers research and compare, with URL), a `Personal risk: ` line for business buyers (or `not researched`), \
+and a `Shortlist spec: ` line (the one spec buyers use to shortlist, with URL). \
+If the ads will carry a price, a discount or a promotion, skill_view marketing-numbers and check the offer with unit_economics before writing it into the facts. \
+If the brand is new or the ads will compare it with known names, skill_view marketing-strategy and write every rating with its count, platform and fetched URL, never a bare score. \
+If buyers substitute a named competitor, skill_view marketing-strategy and write a `Compare:` line with attributes, fair conditions and the next-purchase metric. \
+If most sales happen offline, skill_view customer-research and write the `Offline influence:` line, never an online-only ROAS. \
+If the ads send traffic to a configurator, skill_view marketing-strategy and write runs/notes/feasibility.md from three browser walkthroughs. \
+skill_view web-testing when an ad or the site promises a flow in N clicks, steps or minutes (`## Demo claims` then `## Demo vs reality` in runs/notes/walkthrough.md before the claim enters facts), \
+when the ads send paid traffic to a new or changed checkout (one `## Device:` block per device, never a real payment), or when the campaign is a dated promotion with a budget (peak-traffic arithmetic and `## Hosting questions`; Rocky never load-tests). \
+skill_view marketing-strategy when the buyer is an organisation (`Roles:` and `Gatekeeper:` lines) or the product is sold through retailers or specified by professionals (the `Chain:` block; every sets/recommends role gets an ad or trade offer)."""
+
+[[steps]]
+id = 2
+title = "Ads"
+depends_on = [1]
+requires = ["ad_board"]
+writes = ["deliverables/ads.html", "runs/notes/ads.json"]
+detail = """skill_view meta-ads-copy if it is listed. Using only runs/notes/facts.md, write three ads (or the number the goal names) with different angles built on the Job line for: {goal}. \
+Give each ad one Segment line from the facts and state that struggle and circumstance in its audience. Fill segment for each ad: size, buying_power, reach_cost, distinct. \
+With more than one ad, ad 1 is the control: the Pitch line turned into an ad, test_role control. The others are challengers, test_role challenger: \
+each about an outcome the product already delivers that its segment struggles to reach, with no promise the product would have to change to keep. \
+Call ad_board with brand, url, ads (primary_text, headline, description, cta, angle, audience, test_role, segment, mix), growth (kind, reach), table_stakes and claims. No ad leads on a table stake. \
+Fill mix for each ad from the facts: product, price, place, with product being what the Match line gives for that ad's segment. If the buyer could not experience the ad's promise with that offer, change the ad. \
+Put every number in the copy into claims with its URL from runs/notes/facts.md, or write the copy without digits. \
+When ad_board lists problems, fix them and call it again with the whole pack. Do not write the page yourself. \
+Then run page_inspect for each ad against the url the ads link to (headline, primary_text, cta, price, audience, offer); \
+a block (price the page does not show, no button or form) means the ad or the landing page must change before handing over — say which in the ad's angle and call ad_board again. \
+An ad that names a competitor is an invitation to the trial on the Compare line, never a superiority claim. \
+If facts.md holds a free trial, sample or gift, skill_view marketing-strategy and write one free-led / price-led headline pair recorded as `Offer lead pair:`, sized with experiment_plan. \
+Before recommending spend, skill_view web-testing: build deliverables/ads_clutter.html and record blind viewers' recall under `## Clutter test` (UNCALIBRATED without real competitor ads). \
+From the facts also fill, where the facts give them: per ad attribute (name, kind), objection (text, source), adoption_stage, outcomes (functional, emotional, social), \
+occasion (when, for_whom, kind), place_effort when the offer names a shop, prior_exposure, appeal, for_role, register, and setting on challengers only; \
+at pack level objections, buyer (payer, user, money_metric, money_value, source), end_market for suppliers, zmot from the ZMOT lines, review_signals, triggers, \
+shortlist_spec, buying_unit with technical_terms, involvement and category — leave a field out rather than guess it. \
+Fill what applies from the facts: complete_product and purchase_route for what the buyer needs and how they get it, delivered and price_position \
+(with scarcity, quality_evidence and evaluation_cue when the copy makes that kind of claim) for every promise and price, and for a set of ads test_design \
+with each ad's selector, qualifier, benefit, offer or attributes so the test holds what it says it holds. \
+Where they apply, also fill: endorsements and referral on share or influencer ads; defect on clearance stock; green for any sustainability word; \
+backer and proof_test when testing who backs a proof; placement (name or dwell_seconds, adjacency) and tracking for every non-feed or multi-placement ad; \
+stockist, channel, chain and pack when the product is sold through retailers; activation for in-market buyers; outcomes for brand campaigns; \
+shows with range when visuals could misrepresent the range; or set kind to event_plan (demo, event) or sequence (sequence, inquiries) \
+when the goal is a live demonstration or a message sequence. \
+From the facts also pass job (statement, action, object, circumstance, before, after) from the Job lines, and where the facts give them: per ad promise, struggle, circumstance, \
+outcome on challengers, alternative (what, cost, source), purpose with standards, stage with versus or memory_hook, angle_kind; at pack level vision and hero, built_for and requests, \
+comparison with each ad's cell for a co-brand or extension test, market and adaptation for a new market, line, ladder from the Price position line, launch, alternative_trial, \
+rival_capabilities, alternatives, voice, known_brand, brand_standard, in_market_share and buying_window, service, lead_users — every source a URL already in facts.md."""
+
+[[steps]]
+id = 3
+title = "Visuals"
+depends_on = [2]
+requires = ["visual", "vizual", "image"]
+writes = ["deliverables/visual-1.png"]
+detail = """One square image per ad: image_generate with aspect_ratio 1:1 and path deliverables/visual-1.png for ad 1, \
+deliverables/visual-2.png for ad 2, and so on. Read the ads in runs/notes/ads.json and the brand colours in runs/notes/facts.md. \
+One clear subject that carries the ad's angle. No text in the image, no invented logos or awards. \
+vision_analyze each one once with the ad's `brief` (style, subject, the ad's audience, must_include, must_not) and regenerate it once only if brief_check fails. They appear on the page by themselves. \
+After each visual, skill_view web-testing and run the blind recall („Vienu sakiniu: kas siūloma ir kodėl pirkti?“) with vision_analyze; regenerate on `visual obscures`."""

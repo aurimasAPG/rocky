@@ -509,6 +509,7 @@ def _resume(
         max_loops=int(state.get("max_loops") or 4),
         include_server_tools=bool(state.get("include_server_tools", True)),
         resume_from=run_id,
+        follow_up=follow_up,
     )
     spawn_worker(meta)
     if json_out:

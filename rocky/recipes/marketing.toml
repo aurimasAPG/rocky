@@ -30,7 +30,29 @@ writes = ["runs/notes/research.md"]
 detail = """skill_view deep-research (and research-prompt if listed). \
 Investigate the market, competitors, and claims for: {goal}. \
 web_search + web_fetch primary sources. Write runs/notes/research.md with URL, claim, why it matters. \
-Separate fact / inference / unknown. Do not invent statistics."""
+Separate fact / inference / unknown. Do not invent statistics. \
+If the goal compares product lines or asks where to invest, skill_view marketing-strategy and apply its growth-share rule. \
+If the goal asks for positioning or a comparison with competitors, skill_view marketing-strategy and apply its perceptual-map rule. \
+If the goal involves a price, discount, promotion, margin, acquisition cost or a test, skill_view marketing-numbers and get every figure from unit_economics or experiment_plan. \
+If the goal raises a price, also skill_view marketing-strategy and compare three transition paths with unit_economics and an affected-customers table. \
+skill_view marketing-strategy and apply the named rule when the goal matches: only-online business with only search, shopping or retargeting channels (introduction-vs-conversion rule, a `Spend split:` line in facts); \
+a proposed new feature or product (`Internal solution:` line first); an emotional or humorous tone tested against a feature-led one (`## Mechanism test`, two cells, two scored outcomes); \
+preview, try-on, virtual fitting or a configurator (plan the test with conversion and a resolution metric; walk the configurator and write runs/notes/feasibility.md); \
+acceptance in one setting and rejection in another (`## Setting contrast` with a `Difference:` line); a trend, boom or adoption wave (`## Second-order opportunities`, a source URL or `hypothesis` on every row); \
+partners, dealers, distributors, pharmacies or resellers in a dispute (`## Channel conflict` before recommending). \
+skill_view customer-research when the goal matches: a spec, landing copy or brief for equipment used on site (`## Use context` with observed/reported/assumed tags); \
+ideas, differentiation, what to borrow or kitos sritys (`## Analogous markets`, one source per field); experts or people to interview (runs/notes/experts.md as a referral chain with a URL per row); \
+most sales offline (the till survey and an `Offline influence:` line, never an online-only ROAS); awareness or recall measurement (žinomumas, apklausa: runs/notes/survey.md with its four separate blocks); \
+a perceptual map the marketer can confirm with buyers (the interview that confirms the map). \
+skill_view pr-response when the goal asks users to share mods, templates or plugins (`## Contributor incentives` before any incentive). \
+If the goal is SEO, search visibility, a site audit or a paid-search account, run seo_inspect (snippet, urls, crawl_rules, structured_data, serp or keywords as the question needs) and quote its findings in research.md. \
+skill_view web-testing when the goal mentions onboarding, a new account or empty screens; a paid plan or cancellation; a checkout or form drop-off; site search; a page-speed test; mobile or a shop finder; or gives a video retention export — \
+and write runs/notes/walkthrough.md with a row per step (url, action, what appeared, seconds, money mentions); never describe a screen you did not see. \
+skill_view marketing-strategy also when the goal tests a shortlist or Top-N page (30-day return as the primary metric), gives a sales deck or script (runs/notes/pitch.md by AIDA stage from office_read), \
+is a platform, marketplace or distributor partnership (`## Vidinis šalininkas` with a sourced priority quote), attributes retail sales to a campaign (sell-through arithmetic from table_analyze), \
+ranks creatives or channels from a file (early and late window ranks, `Ranking reverses:`), or rests on a B2B study (`Studied: … → Ours: …`). \
+skill_view pr-response when the goal asks who connects two communities (runs/notes/bridges.md) or mentions review, press, PR, apžvalga or žiniasklaida (runs/notes/outlets.md ranked by readership evidence); \
+skill_view customer-research when the goal compares platforms or marketplaces (runs/notes/channels.md with sourced Participants/Entry/Adaptation lines)."""
 
 [[steps]]
 id = 2
@@ -41,7 +63,16 @@ writes = ["runs/notes/voc.md"]
 detail = """skill_view voc-to-copy. If product-marketing-context is listed, skill_view it too. \
 Mine customer language from runs/notes/research.md plus public reviews, Reddit, G2, forums via web_search. \
 Write runs/notes/voc.md: pains, desires, objections, outcomes, phrase bank with sources. \
-Do not invent quotes."""
+Do not invent quotes. \
+skill_view customer-research when the goal matches: a business buyer (`Role: operator`, `Role: maintainer`, `Role: budget owner` sections); hacks, mods, DIY or workarounds (ask for photos first, `## Workarounds`); \
+a trade buyer, distributor or retailer (runs/notes/expert_review.md with questions about their customers); a user survey or interview about simplification or drop-off (runs/notes/removal_survey.md with the subtractive question); \
+an entry price, cheaper tier or starter plan (`## Nonconsumers` and `## Current buyers' objections`). \
+Write customer outcomes as direction + metric + object + situation and run outcome_scores on them; when the goal asks for a survey, \
+write the questions as JSON, run survey_check, fix every block, and put the checked questionnaire in voc.md; a concept test or criteria survey is designed with research_plan. \
+skill_view marketing-strategy when the goal mentions a journey, touchpoints, an email flow or after-sales (tag each quote with its stage, write runs/notes/journey.md) \
+or custom, bespoke, cut-to-size or configurable offers (`modification_spend:` and `fit_wtp:` lines). \
+skill_view customer-research when the goal asks whom to seed or who influences a decision (`## Authority`; follower counts are not evidence) \
+or is a shopper path for a shelf or dealer choice (`## Shelf-back` with sourced discards or an intercept script)."""
 
 [[steps]]
 id = 3
@@ -50,7 +81,20 @@ depends_on = [2]
 requires = ["copy", "copywrit", "headline", "ad text", "tekst"]
 writes = ["runs/notes/copy.md"]
 detail = """skill_view copywriting. If the goal is ads, also skill_view meta-ads-copy or google-ads-copy. \
-Write runs/notes/copy.md from runs/notes/voc.md phrases (headlines, body, CTAs). No invented proof."""
+Write runs/notes/copy.md from runs/notes/voc.md phrases (headlines, body, CTAs). No invented proof. \
+Then claim_check with draft_path runs/notes/copy.md and sources runs/notes/research.md; fix or drop every claim that is not supported. \
+skill_view marketing-strategy when the goal matches: service standards, staff coaching or mystery shopping (behaviour table with a manager mirror, `## Managers first`); complaints, handoff or customer service (deliverables/handoff.md with a named owner per channel); \
+choosing or judging a product name (bare-name comprehension script, any ranking labelled hipotezė); a booking, checkout or sign-up flow, prototype or wireframes (deliverables/prototype.html plus walkthrough.md); \
+a how-to or demonstration video (`Search phrase:` and `Completion check:` lines); a prospect's objection (runs/notes/objection.md, no concession while resolved: no); \
+a partner, dealer, agency or developer programme (every support item gets an obstacle and a ship signal). \
+skill_view pr-response when the goal matches: a staff social-media or participation guide (three allowed topics, the affiliation sentence, confidential categories, `## Repeticija`); \
+public criticism or a thread (answer every point with a sourced fact, sign with a named spokesperson, run claim_check in reply mode); journalists or a press visit (deliverables/press-visit.md with `What you will see`, `Independent Q&A`, `Costs covered`); \
+contributors, UGC, beta testers or a community (the motives table with evidence or `assumption`); an existing community to launch to first (deliverables/launch-fan-first.md); \
+reseller, partner, dealer or distributor enablement (Prieiga, Demonstracinė užduotis, Pirkėjo klausimai, Stebėjimas). \
+skill_view web-testing when the copy mentions export or data portability (no file read with office_read means the copy says „Eksporto nepavyko patikrinti“) \
+or the deliverable is a calculator, self-check or diagnostic page (`## Self-test` from the marketer's worked cases). \
+skill_view marketing-strategy when the buyer is an organisation (`Roles:` and `Gatekeeper:` in facts.md, deliverables/gatekeeper_sheet.md; ask what dealer, partner or procurement means before assuming) \
+or the goal pays for a retail display (deliverables/display_agreement.md, `verification: pending` until vision_analyze on store photos gives `Executed: N of M audited`)."""
 
 [[steps]]
 id = 4
@@ -61,7 +105,9 @@ writes = ["deliverables/campaign.pptx", "deliverables/variants.xlsx"]
 detail = """skill_view pptx then skill_view xlsx. \
 Build deliverables/campaign.pptx (one idea per slide from the copy) and \
 deliverables/variants.xlsx (headlines, CTAs, VOC phrases, source URLs). \
-Never write_file those binaries — use python-pptx and openpyxl via bash. office_read to QA."""
+Never write_file those binaries — use python-pptx and openpyxl via bash. office_read to QA. \
+If any deliverable is print, packaging, a display, merch or an event build (spauda, pakuotė, stovas, lankstinukas), skill_view marketing-strategy and write runs/notes/production.md before the deck promises a finish. \
+If a PDF, DOCX or PPTX is meant to be forwarded, skill_view marketing-strategy, put the sharing-terms block inside the file and confirm it with office_read under `Sharing terms:`."""
 
 [[steps]]
 id = 5
@@ -73,5 +119,5 @@ detail = """Write deliverables/visual-brief.md from runs/notes/copy.md: one bloc
 format (1:1 feed, 9:16 story, 16:9 banner), the single message it carries, subject and composition, \
 brand colours as hex, text overlay (headline ≤ 6 words), what must NOT appear. \
 Then image_generate each block into deliverables/visual-1.png, visual-2.png … (2–3 visuals, aspect_ratio per format). \
-vision_analyze each result against its brief; regenerate once if the text or colours are off. \
+vision_analyze each result with `brief` (style, subject, audience, must_include, must_not) and read brief_check; regenerate once if it fails or the text or colours are off. A chart is drawn by a script, never by an image model. \
 No stock-photo clichés, no invented logos or awards."""

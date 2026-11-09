@@ -470,6 +470,28 @@ class WebTools:
             lines.append(f"- {title}\n  {href}")
         return "\n".join(lines) if lines else "no results"
 
+    def fetch_meta(self, url: str) -> dict:
+        """Status, final URL and headers of a link, for link and redirect checks. Raises on transport failure."""
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("url must start with http:// or https://")
+        response = self._http.head(url)
+        if response.status_code in (405, 403, 400) or response.status_code >= 500:
+            response = self._http.get(url)
+        return {
+            "status": response.status_code,
+            "final_url": str(response.url),
+            "headers": dict(response.headers),
+            "redirects": len(response.history),
+        }
+
+    def fetch_html(self, url: str) -> str:
+        """The page as served, for tools that need its structure. Raises on failure."""
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("url must start with http:// or https://")
+        response = self._http.get(url)
+        response.raise_for_status()
+        return response.text[:600_000]
+
     def fetch(self, url: str) -> str:
         if not url.startswith(("http://", "https://")):
             return "url must start with http:// or https://"

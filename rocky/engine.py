@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from rocky.adboard import BOARD_PATH, fix_plan, is_board, ready as board_ready, refresh as refresh_board, verifier_brief
 from rocky.catalog import Cast, Model, alternate_worker, parse_models, pick_cast
 from rocky.budget import BudgetedClient
 from rocky.config import forced_language, preferred_worker
@@ -272,6 +273,14 @@ def orchestrate(
     workspace_path = Path(workspace).expanduser().resolve()
     workspace_path.mkdir(parents=True, exist_ok=True)
     memory_snapshot = freeze_memory(workspace_path)
+    try:
+        from rocky.brief import brief_block
+
+        brief_text = brief_block(workspace_path)
+    except Exception:  # noqa: BLE001 — a broken brief file must not stop the run
+        brief_text = ""
+    if brief_text:
+        memory_snapshot = memory_snapshot + "\n\n" + brief_text
     tools = WorkspaceTools(workspace_path)
     searcher = WebTools()
     browser = BrowserSession()
@@ -391,6 +400,11 @@ def orchestrate(
         assessment["goal"] = assessment.get("goal") or goal
         assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
         assessment["language"] = _language_for(goal, assessment)
+        if _is_trivial(assessment):
+            # An ad goal needs the recipe's facts and visuals; the trivial path has one step and no recipe.
+            matched = find_recipe(goal, assessment, load_recipes(workspace_path))
+            if matched is not None and matched.deliverable_path == BOARD_PATH:
+                assessment["complexity"] = "moderate"
         base_eur = estimate_run_eur(assessment, goal)
         factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
         estimate_eur = round(base_eur * factor, 2)
@@ -434,7 +448,10 @@ def orchestrate(
         plan = _normalize_steps(dict(resume.get("plan") or {}), goal)
         if not plan.get("deliverable_path"):
             plan["deliverable_path"] = assessment.get("deliverable") or f"{DELIVERABLES_DIR}/output.md"
-        if resume.get("replan"):
+        if resume.get("replan") and is_board(plan) and resume.get("follow_up"):
+            plan = fix_plan(plan, str(resume["follow_up"]))
+            fire("plan", resumed=True, **plan)
+        elif resume.get("replan"):
             plan = _make_plan(
                 client,
                 cast.planner,
@@ -543,6 +560,7 @@ def orchestrate(
             skip=skip_steps,
         )
         skip_steps = set()
+        refresh_board(plan, tools)
         if client.blocked or tally.usd >= usd_cap * VERIFY_GRACE:
             fire(
                 "budget",
@@ -719,6 +737,8 @@ def _final_status(passed: bool, verify: dict, plan: dict, assessment: dict, tool
     if passed and not verify.get("notes_only"):
         return "passed", []
     if not verify:
+        if board_ready(plan, tools):
+            return "passed_with_notes", ["not reviewed by the verifier; the automatic checks passed"]
         return "unmet", []
     deliverable = str(plan.get("deliverable_path") or assessment.get("deliverable") or "")
     if not deliverable or _missing_files(tools, [deliverable]):
@@ -1093,6 +1113,12 @@ def _make_plan(
         listing = ""
     recipes = load_recipes(workspace)
     recipe = find_recipe(goal, assessment, recipes)
+    if recipe and recipe.deliverable_path == BOARD_PATH and not revision:
+        # These steps are fixed. A planner can only add to them, and its added ZIP step is what failed a real run.
+        plan = recipe.apply({"summary": goal, "steps": []}, goal)
+        plan["recipe"] = recipe.name
+        fire("plan", **plan)
+        return plan
     user = {
         "goal": goal,
         "assessment": assessment,
@@ -1299,6 +1325,30 @@ def _run_subtask(
             "role": "system",
             "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
+                "Margins, break-even, discounts and promotions go through unit_economics; anything per customer over time — "
+                "CLV, CAC, payback, churn, subscriptions, returns, channel ROI — goes through customer_economics; "
+                "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
+                "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan; a finished test is read out with its mode evaluate, never by comparing two percentages by eye. "
+                "A CSV or XLSX of campaign, order or event data goes through funnel_analyze (stages) or repeat_buying "
+                "(loyalty, cohorts, penetration, duplication, spikes) or table_analyze (any other count, share, mean, "
+                "crosstab, before/after, period comparison or theme count); never read its percentages by eye. "
+                "A channel comparison or combined reach goes through reach_overlap; a media budget, share of voice, offer comparison, "
+                "flight calendar or spend classification goes through media_plan; never add reaches or budgets up yourself. "
+                "Referral loops, adoption forecasts, sampling or seeding arms, commission plans, site catchments, account penetration, "
+                "mental availability, benchmark fit and respondent coverage go through campaign_calc. "
+                "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
+                "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
+                "A cohort against the rest, a change's impact on a series, spend against sales, price or promo response, basket attach, buyer frequency, panel shares, a survey tally, brand recall, keyword demand, page breadth, test-market matching, ESOV campaigns, a session log or a customer-file audit are table_analyze ops on the marketer's own file, never figures typed from memory. "
+                "Unsold capacity by time band, total cost of ownership, trial-vs-refund or referral offers, a new line against a repositioning, retail and channel arithmetic (bulk, waterfall, shelf, coupon, payment terms, GMROI), media money against its return and route scoring are unit_economics blocks, never prose. "
+                "Willingness-to-pay answers, a concept test readout, a test-market plan, a conjoint or choice study, a recruit screener and every creative test design (holdout, copy test, diff-in-diff, crossover, portfolio, factorial, stated vs observed) go through experiment_plan with the matching mode. "
+                "A name's spellings, brand mentions, a shop's delivery or returns policy, directory listings, search intent, orphan pages, "
+                "ranking competitors, link prospects, locale formats, a press kit or email authentication headers go through web_check. "
+                "A content calendar, press release, message house, demo plan, escalation matrix, partner programme, qualification sheet "
+                "or community rules goes through plan_check before it reaches the deliverable; a positioning statement or ad can be read "
+                "by a cold reader with plan_check retell or ad_pretest. "
+                "Survey or interview questions go through survey_check before they reach the deliverable; outcome statements and "
+                "importance/satisfaction scores through outcome_scores; a concept test or criteria survey is designed with research_plan. "
+                "Before you hand over a draft that states numbers, rankings or credentials, run claim_check on it; fix or remove what comes back unsupported. "
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
                 + LAYOUT_RULE +
@@ -1307,7 +1357,9 @@ def _run_subtask(
                 "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
                 "Use todo to track steps. Use vision_analyze to look at images, image_generate to make them "
                 "(ad visuals, hero images — PNG into deliverables/; write a one-line brief per image first). "
-                "Use clarify only when you cannot proceed without the human. "
+                "Use clarify only when you cannot proceed without the human — and before that call brief (action=get): "
+                "use the field if the brief has it, ask only for what missing_for lists. Record a field you learn with brief set "
+                "(with evidence) and a spending recommendation with brief decision. "
                 "If the subtask names a skill, skill_view it first "
                 "(deep-research, marketing-pipeline, voc-to-copy, copywriting, pptx, xlsx, …). "
                 "For .xlsx .docx .pptx .pdf: skills_list then skill_view, then bash with openpyxl/python-docx/python-pptx/pypdf/reportlab — "
@@ -1542,7 +1594,10 @@ def _verify(
     listing = tools.list_dir(".")
     deliverable = plan.get("deliverable_path") or assessment.get("deliverable") or ""
     body = ""
-    if deliverable:
+    brief = verifier_brief(tools) if is_board(plan) else None
+    if brief is not None:
+        body = brief["pack"]
+    elif deliverable:
         try:
             body = tools.read_file(deliverable)
         except ToolError as exc:
@@ -1565,7 +1620,9 @@ def _verify(
                 "score is the share of the goal delivered: 1.0 every criterion met; 0.7–0.9 usable with notes; "
                 "0.4–0.6 a major part missing or wrong; below 0.3 only when nothing usable exists. A complete "
                 "package with one wrong claim is 0.6–0.8, never 0. "
-                "You have read-only tools: read_file, list_dir, grep, and office_read for .pptx/.xlsx/.docx/.pdf. "
+                "You have read-only tools: read_file, list_dir, grep, office_read for .pptx/.xlsx/.docx/.pdf, "
+                "and claim_check, which matches every number, ranking and credential in a draft to the sources on disk. "
+                "Run claim_check on the deliverable when it states figures; an unsupported or differing claim is an issue. "
                 "Open the deliverable yourself when the excerpt is not enough — never trust the worker summary alone. "
                 "When you have seen enough, stop calling tools and return JSON only. "
                 "Follow-ups may complete prior work named in MEMORY or RECENT RUNS.",
@@ -1585,6 +1642,7 @@ def _verify(
                     "deliverable_path": deliverable,
                     "deliverable_excerpt": body[:12000],
                     "worker_summary": worker_summary,
+                    **({"automatic_checks": brief["automatic_checks"]} if brief else {}),
                 },
                 ensure_ascii=False,
                 indent=2,

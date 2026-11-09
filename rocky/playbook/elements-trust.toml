@@ -1,0 +1,396 @@
+# Trust elements: word of mouth, PR and endorsements, retail and sales, media placement, measurement.
+# One record per concept in the 500 list; the codes come from rocky/adchecks/trust.py.
+
+[[element]]
+number = 256
+title = "Word-of-mouth community selection"
+topic = "Word of mouth and communities"
+applies = ["ads"]
+enforced = "check"
+codes = ["wom_missing", "wom_venue_unknown", "wom_unsized"]
+source = "Unleashing the Ideavirus, pp. 50–51"
+question.en = "Where do these buyers already talk to one another?"
+question.lt = "Kur šios auditorijos nariai jau kalbasi tarpusavyje?"
+why.en = "A recommendation travels only inside a group that already talks and judges by a shared standard. Seeding it there costs less than broad ads and is the only place word of mouth can start."
+why.lt = "Rekomendacija sklinda tik grupėje, kuri jau kalbasi ir vertina pagal bendrą standartą. Pradėti ten pigiau nei plačia reklama, ir tik ten gali prasidėti rekomendacijos."
+
+[[element]]
+number = 257
+title = "Independent and paid advocates"
+topic = "Word of mouth and communities"
+applies = ["ads"]
+enforced = "check"
+codes = ["pr_kind_missing", "pr_undisclosed", "pr_unverified"]
+source = "Unleashing the Ideavirus, pp. 51–54"
+question.en = "Does the ad say who was paid to recommend it?"
+question.lt = "Ar reklama pasako, kam sumokėta už rekomendaciją?"
+why.en = "A recommendation works because the speaker seems independent. A paid voice without a label breaks the law and, once noticed, the trust; an independent review needs a source anyone can open."
+why.lt = "Rekomendacija veikia, nes kalbantysis atrodo nepriklausomas. Apmokėtas balsas be žymos pažeidžia įstatymą, o pastebėtas – ir pasitikėjimą; nepriklausoma apžvalga turi turėti šaltinį, kurį kiekvienas gali atsiversti."
+
+[[element]]
+number = 262
+title = "The recommender's reputation"
+topic = "Word of mouth and communities"
+applies = ["ads"]
+enforced = "check"
+codes = ["referral_missing", "referral_unverified"]
+source = "Unleashing the Ideavirus, pp. 95–97"
+question.en = "What does recommending this do for the recommender?"
+question.lt = "Ką rekomendavimas duoda pačiam rekomenduotojui?"
+why.en = "People share what makes them look knowledgeable or helps someone they care about, not what earns them five euros. An invite that leads with the reward misses the reason people actually send it."
+why.lt = "Žmonės dalijasi tuo, kas leidžia atrodyti išmanantiems ar padėti artimam, o ne tuo, kas duoda penkis eurus. Kvietimas, prasidedantis atlygiu, praleidžia tikrąją priežastį, dėl kurios jis siunčiamas."
+
+[[element]]
+number = 265
+title = "Voluntary visibility of private use"
+topic = "Word of mouth and communities"
+applies = ["ads"]
+enforced = "check"
+codes = ["wom_share_not_optional", "wom_share_no_metric", "wom_share_no_baseline"]
+source = "Unleashing the Ideavirus, pp. 125–127"
+question.en = "Can users choose to show their progress, and would you know if it starts conversations?"
+question.lt = "Ar vartotojai gali pasirinkti parodyti pažangą, ir ar žinotumėte, jei tai sukeltų pokalbių?"
+why.en = "Something normally invisible, shown by choice, makes friends ask. Forced visibility makes them hide it, and without a conversation metric and a baseline nobody can tell whether it worked."
+why.lt = "Tai, kas paprastai nematoma, parodyta savo noru, verčia draugus klausti. Priverstinis matomumas verčia slėpti, o be pokalbių rodiklio ir atskaitos taško niekas nepasakys, ar tai suveikė."
+
+[[element]]
+number = 266
+title = "A distinction worth retelling"
+topic = "Word of mouth and communities"
+applies = ["ads"]
+enforced = "check"
+codes = ["retell_missing", "retell_thin", "retell_not_extreme", "retell_unsourced", "retell_not_in_copy"]
+source = "Unleashing the Ideavirus, pp. 147–148"
+question.en = "Is there one verifiable extreme a recommender can repeat?"
+question.lt = "Ar yra vienas patikrinamas kraštutinumas, kurį rekomenduotojas gali pakartoti?"
+why.en = "A list of moderate advantages gives a recommender nothing to say. One extreme, checked against named competitors, is a story they can retell and you can defend."
+why.lt = "Vidutinių pranašumų sąrašas rekomenduotojui neduoda ką pasakyti. Vienas kraštutinumas, patikrintas su įvardytais konkurentais, yra istorija, kurią jis gali perpasakoti, o jūs – apginti."
+
+[[element]]
+number = 287
+title = "Make invisible service work visible"
+topic = "Public relations, events and trust"
+applies = ["ads"]
+enforced = "check"
+codes = ["pr_proof_missing", "pr_proof_unsourced"]
+source = "Publicity, pp. 54–56"
+question.en = "Is every abstract claim about care or quality backed by an action a customer could photograph?"
+question.lt = "Ar kiekvieną abstraktų teiginį apie rūpestį ar kokybę pagrindžia veiksmas, kurį klientas galėtų nufotografuoti?"
+why.en = "Nobody believes we care about quality. People believe a 42-point checklist left on the desk every morning. The concrete action has to be real, from the company's own materials, not invented for the ad."
+why.lt = "Niekas netiki žodžiais „mums rūpi kokybė“. Žmonės tiki 42 punktų sąrašu, kas rytą paliktu ant stalo. Konkretus veiksmas turi būti tikras, iš įmonės medžiagos, o ne sugalvotas reklamai."
+
+[[element]]
+number = 307
+title = "Independent expert endorsement"
+topic = "Public relations, events and trust"
+applies = ["ads"]
+enforced = "check"
+codes = ["backer_missing", "backer_not_independent", "backer_test_confounded"]
+source = "Decoding Decisions, p. 64"
+question.en = "Who stands behind each proof, and does the test change only that?"
+question.lt = "Kas stovi už kiekvieno įrodymo, ir ar testas keičia tik tai?"
+why.en = "For buyers with little expertise, an independent test and a trade body's badge reassure differently. You learn which only when the two ads are otherwise identical, and a brand's own claim is not an endorsement at all."
+why.lt = "Pirkėjus, kurie srities neišmano, nepriklausomas testas ir asociacijos ženklas ramina skirtingai. Kuris labiau, sužinosite tik tada, kai abi reklamos kitaip sutampa, o paties pardavėjo teiginys apskritai nėra rekomendacija."
+
+[[element]]
+number = 308
+title = "Make a sustainability promise measurable"
+topic = "Public relations, events and trust"
+applies = ["ads"]
+enforced = "check"
+codes = ["green_unmeasured", "green_unit_mismatch", "green_source_unknown"]
+source = "Principles of Marketing, pp. 666–670"
+question.en = "Does every green word name what changed, from what baseline, by how much?"
+question.lt = "Ar kiekvienas žalias žodis įvardija, kas pasikeitė, nuo kokio atskaitos taško ir kiek?"
+why.en = "Sustainable or eco-friendly without a measured change is a plan dressed as a claim, and the consumer authority treats it as misleading. A baseline with a date and a published source is what survives a complaint."
+why.lt = "„Tvarus“ ar „draugiškas gamtai“ be išmatuoto pokyčio yra planas, apsimetantis teiginiu, o vartotojų tarnyba tai laiko klaidinimu. Skundą atlaiko tik atskaitos taškas su data ir paskelbtu šaltiniu."
+
+[[element]]
+number = 310
+title = "Disclose the clearance defect"
+topic = "Public relations, events and trust"
+applies = ["ads"]
+enforced = "check"
+codes = ["defect_missing", "defect_undisclosed", "defect_not_in_copy", "defect_minimised"]
+source = "My Life in Advertising, p. 47"
+question.en = "Does the clearance ad say what is wrong and why the price is lower?"
+question.lt = "Ar išpardavimo reklama pasako, kas negerai ir kodėl kaina mažesnė?"
+why.en = "A plainly stated flaw with the reason for the price lets the buyer judge what is left and trust the rest of the offer. A hidden flaw comes back as a return and a bad review."
+why.lt = "Tiesiai įvardytas trūkumas su kainos priežastimi leidžia pirkėjui pačiam įvertinti, ko liko, ir pasitikėti likusiu pasiūlymu. Paslėptas trūkumas grįžta kaip grąžinimas ir blogas atsiliepimas."
+
+[[element]]
+number = 311
+title = "Product demonstration as event"
+topic = "Public relations, events and trust"
+applies = ["ads"]
+enforced = "check"
+codes = ["demo_missing", "demo_no_act", "demo_passive_act", "demo_no_takeaway", "demo_claim_unsourced"]
+source = "My Life in Advertising, pp. 66–67"
+question.en = "Can a visitor judge the claim themselves at the event?"
+question.lt = "Ar lankytojas renginyje gali pats įvertinti teiginį?"
+why.en = "A stand that shows the bottle proves nothing. Frying bread in the oil beside a supermarket oil lets visitors taste and see the smoke themselves, and a sample lets them repeat it at home."
+why.lt = "Stendas, rodantis butelį, nieko neįrodo. Duonos kepimas mūsų aliejuje šalia prekybinio leidžia lankytojams patiems paragauti ir pamatyti dūmus, o mėginys – pakartoti namuose."
+
+[[element]]
+number = 312
+title = "Host economics at a live event"
+topic = "Public relations, events and trust"
+applies = ["ads"]
+enforced = "check"
+codes = ["event_missing", "event_no_flow_check", "event_no_host_kpi", "event_kpi_no_baseline"]
+manual = ["event_no_flow_check", "event_kpi_no_baseline"]
+source = "My Life in Advertising, pp. 67–68"
+question.en = "What does the venue gain, and did anyone ask how its customers reach the checkout?"
+question.lt = "Ką laimi renginio vieta, ir ar kas nors paklausė, kaip jos pirkėjai pasieks kasas?"
+why.en = "A host invites you back when the event lifted its own sales without blocking its lanes. That needs the venue's answer on customer flow and a host metric with a baseline, not just your sample count."
+why.lt = "Šeimininkas pakvies vėl, kai renginys pakėlė jo paties pardavimus neužtverdamas kasų. Tam reikia vietos atsakymo apie pirkėjų srautą ir šeimininko rodiklio su atskaitos tašku, o ne vien jūsų mėginių skaičiaus."
+
+[[element]]
+number = 356
+title = "Distinguish a straight rebuy, a modified rebuy and a new purchase"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_situation_missing", "trade_situation_mismatch"]
+source = "Principles of Marketing, pp. 147–149"
+question.en = "Is this buyer reordering, changing a specification or buying something new?"
+question.lt = "Ar šis pirkėjas užsako iš naujo, keičia specifikaciją ar perka ką nors nauja?"
+why.en = "A reorderer wants the shortest path and no re-selling; a new buyer needs guidance and references. One sequence for both bores the first and loses the second."
+why.lt = "Užsakantis iš naujo nori trumpiausio kelio ir jokio pardavinėjimo; naujas pirkėjas – pagalbos ir rekomendacijų. Viena seka abiem pirmąjį nuvargina, antrąjį praranda."
+
+[[element]]
+number = 361
+title = "Align incentives across the distribution system"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_channel_missing", "trade_lever_not_controlled"]
+source = "Principles of Marketing, pp. 598–600"
+question.en = "Who has to agree before this price, availability or promotion can run?"
+question.lt = "Kas turi sutikti, kad ši kaina, prieinamumas ar akcija įvyktų?"
+why.en = "An ad that promises a shelf price or a 2+1 in a chain promises something the retailer or distributor decides. Naming who owns each lever turns a wish into a plan with the right signatures."
+why.lt = "Reklama, žadanti kainą lentynoje ar „2+1“ prekybos tinkle, žada tai, ką sprendžia tinklas ar platintojas. Įvardijus, kam priklauso kiekviena svirtis, noras tampa planu su reikiamais parašais."
+
+[[element]]
+number = 362
+title = "Choose distribution intensity deliberately"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_intensity_missing", "trade_intensity_mismatch", "trade_intensity_service"]
+source = "Principles of Marketing, pp. 602–603"
+question.en = "Does how widely you sell match how buyers shop and how much service they need?"
+question.lt = "Ar platinimo plotis atitinka tai, kaip pirkėjai perka ir kiek aptarnavimo jiems reikia?"
+why.en = "A product buyers test-ride and service belongs in a few shops that can do both; an ad promising it everywhere sends them to outlets that cannot. Broad availability suits things bought on convenience."
+why.lt = "Prekė, kurią pirkėjai išbando ir aptarnauja, priklauso kelioms parduotuvėms, gebančioms abu dalykus; reklama, žadanti ją visur, siunčia į vietas, kurios to negali. Platus prieinamumas tinka tam, kas perkama iš patogumo."
+
+[[element]]
+number = 368
+title = "Enter an account through a specific use case"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_entry_missing", "trade_entry_unsourced"]
+source = "The Macintosh Way, pp. 90–91"
+question.en = "Which department needs this this quarter, and who there can sign?"
+question.lt = "Kuriam skyriui to reikia šį ketvirtį, ir kas ten gali pasirašyti?"
+why.en = "Company-wide pitches wait for the standard to change. A department with an urgent, dated need and its own budget buys now, and the evidence of that urgency has to be a source, not a guess."
+why.lt = "Pasiūlymai visai įmonei laukia, kol pasikeis standartas. Skyrius su skubiu, datuotu poreikiu ir savo biudžetu perka dabar, o skubos įrodymas turi būti šaltinis, ne spėjimas."
+
+[[element]]
+number = 378
+title = "Out-of-area demand routing"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["stockist_missing", "stockist_route_missing", "stockist_url_unknown"]
+source = "Scientific Advertising, p. 73"
+question.en = "What do people outside the advertised area do with the offer?"
+question.lt = "Ką su pasiūlymu daro žmonės už reklamuojamos teritorijos ribų?"
+why.en = "A local ad is seen and shared beyond its catchment. Without a nearby stockist or an online route the demand it creates is lost, and the next purchase with it."
+why.lt = "Vietinė reklama matoma ir dalijamasi už jos teritorijos ribų. Be artimiausio pardavėjo ar kelio internetu sukurta paklausa dingsta, o su ja – ir kitas pirkimas."
+
+[[element]]
+number = 379
+title = "Inquiry-specific follow-up"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["seq_inquiry_uncovered", "seq_inquiry_unknown", "seq_inquiry_ignored", "seq_inquiry_late"]
+source = "Scientific Advertising, p. 89"
+question.en = "Does the first message answer what the lead actually asked?"
+question.lt = "Ar pirma žinutė atsako į tai, ko klientas iš tikrųjų klausė?"
+why.en = "A lead who asked about state support and gets a message about installation speed stops reading. Answer the question first, then add the other reasons."
+why.lt = "Klientas, klausęs apie valstybės paramą ir gavęs žinutę apie montavimo greitį, nustoja skaityti. Pirma atsakykite į klausimą, tik tada pridėkite kitas priežastis."
+
+[[element]]
+number = 380
+title = "Merchandising agreements"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_display_incomplete", "trade_display_unverified", "trade_display_audit_short", "trade_display_execution_low"]
+manual = ["trade_display_unverified", "trade_display_audit_short", "trade_display_execution_low"]
+source = "My Life in Advertising, pp. 49–50"
+question.en = "Was the paid display actually up before you judge the offer?"
+question.lt = "Ar apmokėta ekspozicija tikrai stovėjo, prieš vertinant pasiūlymą?"
+why.en = "A display that went up in half the stores makes a good offer look weak. Agree the location, signage, dates and who checks, and read the sales only after the check."
+why.lt = "Ekspozicija, pastatyta pusėje parduotuvių, gerą pasiūlymą paverčia silpnu. Sutarkite vietą, ženklus, datas ir kas tikrina, o pardavimus skaitykite tik po patikros."
+
+[[element]]
+number = 381
+title = "Co-branded sales materials"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_cobrand_cta_mismatch", "trade_cobrand_claims_unowned", "trade_cobrand_brand_repeated"]
+source = "My Life in Advertising, p. 73"
+question.en = "Is it clear which brand hosts, which endorses, and whose door the button opens?"
+question.lt = "Ar aišku, kuris prekės ženklas yra šeimininkas, kuris – rekomenduotojas, ir į kieno duris veda mygtukas?"
+why.en = "Materials a partner runs under their own name sell for them, so the button must lead to them and each claim must have an owner who can defend it. Two logos without roles confuse both audiences."
+why.lt = "Medžiaga, kurią partneris rodo savo vardu, parduoda jam, tad mygtukas turi vesti pas jį, o kiekvienas teiginys turėti savininką, galintį jį apginti. Du logotipai be vaidmenų painioja abi auditorijas."
+
+[[element]]
+number = 385
+title = "On-shelf pack recognition"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["pack_missing", "pack_not_carried", "pack_not_distinct", "pack_cue_unknown"]
+manual = ["pack_missing"]
+source = "The Psychology of Advertising, pp. 219–220"
+question.en = "Will someone who saw the ad find the pack on the shelf?"
+question.lt = "Ar reklamą matęs žmogus ras pakuotę lentynoje?"
+why.en = "An ad for a shelf product works only if the shopper recognises the pack among competitors. The creative must show the cue they will look for, and that cue must not be one a competitor shares."
+why.lt = "Lentynoje parduodamos prekės reklama veikia tik tada, kai pirkėjas atpažįsta pakuotę tarp konkurentų. Vizualas turi rodyti ženklą, kurio jis ieškos, ir to ženklo negali turėti konkurentas."
+
+[[element]]
+number = 386
+title = "Upstream influence in a category"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["trade_chain_missing", "trade_chain_upstream_missed", "trade_chain_no_buyer", "trade_chain_source_unknown", "trade_chain_shares_exceed"]
+source = "Propaganda, pp. 33–34"
+question.en = "Who sets or recommends the choice before the end buyer sees it?"
+question.lt = "Kas parenka ar rekomenduoja, kol galutinis pirkėjas dar nemato pasirinkimo?"
+why.en = "When the designer, the installer or the chain's buyer picks the floor, ads aimed only at homeowners talk to the wrong person. Every role that sets or recommends needs an ad of its own."
+why.lt = "Kai grindis parenka dizaineris, montuotojas ar tinklo pirkėjas, tik savininkams skirtos reklamos kalba ne su tuo žmogumi. Kiekvienam parenkančiam ar rekomenduojančiam vaidmeniui reikia savo reklamos."
+
+[[element]]
+number = 387
+title = "Representative merchandising"
+topic = "Sales, retail and distribution"
+applies = ["ads"]
+enforced = "check"
+codes = ["creative_shows_missing", "creative_unrepresentative"]
+source = "Propaganda, pp. 71–73"
+question.en = "Do the visuals show what customers will actually find, not only the hero item?"
+question.lt = "Ar vizualai rodo tai, ką pirkėjai iš tikrųjų ras, o ne vien prestižinę prekę?"
+why.en = "Visuals of the oak table bring people who expect oak tables to a shop of flat-pack shelves. Show the typical item in at least one ad; the hero may appear once."
+why.lt = "Ąžuolinio stalo vizualai atveda žmones, laukiančius ąžuolinių stalų, į surenkamų lentynų parduotuvę. Bent vienoje reklamoje parodykite įprastą prekę; prestižinė gali pasirodyti kartą."
+
+[[element]]
+number = 412
+title = "Hot-prospect activation"
+topic = "Media planning and budgets"
+applies = ["ads"]
+enforced = "check"
+codes = ["activation_no_offer", "activation_weak_step", "activation_no_metric"]
+source = "The 5 Principles of Growth in B2B Marketing, p. 14"
+question.en = "For buyers evaluating now, is there a concrete offer, an easy step, and a qualified response to count?"
+question.lt = "Ar besirenkantiems pirkėjams yra konkretus pasiūlymas, lengvas žingsnis ir skaičiuojamas kvalifikuotas atsakas?"
+why.en = "A buyer evaluating this quarter responds to a specific offer with a small next step, not to Learn more. Judge that ad by qualified responses; clicks say nothing about who booked."
+why.lt = "Šį ketvirtį besirenkantis pirkėjas reaguoja į konkretų pasiūlymą su mažu kitu žingsniu, o ne į „Sužinoti daugiau“. Vertinkite tokią reklamą pagal kvalifikuotus atsakus; paspaudimai nieko nesako apie tai, kas užsiregistravo."
+
+[[element]]
+number = 416
+title = "Advertising adjacency"
+topic = "Media planning and budgets"
+applies = ["ads"]
+enforced = "check"
+codes = ["placement_adjacency_unchecked", "placement_adjacency_note_missing"]
+source = "The Psychology of Advertising, pp. 228–230"
+question.en = "What will the ad sit next to?"
+question.lt = "Šalia ko atsidurs reklama?"
+why.en = "A salmon spread beside a story about a food scandal loses its appetite appeal. Preview the surrounding imagery and headlines before booking, and write down what you saw."
+why.lt = "Lašišos užtepėlė šalia straipsnio apie maisto skandalą praranda apetitą. Prieš užsakydami peržiūrėkite aplinkines nuotraukas ir antraštes ir užrašykite, ką matėte."
+
+[[element]]
+number = 417
+title = "Dwell time by placement"
+topic = "Media planning and budgets"
+applies = ["ads"]
+enforced = "check"
+codes = ["dwell_unknown", "dwell_too_long"]
+source = "The Psychology of Advertising, pp. 234–236"
+question.en = "Does a viewer have time to read this where it will be shown?"
+question.lt = "Ar žiūrovas spės tai perskaityti ten, kur reklama bus rodoma?"
+why.en = "A driver passing a shelter has about three seconds; a passenger on a bus has ten. Sixteen words take seven seconds to read, so the roadside version must be cut to a handful."
+why.lt = "Pro stotelę važiuojantis vairuotojas turi apie tris sekundes; keleivis autobuse – dešimt. Šešiolika žodžių skaitoma septynias sekundes, tad pakelės variantą reikia sutrumpinti iki kelių."
+
+[[element]]
+number = 424
+title = "Give each launch announcement a different job"
+topic = "Media planning and budgets"
+applies = ["ads"]
+enforced = "check"
+codes = ["seq_missing", "seq_dup_job", "seq_missing_job", "seq_teaser_sells", "seq_launch_no_action", "seq_order", "seq_same_cta", "seq_number_unsourced"]
+source = "Getting Real, pp. 106–107"
+question.en = "Does each launch message have its own job: permission, demonstration, action?"
+question.lt = "Ar kiekviena paleidimo žinutė turi savo užduotį: leidimą, parodymą, veiksmą?"
+why.en = "Three versions of the same announcement are read once. A teaser that earns permission, a preview that shows the product and a launch with the price and the link each do something the others cannot."
+why.lt = "Trys to paties pranešimo variantai perskaitomi kartą. Anonsas, pelnantis leidimą, peržiūra, parodanti produktą, ir paleidimas su kaina ir nuoroda daro tai, ko kiti negali."
+
+[[element]]
+number = 439
+title = "Fame versus awareness"
+topic = "Brand growth and repeat buying"
+applies = ["ads"]
+enforced = "check"
+codes = ["outcome_metric_missing", "outcome_metric_no_fame"]
+source = "The 5 Principles of Growth in B2B Marketing, pp. 22–23"
+question.en = "Will you measure whether people talked about the campaign, not only whether they recognise you?"
+question.lt = "Ar matuosite, ar žmonės kalbėjo apie kampaniją, o ne vien ar jus atpažįsta?"
+why.en = "Recognition and conversation are different outcomes. A campaign people shared and discussed builds the brand in a way aided recall alone cannot show, so it needs its own question or count."
+why.lt = "Atpažinimas ir kalbėjimas yra skirtingi rezultatai. Kampanija, kuria dalytasi ir apie kurią kalbėta, kuria prekės ženklą taip, kaip vien pagalbinis prisiminimas neparodys, tad jai reikia atskiro klausimo ar skaičiaus."
+
+[[element]]
+number = 458
+title = "Placement-specific response codes"
+topic = "Measurement and experiment design"
+applies = ["ads"]
+enforced = "check"
+codes = ["placement_tracking_missing", "placement_tracking_dup"]
+source = "The Book of Advertising Tests, pp. 27–28"
+question.en = "Does every ad and placement have its own trackable link?"
+question.lt = "Ar kiekviena reklama ir vieta turi savo atsekamą nuorodą?"
+why.en = "Two placements sharing one utm_content cannot be told apart next month. A distinct tag per combination, set before launch, is what lets a result point back to the exact ad."
+why.lt = "Dviejų vietų su vienu utm_content kitą mėnesį atskirti nebus galima. Atskira žyma kiekvienam deriniui, nustatyta prieš startą, leidžia rezultatui rodyti į konkrečią reklamą."
+
+[[element]]
+number = 462
+title = "Creative results archive"
+topic = "Measurement and experiment design"
+applies = ["ads"]
+enforced = "check"
+codes = ["archive_result_without_copy", "archive_spend_unsourced"]
+manual = ["archive_result_without_copy"]
+source = "The Book of Advertising Tests, pp. 39–41"
+question.en = "Is the exact copy stored beside its spend and result?"
+question.lt = "Ar tikslus tekstas saugomas šalia išlaidų ir rezultato?"
+why.en = "A performance figure without the advertisement that produced it teaches the next team nothing. Keep the text, the placement, the offer, the spend and the outcome together, with the file they came from."
+why.lt = "Rezultato skaičius be jį davusios reklamos kitos komandos nieko neišmoko. Laikykite tekstą, vietą, pasiūlymą, išlaidas ir rezultatą kartu, su failu, iš kurio jie paimti."
+
+[[element]]
+number = 491
+title = "Overlapping behavioral cues"
+topic = "Measurement and experiment design"
+applies = ["ads"]
+enforced = "check"
+codes = ["creative_confounded"]
+source = "Decoding Decisions, pp. 65–66"
+question.en = "Does the offer express more than one benefit, and does an ad isolate each?"
+question.lt = "Ar pasiūlymas išreiškia daugiau nei vieną naudą, ir ar kuri nors reklama kiekvieną išskiria?"
+why.en = "A free checked bag saves money and removes a worry. Until one ad tests the saving alone, the lift cannot be attributed to price, and the next offer may copy the wrong half."
+why.lt = "Nemokamas bagažas taupo pinigus ir pašalina rūpestį. Kol viena reklama netikrina vien taupymo, pakilimo negalima priskirti kainai, o kitas pasiūlymas gali nukopijuoti ne tą pusę."
