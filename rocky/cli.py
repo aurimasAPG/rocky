@@ -89,6 +89,7 @@ COMMANDS_HELP = """commands:
   rocky tui [--attach ID]          three-pane viewer (plan / work / verify)
   rocky ps                         runs in this folder: status, €, when, goal, deliverable
   rocky attach [ID]                follow a run (Enter or Ctrl+C detaches, the job keeps going)
+  rocky attach [ID] --logs         detailed event transcript instead of the task board
   rocky stop [ID]                  end a run now; what it wrote stays, it can be resumed
   rocky resume [ID]                continue an unmet / error / crashed / stopped run
   rocky resume [ID] "what to change"   follow up on any finished run, passed ones included
@@ -145,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("goal", nargs="*", help="What to accomplish, or a run id for attach / resume")
     parser.add_argument("-d", "--dir", default=".", help="Workspace folder")
     parser.add_argument("--attach", default="", help="TUI: attach to an existing run id")
+    parser.add_argument("--logs", action="store_true", help="Attach: show the detailed event transcript")
     parser.add_argument(
         "--budget",
         type=float,
@@ -176,6 +178,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Headless: run to completion, print one JSON object, no live view",
     )
     args = parser.parse_args(rest)
+    if args.logs and command != "attach":
+        parser.error("--logs is available with rocky attach")
     workspace = Path(args.dir).expanduser().resolve()
     try:
         cfg = apply_config(workspace)
@@ -225,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError as exc:
             console.print(f"[red]{exc}[/]")
             return 1
-        return _attach(workspace, run_id)
+        return _attach(workspace, run_id, show_logs=True) if args.logs else _attach(workspace, run_id)
     if command == "stop":
         return _stop(workspace, goal or None)
     if command == "open":
@@ -801,18 +805,145 @@ def _run_json(workspace: Path, run_id: str, poll: float = 0.2) -> int:
         time.sleep(poll)
 
 
-def _attach(workspace: Path, run_id: str) -> int:
+def _attach(workspace: Path, run_id: str, *, show_logs: bool = False) -> int:
+    if show_logs:
+        return _watch_run(workspace, run_id, show_logs=True)[0]
     return _watch_run(workspace, run_id)[0]
 
 
-def _watch_run(workspace: Path, run_id: str) -> tuple[int, bool]:
+def _watch_run(workspace: Path, run_id: str, *, show_logs: bool = False) -> tuple[int, bool]:
     """Return (exit code, completed); detaching must never open the review desk."""
+    if not show_logs and sys.stdin.isatty() and sys.stdout.isatty() and not console.is_dumb_terminal:
+        return _watch_progress(workspace, run_id)
+    return _watch_transcript(workspace, run_id, detailed=show_logs)
+
+
+def _answer_pending(folder: Path, ask: dict) -> bool:
+    """Do not replace an answer waiting for the worker to consume it."""
+    import json
+
+    try:
+        answer = json.loads((folder / "answer.json").read_text(encoding="utf-8"))
+        return "text" in answer and float(answer["ts"]) >= float(ask["ts"])
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
+def _watch_progress(workspace: Path, run_id: str) -> tuple[int, bool]:
+    from collections import deque
+
+    from rich.live import Live
+
+    from rocky.events import Event
+    from rocky.progress import RunProgress
+
+    folder = run_dir(workspace, run_id)
+    try:
+        meta = refresh_meta(folder)
+    except FileNotFoundError:
+        console.print("Run folder vanished.", style="red")
+        return 1, False
+    board = RunProgress(meta, run_id=run_id)
+    cursor = EventCursor(folder / "events.jsonl")
+    history = deque(maxlen=50)
+    live = Live(
+        board.render(width=console.size.width, height=console.size.height),
+        console=console, screen=True, auto_refresh=False,
+        redirect_stdout=False, redirect_stderr=False, vertical_overflow="crop",
+    )
+    details = False
+    asked_ts = None
+    idle_after_done = 0
+
+    def consume(events):
+        for event in events:
+            board.consume(event)
+            history.append(event)
+            if details and event.type != "done":
+                render_event(event)
+
+    def refresh():
+        if not details:
+            live.update(board.render(width=console.size.width, height=console.size.height), refresh=True)
+
+    try:
+        live.start()
+        while True:
+            consume(cursor.poll())
+            try:
+                meta = refresh_meta(folder)
+            except FileNotFoundError:
+                live.stop()
+                console.print("Run folder vanished.", style="red")
+                return 1, False
+            board.update_meta(meta)
+            status = meta.get("status") or ""
+            # A finished worker cannot answer a stale question. Drain late events
+            # before handing off, even if Enter is buffered in the terminal.
+            if status in TERMINAL:
+                board.set_question(None)
+                consume(cursor.poll())
+                board.update_meta(meta)
+                refresh()
+                idle_after_done += 1
+                if idle_after_done >= 2:
+                    live.stop()
+                    result = collect_result(workspace, run_id, EventCursor(folder / "events.jsonl").poll())
+                    render_event(Event("done", result))
+                    console.print(f"{status} · {folder}", style="dim", markup=False)
+                    return (0 if status in {"passed", "passed_with_notes"} else 1), True
+                time.sleep(0.05)
+                continue
+            idle_after_done = 0
+            ask = read_ask(folder)
+            if ask and ask.get("ts") != asked_ts:
+                asked_ts = ask.get("ts")
+                if not _answer_pending(folder, ask):
+                    board.set_question(str(ask.get("question") or "Rocky needs your answer."))
+                    refresh()
+                    live.stop()
+                    console.print("\nRocky needs your answer", style="bold #F07167")
+                    console.print(str(ask.get("question") or ""), markup=False)
+                    for i, option in enumerate(ask.get("options") or [], 1):
+                        console.print(f"  {i}. {option}", markup=False)
+                    write_answer(folder, prompt_goal("Answer"))
+                    if not details:
+                        live.start()
+                board.set_question(None)
+            refresh()
+            line = _stdin_line(0.15)
+            if line is None:
+                continue
+            if line.strip().lower() == "d":
+                details = not details
+                if details:
+                    live.stop()
+                    console.print("Recent activity details (up to 50 events)", style="bold")
+                    for event in history:
+                        render_event(event)
+                    console.print("d + Enter: return to task board · Enter: keep working in background", style="dim")
+                else:
+                    live.start()
+                    refresh()
+                continue
+            live.stop()
+            console.print(f"Rocky is still working in the background. Return with: rocky attach {run_id}", markup=False)
+            return 0, False
+    except KeyboardInterrupt:
+        live.stop()
+        console.print(f"\nRocky keeps working in the background. Return with: rocky attach {run_id}", markup=False)
+        return 0, False
+    finally:
+        live.stop()
+
+
+def _watch_transcript(workspace: Path, run_id: str, *, detailed: bool = False) -> tuple[int, bool]:
     folder = run_dir(workspace, run_id)
     cursor = EventCursor(folder / "events.jsonl")
     console.print(f"[bold]attach[/] {run_id}")
     if sys.stdin.isatty():
         console.print(f"[dim]Enter or Ctrl+C = detach, the job keeps going  ·  rocky stop {run_id[:15]} = end it[/]")
-    live = sys.stdout.isatty()
+    live = sys.stdout.isatty() and not detailed
     pulse = None
     if live:
         from rich.status import Status

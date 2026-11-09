@@ -94,6 +94,7 @@ rocky help
 | `rocky cost` | What this folder has spent: total, today, last 7 days, per usable result, money spent on runs that gave nothing, the three costliest runs. |
 | `rocky attach` | Reattach to the latest run. |
 | `rocky attach ID` | Reattach to that run (prefix is enough). |
+| `rocky attach ID --logs` | Follow the full event transcript instead of the task board. |
 | `rocky resume [ID]` | Continue an `unmet` / `error` / `crashed` / `stopped` run from its saved plan and files. No id = the latest one. |
 | `rocky stop [ID]` | End a running job now. Files already written stay; the run becomes `stopped` and can be resumed. No id = the latest run. |
 | `rocky resume [ID] "what to change"` | Follow up on **any** finished run, passed ones included: same cast, same file, no new assess / critic; the planner starts from your instruction. |
@@ -124,6 +125,7 @@ rocky help
 | `--no-server-tools` | off | Do not use OpenRouter server-side web tools. |
 | `--host` / `--port` | `127.0.0.1` `8787` | For `serve` only. |
 | `--attach` | empty | TUI: attach to an existing run id. |
+| `--logs` | off | With `rocky attach`: show the detailed event transcript. |
 | `--json` | off | No live view; print the final result as JSON (for scripts, CI, other agents). |
 
 The **next** run still defaults to €1 unless you pass `--budget` again — or you set a default in the config file.
@@ -254,7 +256,9 @@ A passed run is never resumed as-is (there is nothing to redo), but with an inst
 
 ## 7. Live status
 
-On a TTY, one spinner line is rewritten in place (Claude Code / OpenCode style): `thinking · plan`, `researching · …`, `writing · article.md`. Plan, critic, verify, and the price stay as panels. Detach with Enter.
+In an interactive terminal, a **task board** stays on screen while Rocky works. It shows the current phase, reported steps, recent actions and failed commands, the output target, elapsed time, and reported spending against this run's budget. Spending updates when model usage is reported; an in-flight call may not be included yet. A step only appears complete when the run reports it complete. Checks can send the task back to work, and the board follows that change.
+
+Type **d** and press **Enter** to view recent event details; repeat to return to the board. `rocky attach ID --logs` follows the full transcript. **Enter** alone or **Ctrl+C** leaves Rocky working in the background; `rocky attach ID` returns to its current state. When Rocky asks for input, the board pauses for your answer. Basic terminals and redirected output keep the transcript view.
 
 ---
 
@@ -263,6 +267,7 @@ On a TTY, one spinner line is rewritten in place (Claude Code / OpenCode style):
 - In the task editor, **Enter** inserts a line; **Ctrl+R** or **Start task** starts the full brief. Plain `q` is task text.
 - **Ctrl+Q** or **Save & exit** saves the draft and leaves Rocky. **Tab** moves between the brief, budget and buttons.
 - **Enter** or **Ctrl+C** while a run is streaming — detach (the job keeps going; `rocky stop` ends it).
+- **d**, then **Enter**, while watching a task — switch between the task board and event details.
 - **Ctrl+C** in the editor copies selected text. Paste a complete multiline brief using your terminal's paste command or Ctrl+V.
 - If the agent asks a question — type `yes` / `keep` / a number / a short answer.
 - In result review — a file number reads it in pages; `o` opens the selected file; `f` refines; `c` continues unfinished work with a saved plan; `r` restarts a failed task without one. Only applicable actions are offered.

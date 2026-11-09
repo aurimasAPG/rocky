@@ -96,6 +96,7 @@ rocky help
 | `rocky cost` | Kiek šis katalogas išleido: iš viso, šiandien, per 7 dienas, vienam naudojamam rezultatui, kiek nuėjo nieko nedavusiems paleidimams, trys brangiausi paleidimai. |
 | `rocky attach` | Vėl prisijungti prie naujausio paleidimo. |
 | `rocky attach ID` | Prisijungti prie to paleidimo (užtenka pradžios). |
+| `rocky attach ID --logs` | Rodyti išsamų įvykių žurnalą vietoj užduoties eigos lentos. |
 | `rocky resume [ID]` | Pratęsti `unmet` / `error` / `crashed` / `stopped` paleidimą iš išsaugoto plano ir failų. Be ID — naujausią tokį. |
 | `rocky stop [ID]` | Nutraukti vykstantį darbą dabar. Jau įrašyti failai lieka; paleidimas tampa `stopped` ir gali būti pratęstas. Be ID — naujausią paleidimą. |
 | `rocky resume [ID] "ką pakeisti"` | Tęsti nuo **bet kurio** baigto paleidimo, įskaitant pavykusius: ta pati sudėtis, tas pats failas, be naujo įvertinimo / kritikos; planuotojas pradeda nuo tavo nurodymo. |
@@ -258,7 +259,9 @@ Pavykęs paleidimas niekada nepratęsiamas toks, koks yra (nėra ko perdaryti), 
 
 ## 7. Gyva būsena
 
-Terminale viena būsenos eilutė perrašoma toje pačioje vietoje (kaip Claude Code / OpenCode): `thinking · plan`, `researching · …`, `writing · article.md`. Planas, kritikas, tikrinimas ir kaina lieka kaip skydeliai. Enter atjungia.
+Interaktyviame terminale **užduoties eigos lenta** lieka ekrane, kol Rocky dirba. Joje matomi dabartinis etapas, pranešti žingsniai, paskutiniai veiksmai ir nepavykusios komandos, numatytas rezultato failas, praėjęs laikas ir praneštos išlaidos pagal šio darbo biudžetą. Išlaidos atsinaujina gavus modelio naudojimo duomenis, todėl dar vykstančio kvietimo kaina gali būti neįtraukta. Žingsnis pažymimas baigtu tik gavus tokį pranešimą. Jei patikra grąžina užduotį taisyti, lenta vėl rodo darbo etapą.
+
+Įrašyk **d** ir spausk **Enter**, kad atvertum paskutinių įvykių detales; pakartok, kad grįžtum į lentą. `rocky attach ID --logs` rodo visą įvykių žurnalą. Vien **Enter** arba **Ctrl+C** atjungia peržiūrą, bet darbas tęsiasi; `rocky attach ID` grąžina į dabartinę jo būseną. Kai Rocky klausia, lenta sustoja, kol atsakai. Paprasti terminalai ir nukreipta išvestis išlaiko žurnalo rodinį.
 
 ---
 
@@ -267,6 +270,7 @@ Terminale viena būsenos eilutė perrašoma toje pačioje vietoje (kaip Claude C
 - Užduoties redaktoriuje **Enter** įterpia eilutę; **Ctrl+R** arba **Start task** paleidžia visą užduotį. Paprastas `q` yra užduoties tekstas.
 - **Ctrl+Q** arba **Save & exit** išsaugo juodraštį ir uždaro Rocky. **Tab** perkelia tarp teksto, biudžeto ir mygtukų.
 - **Enter** arba **Ctrl+C**, kol paleidimas rodomas — atsijungti (darbas tęsiasi; `rocky stop` jį nutraukia).
+- **d** ir **Enter**, kol stebi užduotį — perjungti eigos lentą ir įvykių detales.
 - **Ctrl+C** redaktoriuje kopijuoja pažymėtą tekstą. Visą kelių eilučių užduotį gali įklijuoti įprasta terminalo komanda arba Ctrl+V.
 - Jei agentas klausia — įrašyk `yes` / `keep` / skaičių / trumpą atsakymą.
 - Rezultato peržiūroje — failo numeris atveria jo tekstą puslapiais; `o` atidaro pasirinktą failą; `f` leidžia paprašyti pakeitimų; `c` tęsia nebaigtą darbą su išsaugotu planu; `r` iš naujo paleidžia nepavykusią užduotį, kuri plano neturi. Rodomi tik tai situacijai tinkami veiksmai.
