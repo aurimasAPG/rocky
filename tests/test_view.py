@@ -54,6 +54,19 @@ def test_done_prints_the_path_not_only_the_price():
     assert "deliverables/ads.md" in out
 
 
+def test_goal_and_review_transcript_preserve_literal_brackets():
+    for event in (
+        Event("run_started", {"goal": "Keep [time] and [/unknown] literally."}),
+        Event("critique", {"quality_bar": "Keep [time] and [/unknown] literally."}),
+        Event("plan", {"summary": "Keep [time] and [/unknown] literally.", "steps": []}),
+        Event("verify", {"summary": "Kept [time] and [/unknown] literally.", "passed": True}),
+        Event("done", {"summary": "Kept [time] and [/unknown] literally.", "notes": ["Use [date]."]}),
+    ):
+        text = _render(event)
+        assert "[time]" in text
+        assert "[/unknown]" in text
+
+
 def test_error_and_worker_events_render_as_words_not_dicts():
     for event in (
         Event(type="error", payload={"message": "verifier failed: timeout"}),

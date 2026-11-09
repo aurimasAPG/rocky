@@ -88,6 +88,7 @@ COMMANDS_HELP = """commands:
   rocky resume [ID]                continue an unmet / error / crashed / stopped run
   rocky resume [ID] "what to change"   follow up on any finished run, passed ones included
   rocky open [ID]                  open the run's deliverable
+  rocky review [ID]                review files, refine a result, or recover a finished run
   rocky cost                       what this folder has spent and where it went
   rocky config                     config files read, effective defaults, an example
   rocky doctor                     key, OpenRouter, folder, sandbox, browser, skills, models
@@ -99,7 +100,7 @@ COMMANDS_HELP = """commands:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "config", "doctor", "help", "version", "_job"}
+    commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "review", "config", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
         rest = argv[1:]
@@ -193,6 +194,13 @@ def main(argv: list[str] | None = None) -> int:
         return _stop(workspace, goal or None)
     if command == "open":
         return _open(workspace, goal or None)
+    if command == "review":
+        try:
+            run_id = resolve_run_id(workspace, goal or None)
+        except FileNotFoundError as exc:
+            console.print(str(exc), style="red", markup=False)
+            return 1
+        return _task_session(workspace, run_id, review=True)
     if command == "doctor":
         return _doctor(workspace)
 
@@ -244,13 +252,14 @@ def main(argv: list[str] | None = None) -> int:
                 f"[dim]aplankas {workspace}  ·  biudžetas €{args.budget:.3f}  ·  {args.max_loops} ciklai[/]"
             )
         console.print("[dim]Enter atsikabina nuo runo — darbas tęsiasi.  rocky ps  ·  rocky attach[/]")
+        args.handoff = command == "run" and sys.stdin.isatty() and sys.stdout.isatty()
         code = 0
         while True:
             nxt = prompt_goal()
             if not nxt:
                 return code
             code = _dispatch(command, client, nxt, workspace, args)
-            if command == "run":
+            if command == "run" and not args.handoff:
                 console.print(
                     "[dim]rocky open — atidaro rezultatą  ·  rocky resume \"ką pakeisti\" — tęsia nuo šio rezultato[/]"
                 )
@@ -268,6 +277,7 @@ def _dispatch(command, client, goal, workspace, args) -> int:
         budget_eur=args.budget,
         include_server_tools=not args.no_server_tools,
         json_out=bool(getattr(args, "json_out", False)),
+        handoff=bool(getattr(args, "handoff", False)),
     )
 
 
@@ -388,7 +398,7 @@ def _stop(workspace: Path, ident: str | None) -> int:
     return 0 if meta.get("status") == "stopped" else 1
 
 
-def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_out=False) -> int:
+def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_out=False, handoff=False) -> int:
     meta = create_run(
         workspace=workspace,
         goal=goal,
@@ -402,6 +412,8 @@ def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_o
     console.print(
         f"[dim]run {meta['id']}  ·  Enter detaches, job keeps running  ·  rocky attach {meta['id'][:18]}[/]"
     )
+    if handoff:
+        return _task_session(workspace, meta["id"])
     return _attach(workspace, meta["id"])
 
 
@@ -497,11 +509,21 @@ def _resume(
 ) -> int:
     """Continue an unmet / error / crashed / stopped run — or, with an instruction, build on any finished one."""
     try:
-        run_id = resolve_resumable(workspace, ident, follow_up=bool(follow_up))
-        state = load_resume_state(run_dir(workspace, run_id), follow_up=follow_up)
+        meta, state = _create_resume(workspace, ident, budget_eur=budget_eur, follow_up=follow_up)
     except FileNotFoundError as exc:
         console.print(f"[red]{exc}[/]")
         return 1
+    spawn_worker(meta)
+    if json_out:
+        return _run_json(workspace, meta["id"])
+    _print_resume(meta, state, follow_up)
+    return _attach(workspace, meta["id"])
+
+
+def _create_resume(workspace: Path, ident: str | None, *, budget_eur: float | None, follow_up: str = "") -> tuple[dict, dict]:
+    """Validate the exact source run before creating a linked attempt."""
+    run_id = resolve_resumable(workspace, ident, follow_up=bool(follow_up))
+    state = load_resume_state(run_dir(workspace, run_id), follow_up=follow_up)
     meta = create_run(
         workspace=workspace,
         goal=str(state.get("goal") or ""),
@@ -511,9 +533,10 @@ def _resume(
         resume_from=run_id,
         follow_up=follow_up,
     )
-    spawn_worker(meta)
-    if json_out:
-        return _run_json(workspace, meta["id"])
+    return meta, state
+
+
+def _print_resume(meta: dict, state: dict, follow_up: str) -> None:
     done = state.get("done_steps") or []
     if follow_up:
         what = f"follow-up: {follow_up}"
@@ -522,9 +545,75 @@ def _resume(
     else:
         what = f"skip finished steps {done}" if done else "redo the plan's steps"
     console.print(
-        f"[dim]resume {run_id} → run {meta['id']}  ·  {what}  ·  cap €{meta['budget_eur']:.2f}  ·  Enter detaches[/]"
+        f"resume {meta['resume_from']} → run {meta['id']}\n"
+        f"{what}  ·  cap €{meta['budget_eur']:.2f}  ·  Enter detaches",
+        style="dim", markup=False,
     )
-    return _attach(workspace, meta["id"])
+
+
+def _task_session(workspace: Path, run_id: str, *, review: bool = False) -> int:
+    """Watch, review and revise without losing the current run or growing the stack."""
+    from rocky.handoff import choose_action, render_result
+
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    while True:
+        if not review:
+            code, completed = _watch_run(workspace, run_id)
+            if not completed or not interactive:
+                return code
+        try:
+            folder = run_dir(workspace, run_id)
+            meta = refresh_meta(folder)
+            if meta.get("status") not in TERMINAL:
+                console.print("This task is still running. Follow it with:", style="yellow")
+                console.print(f"rocky attach {run_id}", markup=False)
+                return 1
+            result = collect_result(workspace, run_id, EventCursor(folder / "events.jsonl").poll())
+            result["budget_eur"] = meta.get("budget_eur", DEFAULT_BUDGET_EUR)
+        except (OSError, ValueError) as exc:
+            console.print(f"Could not review this task: {exc}", style="red", markup=False)
+            return 1
+        code = 0 if result["status"] in {"passed", "passed_with_notes"} else 1
+        if not interactive:
+            render_result(console, workspace, result)
+            return code
+        try:
+            load_resume_state(folder)
+            can_resume = True
+        except (OSError, ValueError):
+            can_resume = False
+        action = choose_action(console, workspace, result, can_resume=can_resume, open_file=open_path)
+        if action is None:
+            return code
+        # Reading needs no credentials. Only an explicit new attempt requires a key.
+        if not api_key():
+            console.print("An API key is needed to start another attempt. Run rocky doctor to check setup.", style="yellow")
+            review = True
+            continue
+        try:
+            if action.kind == "restart":
+                latest = refresh_meta(folder)
+                if latest.get("status") not in TERMINAL:
+                    raise ValueError("The task is running again; attach to it before starting another attempt.")
+                meta = create_run(
+                    workspace=workspace,
+                    goal=str(latest.get("goal") or ""),
+                    budget_eur=action.budget_eur,
+                    max_loops=int(latest.get("max_loops") or 4),
+                    include_server_tools=bool(latest.get("include_server_tools", True)),
+                )
+            else:
+                meta, state = _create_resume(
+                    workspace, run_id, budget_eur=action.budget_eur, follow_up=action.follow_up,
+                )
+                _print_resume(meta, state, action.follow_up)
+            spawn_worker(meta)
+        except (OSError, ValueError) as exc:
+            console.print(f"Could not start another attempt: {exc}", style="red", markup=False)
+            review = True
+            continue
+        run_id = meta["id"]
+        review = False
 
 
 HEADLESS_ANSWER = "no human available; continue with documented assumptions"
@@ -560,7 +649,9 @@ def collect_result(workspace: Path, run_id: str, events) -> dict:
         "files": list(done.get("files") or meta.get("files") or []),
         "summary": done.get("summary") or meta.get("summary") or "",
         "score": verify.get("score"),
+        "blocking": verify.get("blocking") or [],
         "issues": verify.get("issues") or [],
+        "remaining": verify.get("remaining") or [],
         "loops": done.get("loops"),
         "models": cast,
         "usd": done.get("usd"),
@@ -605,6 +696,11 @@ def _run_json(workspace: Path, run_id: str, poll: float = 0.2) -> int:
 
 
 def _attach(workspace: Path, run_id: str) -> int:
+    return _watch_run(workspace, run_id)[0]
+
+
+def _watch_run(workspace: Path, run_id: str) -> tuple[int, bool]:
+    """Return (exit code, completed); detaching must never open the review desk."""
     folder = run_dir(workspace, run_id)
     cursor = EventCursor(folder / "events.jsonl")
     console.print(f"[bold]attach[/] {run_id}")
@@ -631,7 +727,7 @@ def _attach(workspace: Path, run_id: str) -> int:
                 if pulse is not None:
                     pulse.stop()
                 console.print("[red]run folder vanished[/]")
-                return 1
+                return 1, False
             ask = read_ask(folder)
             if ask and ask.get("ts") != asked_ts:
                 asked_ts = ask.get("ts")
@@ -656,13 +752,13 @@ def _attach(workspace: Path, run_id: str) -> int:
                     if pulse is not None:
                         pulse.stop()
                     console.print(f"[dim]{status}  ·  {folder}[/]")
-                    return 0 if status in {"passed", "passed_with_notes"} else 1
+                    return (0 if status in {"passed", "passed_with_notes"} else 1), True
             line = _stdin_line(0.15)
             if line is not None:
                 if pulse is not None:
                     pulse.stop()
                 console.print(f"[dim]detached  {run_id}  still {status or 'running'}[/]")
-                return 0
+                return 0, False
     except KeyboardInterrupt:
         if pulse is not None:
             pulse.stop()
@@ -670,7 +766,7 @@ def _attach(workspace: Path, run_id: str) -> int:
             f"\n[dim]detached  {run_id}  still running in the background  ·  "
             f"rocky attach {run_id[:15]} to watch  ·  rocky stop {run_id[:15]} to end it[/]"
         )
-        return 0
+        return 0, False
     finally:
         if pulse is not None:
             pulse.stop()
