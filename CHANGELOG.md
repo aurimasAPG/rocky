@@ -7,3 +7,4 @@
 - Loop 4 follow-up — Show the installed version below the terminal mascot and accept `-v` and `--v`, so users can see which Rocky they are running without guessing a command.
 - Loop 4 follow-up — Added `rocky update` and `rocky update --check` in v0.2.1, with GitHub build verification and preserved installation settings, so users can update Rocky with one command.
 - Version 0.3.0 — One agent now takes a goal from the brief to a finished file in a single conversation, with recipes as a tracked checklist, code checks on files and figures, and one self-review turn, so a run costs less and keeps everything it read; `--mode orchestrate` and `--verify strict` keep the previous path and the independent verifier.
+- Loop 5 — Replaced the terminal's scrolling run view with a persistent task board showing real steps, recent actions and failures, elapsed time, and reported spending, so users can follow the work without losing its context.
