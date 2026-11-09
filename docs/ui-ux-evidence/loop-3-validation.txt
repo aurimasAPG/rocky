@@ -1,0 +1,32 @@
+Loop 3 — terminal review, refinement and recovery
+
+Baseline, before reading CHANGELOG.md:
+- Started Rocky in a real interactive terminal in a fresh scratch workspace.
+- Submitted a two-sentence book-club reminder task with a literal [time] placeholder.
+- Run 20261109-064344-d0150e passed; EUR 0.123 reported.
+- Quit Rocky and read deliverables/terminal-reminder.txt in the terminal to verify the complete result.
+- Friction: completion returned to a new-task prompt; review/refinement needed filesystem or shell commands and remembered run context.
+- Existing loops covered the web delivery desk and web progress; none added a terminal review/revision workflow.
+
+Live validation after implementation:
+- Opened rocky review on that exact run at 80 columns and 24 rows.
+- Read its output via numbered file selection, returned to review, selected f, and requested one sentence in the same file with [time] preserved.
+- Set a new run cap of EUR 0.50 in the review flow.
+- Linked child 20261109-065106-5ea0a4 passed; EUR 0.215 reported.
+- Review returned automatically to the child run and displayed the actual revised file.
+- Verified saved metadata links the child to the intended parent, and the file is one sentence with [time] intact.
+- Reopened the final code and captured loop-3-terminal.txt: file preview, complete verdict, cancelled empty refinement and successful exit.
+
+Implementation:
+- Automatic review only for no-goal interactive CLI with stdin/stdout TTY; explicit rocky review [ID] also supports read-only piped output.
+- Exact run context survives repeated linked revisions; interrupted work continues from its saved plan or restarts if no plan exists.
+- All paid actions require an explicit choice and show a finite positive cap for a new run.
+- Current workspace files are declared, contained, rechecked and bounded; text and placeholders render literally. Binary output opens only on request.
+- Full verdict retains blockers, issues, remaining work and notes after sparse done events.
+- Existing one-shot goals, attach/detach, JSON and exit status contracts remain covered.
+
+Validation:
+- Full suite: 1,583 tests passed on Python 3.13; 54 additional tests in this loop.
+- Full Python 3.11 suite and final wheel installation checked separately before shipping.
+- sdist and wheel build; regular wheel installation in an isolated Python 3.13 environment; review entry point exercised from outside the checkout.
+- Existing dependency deprecation warnings are unrelated to this change.

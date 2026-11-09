@@ -56,6 +56,8 @@ rocky
 
 Turėtum pamatyti auksaspalvio retriverio plakatą. Įrašyk užduotį, spausk Enter.
 
+Kai darbas baigiasi, interaktyvioje CLI atsiveria **rezultato peržiūra**: pagrindinio tekstinio failo ištrauka, sunumeruotas failų sąrašas ir veiksmai rezultatui atidaryti, pataisyti ar darbui tęsti. Baigęs spausk Enter — grįši prie kitos užduoties eilutės. Ši peržiūra automatiškai atsidaro tik paleidus `rocky` be užduoties ir kai tiek įvestis, tiek išvestis yra terminale.
+
 Vienu kartu:
 
 ```bash
@@ -80,7 +82,7 @@ rocky help
 
 | Komanda | Ką daro |
 | --- | --- |
-| `rocky` | Interaktyvi CLI. Įrašai tikslą, stebi ciklą, rašai kitą. |
+| `rocky` | Interaktyvi CLI. Įrašai tikslą, stebi ciklą, peržiūri ar pataisai rezultatą, tada rašai kitą užduotį. |
 | `rocky "tikslas"` | Paleidžia tą tikslą kaip **foninį darbą** ir prisijungia. |
 | `rocky tui` | Tas pats variklis, trys langai (planas / darbas / tikrinimas). |
 | `rocky tui --attach ID` | Atveria TUI ant esamo paleidimo. |
@@ -92,6 +94,7 @@ rocky help
 | `rocky stop [ID]` | Nutraukti vykstantį darbą dabar. Jau įrašyti failai lieka; paleidimas tampa `stopped` ir gali būti pratęstas. Be ID — naujausią paleidimą. |
 | `rocky resume [ID] "ką pakeisti"` | Tęsti nuo **bet kurio** baigto paleidimo, įskaitant pavykusius: ta pati sudėtis, tas pats failas, be naujo įvertinimo / kritikos; planuotojas pradeda nuo tavo nurodymo. |
 | `rocky open [ID]` | Atidaro paleidimo galutinį failą sistemos programa ir išspausdina jo kelią. Be ID — naujausią paleidimą. |
+| `rocky review [ID]` | Baigto paleidimo rezultato peržiūra terminale: gali pasirinkti failą, patikslinti užduotį ar tęsti darbą. Skaitymui API rakto nereikia. Ne terminale išspausdina rezultatą ir nelaukia įvesties. |
 | `rocky serve` | Komandos tinklo sąsaja (numatytai http://127.0.0.1:8787). |
 | `rocky route "tikslas"` | Tik įvertina ir parenka modelius. Be įrankių, be failų. |
 | `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
@@ -204,6 +207,23 @@ Viskas, ko reikia, jau guli `events.jsonl` ir darbo kataloge: įvertinimas, krit
 
 Laikini „OpenRouter“ sutrikimai — laiko limitai, nutrūkęs ryšys, 408 / 429 / 5xx, tušti atsakymai — kartojami iki 3 kartų su pauze, kol paleidimas pasiduoda, tad vienas sutrikimas 25 minučių darbo nebenužudo.
 
+### Peržiūrėti baigto paleidimo rezultatą
+
+```bash
+rocky review
+rocky review 20260905-11
+```
+
+Ta pati peržiūra automatiškai atsidaro baigus darbą interaktyvioje `rocky` sesijoje, pradėtoje be užduoties. Joje matysi baigtį, prieinamus failus ir pagrindinio tekstinio rezultato ištrauką. Įrašęs failo numerį galėsi skaityti jo tekstą puslapiais: Enter rodo kitą puslapį, o `q` grąžina į peržiūrą. `o` atidaro pasirinktą failą įprasta sistemos programa — taip gali peržiūrėti ir dokumentus bei kitus netekstinius rezultatus.
+
+Pasirinkęs `v` perskaitysi visą tikrintojo išvadą, blokuojančius trūkumus, kitas problemas, likusius darbus ir pastabas. Trumpa peržiūra gali sutrumpinti ilgus paaiškinimus; puslapiais pateikiami visi įrašyti punktai.
+
+Pasirink `f`, parašyk, ką pakeisti, ir Rocky pradės **susietą tęstinį darbą** nuo būtent to paleidimo, kurį peržiūri. Nebaigtą darbą su išsaugotu planu gali tęsti pasirinkęs `c`; nepavykusią užduotį, kuriai planas dar nesukurtas, paleisti iš naujo su `r`. Prieš kiekvieną iš šių mokamų veiksmų Rocky parodo naujo paleidimo biudžeto lubas: gali jas pakeisti arba su `q` atšaukti veiksmą. Tai naujo paleidimo biudžetas, o ne senojo likutis. Failų skaitymas ar atidarymas modelių nekviečia ir API rakto nereikalauja.
+
+Enter (**Done**) arba `q` uždaro peržiūrą: po automatinės peržiūros grįši prie kitos užduoties eilutės, o po `rocky review` — į komandinę eilutę. Skaitomi **dabartiniai darbo katalogo failai**, o ne istorinės jų kopijos. Vėlesni paleidimai ar redagavimai juos galėjo pakeisti; jei failo nebėra, tai aiškiai nurodoma.
+
+Atsijungus nuo dar vykstančio darbo peržiūra neatsidaro. Atskirai paleistos `rocky attach`, vienkartinė `rocky "tikslas"` ir `--json` komandos veikia kaip anksčiau. Jei bent įvestis arba išvestis nėra terminale, `rocky review` išspausdina rezultatą be interaktyvaus meniu.
+
 ### Tęsti nuo gero rezultato
 
 ```bash
@@ -212,7 +232,7 @@ rocky resume "sutrumpink iki 300 žodžių"     # tęsia nuo naujausio baigto pa
 rocky resume 20260905-11 "pridėk CTA kiekvienam skelbimui"  # arba nuo to konkretaus
 ```
 
-Pavykęs paleidimas niekada nepratęsiamas toks, koks yra (nėra ko perdaryti), bet su nurodymu jis tampa **tęsinio** pagrindu: įvertinimas, kritiko kartelė, sudėtis ir galutinio failo kelias išlieka, o planuotojas perplanuoja nuo tavo nurodymo taip, lyg jo būtų paprašęs tikrintojas. Naujas paleidimas susiejamas su senuoju kaip bet kuris pratęsimas. Interaktyvioje CLI tas pats nutinka tiesiog įrašius kitą nurodymą — atmintis jį susieja su paskutiniu galutiniu failu, — bet `resume` praleidžia įvertinimo / kritikos kvietimus ir prisega failą.
+Pavykęs paleidimas niekada nepratęsiamas toks, koks yra (nėra ko perdaryti), bet su nurodymu jis tampa **tęsinio** pagrindu: įvertinimas, kritiko kartelė, sudėtis ir galutinio failo kelias išlieka, o planuotojas perplanuoja nuo tavo nurodymo taip, lyg jo būtų paprašęs tikrintojas. Naujas paleidimas susiejamas su senuoju kaip bet kuris pratęsimas. Rezultato peržiūroje pasirinkęs `f` tą patį gali padaryti neišeidamas iš interaktyvios sesijos. Įrašius tekstą kitos užduoties eilutėje pradedama nauja užduotis: atmintis gali suteikti ankstesnį kontekstą, tačiau konkretų ankstesnį paleidimą ir failą susieja būtent patikslinimas arba `resume`, kartu praleisdami įvertinimo / kritikos kvietimus.
 
 ---
 
@@ -229,6 +249,9 @@ Terminale viena būsenos eilutė perrašoma toje pačioje vietoje (kaip Claude C
 - **Enter** arba **Ctrl+C**, kol paleidimas rodomas — atsijungti (darbas tęsiasi; `rocky stop` jį nutraukia).
 - **Ctrl+C** tikslo eilutėje — išeiti iš Rocky.
 - Jei agentas klausia — įrašyk `yes` / `keep` / skaičių / trumpą atsakymą.
+- Rezultato peržiūroje — failo numeris atveria jo tekstą puslapiais; `o` atidaro pasirinktą failą; `f` leidžia paprašyti pakeitimų; `c` tęsia nebaigtą darbą su išsaugotu planu; `r` iš naujo paleidžia nepavykusią užduotį, kuri plano neturi. Rodomi tik tai situacijai tinkami veiksmai.
+- Skaitant failo tekstą puslapiais — Enter rodo kitą puslapį, `q` grąžina į peržiūrą.
+- Enter arba `q` peržiūros meniu — **Done**, grįžti prie kitos užduoties eilutės arba į komandinę eilutę. Pakeitimų ar biudžeto įvedimo eilutėje `q` atšaukia veiksmą.
 
 Kopijavimas CLI — įprastas terminalo žymėjimas: pažymėk, tada Cmd+C (macOS) arba Ctrl+C.
 

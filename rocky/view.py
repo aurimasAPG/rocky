@@ -36,7 +36,7 @@ def render_event(event: Event) -> None:
 
     if kind == "run_started":
         console.rule(f"[italic bold #{CORAL}]rocky[/]")
-        console.print(f"[bold]Goal[/]  {payload.get('goal')}")
+        console.print(Text.assemble(("Goal  ", "bold"), str(payload.get("goal") or "")))
         console.print(
             f"[dim]{payload.get('workspace')}  ·  budget €{payload.get('budget_eur', payload.get('budget'))}  ·  {payload.get('max_loops')} loops[/]"
         )
@@ -129,7 +129,7 @@ def render_event(event: Event) -> None:
             lines.append(f"missing  {miss}")
         for risk in payload.get("risks") or []:
             lines.append(f"risk  {risk}")
-        console.print(Panel("\n".join(lines), title="brief critic", border_style=f"#{PERI}"))
+        console.print(Panel(Text("\n".join(lines)), title="brief critic", border_style=f"#{PERI}"))
         return
     if kind == "subtask_start":
         console.print(Text(f"subagent  {payload.get('id')} · {payload.get('title')}", style=style))
@@ -143,7 +143,7 @@ def render_event(event: Event) -> None:
         for step in steps:
             lines.append(f"{step.get('id')}. {step.get('title')} — {step.get('detail')}")
         lines.append(f"deliverable: {payload.get('deliverable_path')}")
-        console.print(Panel("\n".join(lines), title="plan", border_style=f"#{CORAL}"))
+        console.print(Panel(Text("\n".join(lines)), title="plan", border_style=f"#{CORAL}"))
         return
     if kind == "tool_call":
         args = payload.get("arguments") or {}
@@ -164,7 +164,7 @@ def render_event(event: Event) -> None:
         lines += [f"{prefix}{i}" for i in payload.get("issues") or []]
         if payload.get("notes_only"):
             mark = "pass with notes"
-        console.print(Panel("\n".join(lines), title=f"verify · {mark}", border_style=color))
+        console.print(Panel(Text("\n".join(lines)), title=f"verify · {mark}", border_style=color))
         return
     if kind == "done":
         status = str(payload.get("status") or ("passed" if payload.get("passed") else "unmet"))
@@ -175,7 +175,7 @@ def render_event(event: Event) -> None:
         if payload.get("notes"):
             console.print(
                 Panel(
-                    "\n".join(f"- {n}" for n in payload["notes"]),
+                    Text("\n".join(f"- {n}" for n in payload["notes"])),
                     title="passed with notes — what is still open",
                     border_style=f"#{APRICOT}",
                 )
@@ -191,7 +191,7 @@ def render_event(event: Event) -> None:
             )
         )
         if payload.get("summary"):
-            console.print(payload["summary"])
+            console.print(Text(str(payload["summary"])))
         return
     if kind == "cost":
         console.print(Text(f"price  {payload.get('receipt')}", style=style))

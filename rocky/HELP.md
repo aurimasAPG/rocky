@@ -54,6 +54,8 @@ rocky
 
 You should see a golden retriever banner. Type a task, press Enter.
 
+When the run finishes, the interactive CLI opens a **result review**: a preview of the main text file, a numbered file list, and actions to open, refine, or continue the work. Press Enter when done to return to the next task prompt. This automatic review appears only when you start `rocky` without a goal and both input and output are attached to a terminal.
+
 One shot:
 
 ```bash
@@ -78,7 +80,7 @@ rocky help
 
 | Command | What it does |
 | --- | --- |
-| `rocky` | Interactive CLI. Type a goal, watch the loop, type another. |
+| `rocky` | Interactive CLI. Type a goal, watch the loop, review or refine the result, then type another. |
 | `rocky "goal"` | Start that goal as a **background run** and attach. |
 | `rocky tui` | Same engine, three panes (plan / work / verify). |
 | `rocky tui --attach ID` | Open the TUI on an existing run. |
@@ -90,6 +92,7 @@ rocky help
 | `rocky stop [ID]` | End a running job now. Files already written stay; the run becomes `stopped` and can be resumed. No id = the latest run. |
 | `rocky resume [ID] "what to change"` | Follow up on **any** finished run, passed ones included: same cast, same file, no new assess / critic; the planner starts from your instruction. |
 | `rocky open [ID]` | Open the run's deliverable with the system opener and print its path. No id = the latest run. |
+| `rocky review [ID]` | Review a finished run's result in the terminal, with file selection and refine/continue actions. Reading needs no API key. Without a terminal, print the result without prompting. |
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
@@ -200,6 +203,23 @@ Everything Rocky needs is already in `events.jsonl` and the workspace: the asses
 
 Transient OpenRouter failures — timeouts, connection drops, 408 / 429 / 5xx, empty answers — are retried up to 3 times with backoff before a run gives up, so a single hiccup no longer kills a 25-minute job.
 
+### Review a finished run
+
+```bash
+rocky review
+rocky review 20260905-11
+```
+
+The same review opens automatically after a run finishes in a no-goal interactive `rocky` session. It shows the outcome, available files and a preview of the main text result. Select a file by number to read its text in pages: Enter shows the next page, and `q` returns to the review. Use `o` to open the currently selected file with its usual system application; this also lets you inspect documents and other non-text results.
+
+Use `v` to read the full verdict, blockers, review issues, remaining work and notes. The compact review may shorten long explanations; the paged view keeps every recorded point available.
+
+Use `f` to say what to change and create a **linked follow-up** from the run you are reviewing. An unfinished run with a saved plan offers `c` to continue; a failed run without a saved plan offers `r` to restart the task. Before any of these paid actions starts, Rocky shows the new run's budget cap and lets you change it or cancel with `q`. This is a new run's allowance, not the unused part of the old budget. Reading or opening files makes no model calls and needs no API key.
+
+Enter (**Done**) or `q` leaves the review: automatic review returns to the next task prompt; `rocky review` returns to the shell. Files are read from the **current workspace**, not historical snapshots. Later runs or edits may have changed them; missing files are reported as missing.
+
+Detaching from a running job does not open the review. Explicit `rocky attach`, one-shot `rocky "goal"`, and `--json` keep their existing behavior. If either input or output is not a terminal, `rocky review` prints the result without an interactive menu.
+
 ### Follow up on a good result
 
 ```bash
@@ -208,7 +228,7 @@ rocky resume "sutrumpink iki 300 žodžių"     # build on the latest finished r
 rocky resume 20260905-11 "add a CTA per ad"  # or on that one
 ```
 
-A passed run is never resumed as-is (there is nothing to redo), but with an instruction it becomes the base of a **follow-up**: the assessment, critic's bar, cast, and the deliverable path are kept, and the planner replans from your instruction as if the verifier had asked for it. The new run is linked to the old one like any resume. In the interactive CLI the same thing happens when you just type the next instruction — memory ties it to the last deliverable — but `resume` skips the assess / critic calls and pins the file.
+A passed run is never resumed as-is (there is nothing to redo), but with an instruction it becomes the base of a **follow-up**: the assessment, critic's bar, cast, and the deliverable path are kept, and the planner replans from your instruction as if the verifier had asked for it. The new run is linked to the old one like any resume. Choose `f` in the result review for this same behavior without leaving the interactive session. Typing at the next task prompt starts a new task; memory can provide earlier context, but an explicit refinement or `resume` pins the parent run and file and skips the assess / critic calls.
 
 ---
 
@@ -225,6 +245,9 @@ On a TTY, one spinner line is rewritten in place (Claude Code / OpenCode style):
 - **Enter** or **Ctrl+C** while a run is streaming — detach (the job keeps going; `rocky stop` ends it).
 - **Ctrl+C** at the goal prompt — leave Rocky.
 - If the agent asks a question — type `yes` / `keep` / a number / a short answer.
+- In result review — a file number reads it in pages; `o` opens the selected file; `f` refines; `c` continues unfinished work with a saved plan; `r` restarts a failed task without one. Only applicable actions are offered.
+- In a file's paged text — Enter shows the next page; `q` returns to review.
+- Enter or `q` at the review menu — **Done**, returning to the next task prompt or shell. At a refinement or budget prompt, `q` cancels the action.
 
 Copy-paste in the CLI is normal terminal selection: drag, then Cmd+C (macOS) or Ctrl+C.
 
