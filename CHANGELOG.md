@@ -3,3 +3,4 @@
 - Loop 2 — Added a live task journey with real stages, step progress and reconnect-safe questions so users can understand what Rocky is doing without reading technical logs.
 - Loop 3 — Added an interactive terminal review with file previews, linked revisions and guided recovery so users can finish, improve or continue a task without hunting for paths or remembering run commands.
 - Loop 4 — Replaced the one-line terminal task prompt with a saved multiline editor and per-task budget so pasted briefs stay complete, drafts survive exits, and work starts only when the user is ready.
+- Loop 4 follow-up — Restored Rocky's retriever mascot and wordmark in the terminal editor, including compact screens, because the mascot is part of the brand.
