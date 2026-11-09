@@ -14,6 +14,7 @@ from textual.containers import Horizontal
 from textual.geometry import Size
 from textual.widgets import Button, Input, Static, TextArea
 
+from rocky import __version__
 from rocky.banner import composer_brand
 from rocky.clip import copy_text, paste_text
 from rocky.drafts import TaskDraft, load_draft, save_draft
@@ -138,7 +139,8 @@ class TaskComposer(App[TaskDraft | None]):
 
     def _update_workspace(self, size: Size | None = None) -> None:
         size = size or self.size
-        prefix = "Workspace: "
+        # Keep the version directly below the mascot without taking an editor row.
+        prefix = f"    v{__version__}  ·  Workspace: "
         path = str(self.workspace)
         width = max(1, size.width - 2 - cell_len(prefix))
         if cell_len(path) > width:

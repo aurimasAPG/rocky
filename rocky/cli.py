@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from rocky import __version__
 from rocky.catalog import parse_models, pick_cast
 from rocky.config import (
     CONFIG_ENV,
@@ -94,8 +95,11 @@ COMMANDS_HELP = """commands:
   rocky doctor                     key, OpenRouter, folder, sandbox, browser, skills, models
   rocky serve [--host --port]      team web UI
   rocky route "goal"               only assess and pick models
+  rocky version                    show the installed version
   rocky help                       the full guide (docs/lt.md has the Lithuanian one)
 """
+
+VERSION_FLAGS = ("--version", "-V", "-v", "--v")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -108,9 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         command = "run"
         rest = argv
 
-    if argv and argv[0] in {"--version", "-V", "version"}:
-        from rocky import __version__
-
+    if argv and argv[0] in (*VERSION_FLAGS, "version"):
         sys.stdout.write(f"rocky {__version__}\n")
         return 0
 
@@ -121,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
         description="OpenRouter agent orchestrator: plan → work → verify, €1 cap by default.",
         epilog=COMMANDS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        *VERSION_FLAGS,
+        action="version",
+        version=f"rocky {__version__}",
+        help="Show the installed version and exit",
     )
     parser.add_argument("goal", nargs="*", help="What to accomplish, or a run id for attach / resume")
     parser.add_argument("-d", "--dir", default=".", help="Workspace folder")

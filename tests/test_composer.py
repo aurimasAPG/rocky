@@ -5,6 +5,7 @@ import pytest
 from textual import events
 from textual.widgets import Button, Input, Static
 
+from rocky import __version__
 from rocky import composer
 from rocky.composer import BriefArea, TaskComposer
 from rocky.drafts import TaskDraft, load_draft, save_draft
@@ -261,6 +262,8 @@ def test_editor_and_keyboard_actions_remain_reachable_at_small_sizes(tmp_path, s
         async with app.run_test(size=size) as pilot:
             brand = content(app, "#brand")
             assert "∩_____∩" in brand and "r o c k y" in brand and "the retriever" in brand
+            assert content(app, "#workspace").startswith(f"    v{__version__}  ·  Workspace: ")
+            assert app.query_one("#workspace").region.y == app.query_one("#brand").region.bottom
             assert str(tmp_path)[-15:] in content(app, "#workspace")
             assert len(content(app, "#workspace")) <= size[0] - 2
             assert app.query_one(BriefArea).region.height >= 5
@@ -297,6 +300,7 @@ def test_live_resize_updates_brand_and_keeps_error_actions_inside_the_terminal(t
                 await pilot.pause()
                 assert app.query_one("#brand").region.height == brand_height
                 assert ("What should Rocky deliver?" in content(app, "#brand")) == (brand_height == 6)
+                assert content(app, "#workspace").startswith(f"    v{__version__}  ·  Workspace: ")
                 assert app.query_one("#error").region.height == 3
                 assert app.query_one("#exit-unsaved", Button).display
                 assert app.query_one(BriefArea).region.height >= 4
