@@ -1,0 +1,39 @@
+Rocky UI/UX loop 2 — 2026-11-09
+
+Before editing, completed a real user task in Chrome: an 80-word reading-club
+invitation, run 20261109-051945-81ba9e. It passed, cost EUR 0.185, and produced
+reading-club.txt (528 bytes). Reviewed, copied, and downloaded the result;
+the download matched the workspace file. Then read CHANGELOG.md: Loop 1 covered
+result delivery and the integration entry covered compatibility and state fixes.
+
+Observed friction: the main panel said Working throughout the task. Understanding
+what was happening required reading model/tool logs below the fold.
+
+Change: a live task journey, with Understand / Plan / Create / Review stages,
+active and finished work steps, attempt count, plain-language current activity,
+and budget context. Engine phase events announce actual work starts. Full model,
+cost and activity logs remain available in a disclosure. Completed tasks retain
+the result-first delivery view; their journey can be reopened.
+
+Truthful-state rules: no guessed percentage or completion time; finished steps
+are not described as verified output; incomplete/aborted steps keep attention
+labels; terminal snapshots survive replay; reconnects ignore persisted SSE IDs
+already received; repeated questions retain drafts and accepted answers stay
+closed. Clarifications answered from another viewer also clear the waiting state.
+
+Live validation after implementation:
+- Submitted a new bookstore checklist through the UI (EUR 0.50 cap).
+- Run 20261109-053012-83a659 passed at EUR 0.147; launch-checklist.md, 629 bytes.
+- Observed Understand, Create, and Review stages during the live run. A trivial
+  plan is accurately labeled Simple task rather than a simulated planning delay.
+- Reopened the completed run from history; one work step remained finished.
+- Copied and downloaded the result; bytes matched the workspace file.
+- Reviewed 1280 x 900 desktop and 393 x 852 iPhone 16 emulation in Chrome.
+- Saved the live desktop screenshot as loop-2-desktop.png.
+- Console contained browser-extension messages and the existing favicon 404;
+  no application-script error was observed.
+
+Verification: 1,529 pytest tests passed on Python 3.11 and 3.13, including 35
+browser-script behavior cases and 13 pure journey-state cases. Syntax and diff
+checks passed. Wheel/sdist include all 80 runtime files; isolated regular wheel
+installation passed CLI, static, playbook, artifact/auth, ad-board and SSE smoke.

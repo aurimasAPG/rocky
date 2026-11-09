@@ -3,6 +3,9 @@ const BOARD_PATH = "deliverables/ads.html";
 
 let current = { id: null, workspace: "", source: null, running: false, meta: {} };
 let receipt = {};
+let displayedAsk = null;
+const answeredAsks = new Set();
+function askIdentity(ask) { return JSON.stringify([ask.ts, ask.question, ask.options]); }
 
 function token() {
   return $("token").value.trim();
@@ -65,7 +68,8 @@ function paintBill(p) {
   $("eur").textContent = `€${Number(p.eur || 0).toFixed(3)}`;
   $("cost-meter").textContent =
     `$${Number(p.usd || 0).toFixed(3)} · €${Number(p.eur || 0).toFixed(3)} · ${commas(p.total_tokens)} tok`;
-  $("delivery-cost").textContent = `€${Number(p.eur || 0).toFixed(3)} spent`;
+  const cap = current.meta.budget_eur;
+  $("delivery-cost").textContent = `€${Number(p.eur || 0).toFixed(3)}${cap ? ` of €${Number(cap).toFixed(2)}` : ""} spent`;
 }
 
 function workLine(text, cls) {
@@ -94,27 +98,39 @@ function setRunning(on) {
 }
 
 function showAsk(ask) {
+  if (TERMINAL_STATES.has(current.meta.status)) return;
+  const identity = askIdentity(ask);
+  if (answeredAsks.has(identity)) return;
   $("ask-form").classList.remove("hidden");
   $("ask-question").textContent = ask.question || "";
   const opts = ask.options || [];
   $("ask-options").textContent = opts.length ? opts.join("  ·  ") : "";
-  $("ask-input").value = "";
-  $("ask-input").focus();
+  if (displayedAsk !== identity) {
+    $("ask-input").value = "";
+    $("ask-input").focus();
+  }
+  displayedAsk = identity;
   $("delivery-status").textContent = "Needs your input";
 }
 
 function hideAsk() {
+  displayedAsk = null;
   $("ask-form").classList.add("hidden");
 }
 
 function handle(event) {
   let p = event.payload || {};
   const t = event.type;
-  if (t === "done") p = { ...current.meta, ...p };
+  if (t === "ask" && answeredAsks.has(askIdentity(p))) return;
+  if (t === "meta" && p.ask && answeredAsks.has(askIdentity(p.ask))) p = { ...p, ask: null };
+  if (t === "done") p = { ...current.meta, ...p, status: TERMINAL_STATES.has(current.meta.status)
+    ? current.meta.status : p.status || (p.passed ? "passed" : "unmet") };
+  updateJourney({ ...event, payload: p });
   if (t === "cost" || t === "done") paintBill(p);
   if (t === "run_started") {
-    current.meta = { ...current.meta, ...p, status: "running" };
-    $("status-meter").textContent = "running";
+    const status = TERMINAL_STATES.has(current.meta.status) ? current.meta.status : "running";
+    current.meta = { ...current.meta, ...p, status };
+    $("status-meter").textContent = OUTCOME_LABELS[status] || status;
     renderDelivery();
   }
   if (t === "meta") {
@@ -169,6 +185,14 @@ function handle(event) {
   if (t === "subtask_skipped") workLine(`skipped · ${p.title} (done in a previous run)`, "dim");
   if (t === "tool_call") { setActive("worker"); workLine(`→ ${p.name}${p.subtask ? " · " + p.subtask : ""}`); }
   if (t === "tool_result") workLine(`← ${String(p.result || "").split("\n")[0].slice(0, 180)}`, "dim");
+  if (t === "tool_result" && ["ask_user", "clarify"].includes(p.name)) {
+    if (displayedAsk) answeredAsks.add(displayedAsk);
+    hideAsk();
+    if (!TERMINAL_STATES.has(current.meta.status)) {
+      current.meta.status = "running";
+      renderDelivery();
+    }
+  }
   if (t === "nudge") workLine(`nudge · ${p.subtask} stopped without writing ${(p.missing || []).join(", ")}`, "warn");
   if (t === "subtask_incomplete") workLine(`incomplete · ${p.title} never wrote ${(p.missing || []).join(", ")}`, "warn");
   if (t === "compact") workLine(`compact · ${p.subtask} · ${p.before_tokens} → ${p.after_tokens} tokens`, "dim");
@@ -272,7 +296,9 @@ function clearBoard() {
   $("work-log").innerHTML = "";
   $("verify-log").innerHTML = "";
   hideAsk();
+  answeredAsks.clear();
   resetDelivery();
+  resetJourney();
   receipt = {};
   setActive(null);
   ["critic", "planner", "worker", "verifier"].forEach((role) => {
@@ -290,6 +316,8 @@ function listen(id, workspace) {
   current = { id, workspace, source: null, running: true, meta: {} };
   rememberToken();
   const es = new EventSource(`/api/runs/${encodeURIComponent(id)}/events?workspace=${encodeURIComponent(workspace)}`);
+  let lastEvent = 0;
+  let streamSeen = false;
   current.source = es;
   setRunning(true);
   $("run-id").textContent = id;
@@ -297,16 +325,26 @@ function listen(id, workspace) {
   renderDelivery();
   $("handover").scrollIntoView({ block: "start" });
   api(`/api/runs/${encodeURIComponent(id)}?workspace=${encodeURIComponent(workspace)}`).then((meta) => {
+    // The initial request may predate a streamed question or an answer sent here.
+    if (streamSeen && !TERMINAL_STATES.has(meta.status)) { meta = { ...meta }; delete meta.ask; }
     if (current.source === es) handle({ type: "meta", payload: meta });
   }).catch((err) => {
     if (current.source === es) $("delivery-summary").textContent = `Could not load task details: ${err.message}`;
   });
   es.onmessage = (msg) => {
     if (current.source !== es) return;
-    try { handle(JSON.parse(msg.data)); } catch { /* ignore keepalives */ }
+    const sequence = /^\d+$/.test(msg.lastEventId || "") ? Number(msg.lastEventId) : 0;
+    if (sequence && sequence <= lastEvent) return;
+    try {
+      const event = JSON.parse(msg.data);
+      streamSeen = true;
+      if (sequence) lastEvent = sequence;
+      handle(event);
+    } catch { /* ignore keepalives */ }
   };
+  es.onopen = () => { if (current.source === es) setJourneyConnection(false); };
   es.addEventListener("end", () => { es.close(); if (current.source === es) setRunning(false); });
-  es.onerror = () => { /* browser retries; the stream ends itself when the run is over */ };
+  es.onerror = () => { if (current.source === es) setJourneyConnection(true); };
 }
 
 async function refreshRuns() {
@@ -382,11 +420,14 @@ $("ask-form").addEventListener("submit", async (ev) => {
   if (!current.id) return;
   const text = $("ask-input").value.trim();
   const identity = runIdentity();
+  const question = displayedAsk;
   try {
     await api(`/api/runs/${encodeURIComponent(current.id)}/answer`, { method: "POST", body: JSON.stringify({ workspace: current.workspace, text }) });
     if (identity !== runIdentity()) return;
+    if (question) answeredAsks.add(question);
     workLine(`answer · ${text}`);
     hideAsk();
+    updateJourney({ type: "answer_sent" });
     if (!TERMINAL_STATES.has(current.meta.status)) {
       current.meta.status = "running";
       renderDelivery();

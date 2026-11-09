@@ -401,12 +401,15 @@ def stream_events(run_id: str, request: Request, workspace: str = ""):
 
     def gen():
         cursor = EventCursor(folder / "events.jsonl")
+        # Replay from the start with stable IDs; clients can ignore IDs already seen.
+        sequence = 0
         asked_ts = None
         idle = 0.0
         while True:
             events = cursor.poll()
             for event in events:
-                yield f"data: {json.dumps(event.as_dict(), ensure_ascii=False)}\n\n"
+                sequence += 1
+                yield f"id: {sequence}\ndata: {json.dumps(event.as_dict(), ensure_ascii=False)}\n\n"
             try:
                 meta = refresh_meta(folder)
             except FileNotFoundError:
@@ -415,11 +418,13 @@ def stream_events(run_id: str, request: Request, workspace: str = ""):
             ask = read_ask(folder)
             if ask and ask.get("ts") != asked_ts:
                 asked_ts = ask.get("ts")
-                yield f"data: {json.dumps({'type': 'ask', 'payload': ask, 'ts': ask.get('ts')}, ensure_ascii=False)}\n\n"
+                # Synthetic snapshots must not inherit the last persisted event ID.
+                yield f"id:\ndata: {json.dumps({'type': 'ask', 'payload': ask, 'ts': ask.get('ts')}, ensure_ascii=False)}\n\n"
             if str(meta.get("status") or "") in TERMINAL:
                 for event in cursor.poll():
-                    yield f"data: {json.dumps(event.as_dict(), ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'type': 'meta', 'payload': _row(meta), 'ts': ''}, ensure_ascii=False)}\n\n"
+                    sequence += 1
+                    yield f"id: {sequence}\ndata: {json.dumps(event.as_dict(), ensure_ascii=False)}\n\n"
+                yield f"id:\ndata: {json.dumps({'type': 'meta', 'payload': _row(meta), 'ts': ''}, ensure_ascii=False)}\n\n"
                 yield "event: end\ndata: {}\n\n"
                 return
             if events:

@@ -368,6 +368,7 @@ def orchestrate(
     else:
         # Cheap default cast for assess model id; refine after assessment.
         draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
+        fire("phase", stage="assessing")
         assess_raw = _chat(
             client,
             model=draft.assess,
@@ -449,6 +450,7 @@ def orchestrate(
         if not plan.get("deliverable_path"):
             plan["deliverable_path"] = assessment.get("deliverable") or f"{DELIVERABLES_DIR}/output.md"
         if resume.get("replan") and is_board(plan) and resume.get("follow_up"):
+            fire("phase", stage="planning")
             plan = fix_plan(plan, str(resume["follow_up"]))
             fire("plan", resumed=True, **plan)
         elif resume.get("replan"):
@@ -472,6 +474,7 @@ def orchestrate(
         # One short step: no critic, no planner. Straight to a worker and the verifier.
         critique = _trivial_critique(goal, assessment)
         fire("critique", **critique)
+        fire("phase", stage="planning")
         plan = _trivial_plan(goal, assessment)
         fire("plan", **plan)
     else:
@@ -535,6 +538,7 @@ def orchestrate(
             fire("budget", cap=round(usd_cap, 3), receipt=format_receipt(tally, rate), **tally.payload(rate))
             break
         fire("loop", n=loops, max=max_loops)
+        fire("phase", stage="working", loop=loops, max=max_loops)
         worker_summary, completed_steps = _run_subagents(
             client=client,
             model=worker_model,
@@ -571,6 +575,7 @@ def orchestrate(
             )
             break
         try:
+            fire("phase", stage="verifying", loop=loops, max=max_loops)
             verify = _verify(
                 client,
                 cast.verifier,
@@ -1009,6 +1014,7 @@ PROPORTIONATE_BAR = (
 
 
 def _critique(client, model, goal, assessment, spend, fire, memory_snapshot: str = "", budget_eur: float = 0.0) -> dict:
+    fire("phase", stage="planning")
     completion = _chat(
         client,
         model=model,
@@ -1106,6 +1112,7 @@ def _make_plan(
     """The plan. On a revision ``pinned_deliverable`` is the path from the previous
     plan and it is kept: a replan may change the steps, never the file the
     user will be handed (a rename between loops has lost a finished result)."""
+    fire("phase", stage="planning")
     listing = ""
     try:
         listing = WorkspaceTools(workspace).list_dir(".")
@@ -1554,7 +1561,8 @@ def _run_subtask(
         )
         fire("subtask_incomplete", id=step.get("id"), title=step.get("title"), missing=missing)
     done = bool(expected) and not missing and not aborted and bool(last_text)
-    fire("subtask_done", id=step.get("id"), title=step.get("title"), text=(last_text or "")[:2000])
+    fire("subtask_done", id=step.get("id"), title=step.get("title"), text=(last_text or "")[:2000],
+         completed=done, aborted=aborted)
     if last_text:
         fire("worker", text=last_text[:4000], subtask=step.get("title"))
     return f"{step.get('title')}: {last_text[:WORKER_SUMMARY_CHARS]}", done

@@ -44,8 +44,9 @@ function renderDelivery() {
     : "Working on your result";
   $("selected-goal").textContent = meta.goal || "Loading task…";
   $("delivery-status").textContent = OUTCOME_LABELS[status] || status;
-  $("delivery-summary").textContent = finished ? (meta.summary || "") : "Rocky is working in your workspace. Saved files will appear here when the run ends.";
-  $("delivery-review").open = !finished || !meta.passed;
+  $("delivery-summary").textContent = finished ? (meta.summary || "") : "";
+  $("delivery-review").classList.toggle("hidden", !finished);
+  $("delivery-review").open = finished && !meta.passed;
   $("delivery-workspace").textContent = current.workspace;
   $("new-task").textContent = finished ? "New task" : "View task";
   const notes = meta.notes || [];
@@ -56,6 +57,7 @@ function renderDelivery() {
     $("delivery-notes").appendChild(li);
   });
   $("delivery-notes").classList.toggle("hidden", !notes.length);
+  renderJourney();
 }
 
 function artifactUrl(path, download = false) {
