@@ -1,6 +1,6 @@
 # Rocky — kaip naudotis
 
-Rocky — „OpenRouter“ **agentų orkestratorius**. Duodi tikslą ir katalogą. Jis iš gyvo modelių katalogo parenka modelius, suskaido darbą, naudoja įrankius ir patikrina rezultatą. Numatytosios išlaidų lubos — **1 EUR vienam paleidimui**.
+Rocky — „OpenRouter“ **agentas**. Duodi tikslą ir katalogą. Vienas modelis atlieka visą darbą nuo užduoties iki galutinio failo: perskaito, kas yra, naudoja įrankius ir patikrina rezultatą. Numatytosios išlaidų lubos — **1 EUR vienam paleidimui**.
 
 Komanda — `rocky`.
 
@@ -112,8 +112,9 @@ rocky help
 | --- | --- | --- |
 | `-d`, `--dir` | dabartinis katalogas | Darbo katalogas. Failų įrankiai gali liesti tik failus jame. |
 | `--budget` | `1.00` | Šio paleidimo lubos **eurais**. `resume` be šio parametro palieka senojo paleidimo lubas. |
-| `--max-loops` | `4` | Ciklų planas → darbas → tikrinimas skaičius. |
+| `--max-loops` | `4` | Darbo ir peržiūros ciklų skaičius (agento paleidimas sustoja ties 3). |
 | `--model` | katalogo numatytasis | Šio paleidimo darbuotojo modelis („OpenRouter“ ID, pvz. `deepseek/deepseek-v4.1-flash`). Tas pats kaip `ROCKY_WORKER`. |
+| `--mode` | `agent` | `agent`: vienas modelis atlieka visą darbą viename pokalbyje. `orchestrate`: senesnis kelias su planuotoju, atskirais žingsnių vykdytojais ir tikrintoju. Tas pats, kas `ROCKY_MODE` arba `mode` konfigūracijos faile. |
 | `--lang` | užduoties kalba | Galutinį failą rašyti šia kalba (`lt`, `en`, …), kad ir kokia kalba parašyta užduotis. Tas pats kaip `ROCKY_LANGUAGE`. |
 | `--no-server-tools` | išjungta | Nenaudoti „OpenRouter“ serverio interneto įrankių. |
 | `--host` / `--port` | `127.0.0.1` `8787` | Tik `serve`. |
@@ -141,6 +142,8 @@ Kiti raktai: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `
 ---
 
 ## 5. Kas vyksta paleidus
+
+Numatytasis paleidimas yra **vienas agentas viename pokalbyje**. Jis gauna tikslą, užduoties aprašą, įrankių taisykles, įgūdžius, o kai tikslas atitinka receptą – to recepto žingsnius kaip kontrolinį sąrašą. Dirba ėjimas po ėjimo su tais pačiais įrankiais, biudžeto lubomis, glaudinimu ir pasikartojimų sargu, aprašytais žemiau, ir darbą baigia iškviesdamas `done` su galutinio failo keliu ir trumpa santrauka. Jei reikiamo failo nėra, `done` pasako kurio, ir agentas dirba toliau. Ėjimas be įrankio kvietimo darbą baigia taip pat. Vienam tikslui skiriama iki 80 ėjimų, o jei riba ateina anksčiau nei failai – dar vienas ėjimas tik rašymui. Kai peržiūra rezultatą grąžina, agentas jį taiso tame pačiame pokalbyje, todėl vis dar turi viską, ką perskaitė. Žemiau sunumeruotas sąrašas aprašo senesnį kelią, kurį vis dar paleidžia `--mode orchestrate`.
 
 1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas ir užduoties **kalba** (`lt`, `en`, …; jei modelis nenurodo, ją nustato euristika). Kiekvienam tolesniam vaidmeniui liepiama galutinį failą, santraukas, pastabas ir bet kokį klausimą tau rašyti ta kalba, nebent užduotis prašo kitos — lietuviška užduotis gauna lietuvišką failą, o ne tą kalbą tikrintojas laiko blokuojančiu trūkumu. Biudžeto klausimas lietuviškoms užduotims užduodamas lietuviškai (`taip` / `ne` / skaičius).
 2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).

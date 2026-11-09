@@ -36,6 +36,7 @@ _TOOL_VERB = {
     "list_dir": "listing",
     "bash": "running",
     "todo": "tracking",
+    "done": "finishing",
     "memory": "remembering",
     "brief": "reading the brief",
     "runs_search": "recalling",

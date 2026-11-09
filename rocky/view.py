@@ -116,6 +116,7 @@ def render_event(event: Event) -> None:
         body = "\n".join(
             f"[bold]{role}[/]  {models.get(role)}\n[dim]{reasons.get(role, '')}[/]"
             for role in ("critic", "planner", "worker", "verifier")
+            if models.get(role)
         )
         console.print(Panel(body, title="cast", border_style=f"#{CORAL}"))
         return

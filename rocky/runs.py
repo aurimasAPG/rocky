@@ -334,6 +334,8 @@ def load_resume_state(folder: Path, follow_up: str = "") -> dict[str, Any]:
         elif event.type == "plan":
             state["plan"] = dict(p)
             done, incomplete, judged = [], set(), False
+        elif event.type == "deliverable" and state["plan"] is not None:
+            state["plan"]["deliverable_path"] = p.get("path")
         elif event.type == "verify":
             state["verify"] = dict(p)
             judged = True

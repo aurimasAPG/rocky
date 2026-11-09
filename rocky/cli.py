@@ -13,6 +13,7 @@ from rocky.catalog import parse_models, pick_cast
 from rocky.config import (
     CONFIG_ENV,
     CONFIG_FLAGS,
+    RUN_MODES,
     api_key,
     apply_config,
     base_url,
@@ -20,6 +21,7 @@ from rocky.config import (
     forced_language,
     home_env_path,
     preferred_worker,
+    run_mode,
     save_api_key,
 )
 from rocky.job import spawn_worker
@@ -120,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="rocky",
         add_help=True,
         usage="rocky [goal] | rocky <command> [args] [options]",
-        description="OpenRouter agent orchestrator: plan → work → verify, €1 cap by default.",
+        description="OpenRouter agent: one model takes a goal to a finished file, €1 cap by default.",
         epilog=COMMANDS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -141,6 +143,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-loops", type=int, default=None, dest="max_loops")
     parser.add_argument("--model", default="", help="Worker model for this run (OpenRouter id), e.g. deepseek/deepseek-v4.1-flash")
+    parser.add_argument(
+        "--mode",
+        choices=RUN_MODES,
+        default="",
+        help="agent: one model does the whole job (default). orchestrate: planner, step workers and a verifier",
+    )
     parser.add_argument("--lang", default="", help="Write the deliverable in this language (lt, en, …) instead of the goal's")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
@@ -165,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
         args.max_loops = int(_config_number(cfg, "max_loops", 4))
     if args.model.strip():
         os.environ["ROCKY_WORKER"] = args.model.strip()
+    if args.mode:
+        os.environ["ROCKY_MODE"] = args.mode
     if args.lang.strip():
         os.environ["ROCKY_LANGUAGE"] = args.lang.strip().lower()
     goal = " ".join(args.goal).strip()
@@ -402,6 +412,7 @@ budget = 3.0                     # EUR cap per run (--budget wins)
 max_loops = 4
 worker = "google/gemini-3.8-flash"   # OpenRouter id (--model wins)
 language = "lt"                  # force the deliverable language (--lang wins); omit to follow the goal
+# mode = "orchestrate"           # agent is the default (--mode wins)
 sandbox = "sandbox-exec"         # macOS; "docker" or "none"
 # token = "team-secret"          # rocky serve
 # workspaces = ["/Users/me/projects"]
@@ -415,7 +426,7 @@ def _config(workspace: Path, cfg: dict, args) -> int:
         console.print(f"{mark} {path}")
     console.print(
         f"[bold]effective[/]  budget €{float(args.budget):.2f}  ·  max_loops {int(args.max_loops)}  ·  "
-        f"worker {preferred_worker() or 'catalog default'}  ·  language {forced_language() or 'from the goal'}"
+        f"worker {preferred_worker() or 'catalog default'}  ·  language {forced_language() or 'from the goal'}  ·  mode {run_mode()}"
     )
     extra = {k: v for k, v in cfg.items() if k not in CONFIG_FLAGS and k not in CONFIG_ENV}
     if extra:

@@ -261,10 +261,10 @@ class RockyTui(App):
         if kind == "cast":
             models = payload.get("models") or {}
             self.query_one("#cast", Static).update(
-                f"critic   {models.get('critic')}\n"
-                f"planner  {models.get('planner')}\n"
-                f"worker   {models.get('worker')}\n"
-                f"verify   {models.get('verifier')}"
+                f"critic   {models.get('critic') or '—'}\n"
+                f"planner  {models.get('planner') or '—'}\n"
+                f"worker   {models.get('worker') or '—'}\n"
+                f"verify   {models.get('verifier') or '—'}"
             )
             return
         if kind == "critique":

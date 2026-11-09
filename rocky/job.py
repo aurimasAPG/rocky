@@ -6,7 +6,8 @@ import sys
 import time
 from pathlib import Path
 
-from rocky.config import api_key, base_url
+from rocky.agent import run_agent
+from rocky.config import api_key, base_url, run_mode
 from rocky.engine import orchestrate
 from rocky.events import Event
 from rocky.llm import OpenRouterClient
@@ -99,7 +100,8 @@ def run_worker(run_id: str, workspace: str | Path) -> int:
 
     client = OpenRouterClient(key, base_url())
     try:
-        result = orchestrate(
+        runner = orchestrate if run_mode() == "orchestrate" else run_agent
+        result = runner(
             goal=str(meta["goal"]),
             workspace=str(meta["workspace"]),
             client=client,

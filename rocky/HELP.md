@@ -1,6 +1,6 @@
 # Rocky — how to use it
 
-Rocky is an OpenRouter **agent orchestrator**. You give it a goal and a folder. It picks models from the live catalog, splits the work, uses tools, and checks the result. The default money cap is **€1 per run**.
+Rocky is an OpenRouter **agent**. You give it a goal and a folder. One model takes the whole job from the brief to a finished file: it reads what is there, uses tools, and checks the result. The default money cap is **€1 per run**.
 
 The command is `rocky`.
 
@@ -111,8 +111,9 @@ rocky help
 | --- | --- | --- |
 | `-d`, `--dir` | current directory | Workspace folder. File tools may only touch files inside it. |
 | `--budget` | `1.00` | Max **EUR** for this run. |
-| `--max-loops` | `4` | Plan → work → verify cycles. |
+| `--max-loops` | `4` | Work and review cycles (an agent run stops at 3). |
 | `--model` | catalog default | Worker model for this run (an OpenRouter id such as `deepseek/deepseek-v4.1-flash`). Same as `ROCKY_WORKER`. |
+| `--mode` | `agent` | `agent`: one model does the whole job in one conversation. `orchestrate`: the older planner, step workers and separate verifier. Same as `ROCKY_MODE`, or `mode` in the config file. |
 | `--lang` | the goal's language | Write the deliverable in this language (`lt`, `en`, …) whatever the goal is written in. Same as `ROCKY_LANGUAGE`. |
 | `--no-server-tools` | off | Do not use OpenRouter server-side web tools. |
 | `--host` / `--port` | `127.0.0.1` `8787` | For `serve` only. |
@@ -140,6 +141,8 @@ Other keys: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `b
 ---
 
 ## 5. What happens on a run
+
+A run is **one agent in one conversation** by default. It gets the goal, the brief, the tool rules, the skills and, when the goal matches a recipe, that recipe's steps as a checklist. It works turn by turn with the same tools, budget cap, compaction and repeat guard described below, and ends the work by calling `done` with the deliverable's path and a short summary. If a required file is missing, `done` says which and the agent keeps working. A turn with no tool call ends the work the same way. A goal is capped at 80 turns, with one writing-only pass if the cap arrives before the files do. When a review sends the result back, the agent fixes it in the same conversation, so it still has everything it read. The numbered list below is the older path, which `--mode orchestrate` still runs.
 
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable, and the **language** of the goal (`lt`, `en`, …; a heuristic fills it in if the model does not). Every later role is told to write the deliverable, summaries, notes, and any question to you in that language unless the goal asks for another — a Lithuanian brief gets a Lithuanian file, and the verifier treats the wrong language as blocking. The budget question comes in Lithuanian for Lithuanian goals (`taip` / `ne` / a number).
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).

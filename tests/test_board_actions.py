@@ -167,7 +167,7 @@ def test_the_job_passes_the_instruction_to_a_resumed_run(tmp_path, monkeypatch):
         seen.update(kwargs)
         return Done()
 
-    monkeypatch.setattr("rocky.job.orchestrate", fake)
+    monkeypatch.setattr("rocky.job.run_agent", fake)
     monkeypatch.setattr("rocky.job.api_key", lambda: "k")
     run_worker(meta["id"], tmp_path)
     assert seen["resume"]["follow_up"] == "make it shorter"

@@ -20,6 +20,7 @@ def load_env() -> None:
 # The environment (and .env) wins over the file; the file wins over built-in defaults.
 CONFIG_ENV = {
     "worker": "ROCKY_WORKER",
+    "mode": "ROCKY_MODE",
     "image_model": "ROCKY_IMAGE_MODEL",
     "language": "ROCKY_LANGUAGE",
     "sandbox": "ROCKY_SANDBOX",
@@ -102,6 +103,16 @@ def preferred_worker() -> str | None:
     load_env()
     raw = (os.environ.get("ROCKY_WORKER") or "").strip()
     return raw or None
+
+
+RUN_MODES = ("agent", "orchestrate")
+
+
+def run_mode() -> str:
+    """`agent` (one model, one conversation; the default) or `orchestrate` (planner, step workers, verifier)."""
+    load_env()
+    raw = (os.environ.get("ROCKY_MODE") or "").strip().lower()
+    return raw if raw in RUN_MODES else RUN_MODES[0]
 
 
 def rocky_home() -> Path:

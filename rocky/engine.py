@@ -76,6 +76,68 @@ LAYOUT_RULE = (
     f"final deliverables — what the user asked for — go under {DELIVERABLES_DIR}/; "
     "nothing is written to the workspace root unless the user names a root path. "
 )
+# What every working model is told about the tools; shared by the step workers and the agent.
+TOOL_RULES = (
+    "Margins, break-even, discounts and promotions go through unit_economics; anything per customer over time — "
+    "CLV, CAC, payback, churn, subscriptions, returns, channel ROI — goes through customer_economics; "
+    "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
+    "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan; a finished test is read out with its mode evaluate, never by comparing two percentages by eye. "
+    "A CSV or XLSX of campaign, order or event data goes through funnel_analyze (stages) or repeat_buying "
+    "(loyalty, cohorts, penetration, duplication, spikes) or table_analyze (any other count, share, mean, "
+    "crosstab, before/after, period comparison or theme count); never read its percentages by eye. "
+    "A channel comparison or combined reach goes through reach_overlap; a media budget, share of voice, offer comparison, "
+    "flight calendar or spend classification goes through media_plan; never add reaches or budgets up yourself. "
+    "Referral loops, adoption forecasts, sampling or seeding arms, commission plans, site catchments, account penetration, "
+    "mental availability, benchmark fit and respondent coverage go through campaign_calc. "
+    "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
+    "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
+    "A cohort against the rest, a change's impact on a series, spend against sales, price or promo response, basket attach, buyer frequency, panel shares, a survey tally, brand recall, keyword demand, page breadth, test-market matching, ESOV campaigns, a session log or a customer-file audit are table_analyze ops on the marketer's own file, never figures typed from memory. "
+    "Unsold capacity by time band, total cost of ownership, trial-vs-refund or referral offers, a new line against a repositioning, retail and channel arithmetic (bulk, waterfall, shelf, coupon, payment terms, GMROI), media money against its return and route scoring are unit_economics blocks, never prose. "
+    "Willingness-to-pay answers, a concept test readout, a test-market plan, a conjoint or choice study, a recruit screener and every creative test design (holdout, copy test, diff-in-diff, crossover, portfolio, factorial, stated vs observed) go through experiment_plan with the matching mode. "
+    "A name's spellings, brand mentions, a shop's delivery or returns policy, directory listings, search intent, orphan pages, "
+    "ranking competitors, link prospects, locale formats, a press kit or email authentication headers go through web_check. "
+    "A content calendar, press release, message house, demo plan, escalation matrix, partner programme, qualification sheet "
+    "or community rules goes through plan_check before it reaches the deliverable; a positioning statement or ad can be read "
+    "by a cold reader with plan_check retell or ad_pretest. "
+    "Survey or interview questions go through survey_check before they reach the deliverable; outcome statements and "
+    "importance/satisfaction scores through outcome_scores; a concept test or criteria survey is designed with research_plan. "
+    "Before you hand over a draft that states numbers, rankings or credentials, run claim_check on it; fix or remove what comes back unsupported. "
+)
+CRAFT_RULES = (
+    "Prefer patch for small file edits, write_file for new files; a long document goes in parts — "
+    "write_file the first part (under ~8000 characters), append_file the rest. "
+    "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
+    "Use todo to track steps. Use vision_analyze to look at images, image_generate to make them "
+    "(ad visuals, hero images — PNG into deliverables/; write a one-line brief per image first). "
+    "Use clarify only when you cannot proceed without the human — and before that call brief (action=get): "
+    "use the field if the brief has it, ask only for what missing_for lists. Record a field you learn with brief set "
+    "(with evidence) and a spending recommendation with brief decision. "
+    "If a step names a skill, skill_view it first "
+    "(deep-research, marketing-pipeline, voc-to-copy, copywriting, pptx, xlsx, …). "
+    "For .xlsx .docx .pptx .pdf: skills_list then skill_view, then bash with openpyxl/python-docx/python-pptx/pypdf/reportlab — "
+    "the `python3` on PATH already has them; never create or replace virtual environments (uv venv, uv run --python, python -m venv). "
+    "Never write_file those binaries. Use office_read to inspect them. "
+)
+MEMORY_RULES = (
+    "Continue prior workspace work from MEMORY and RECENT RUNS. "
+    "After learning a durable fact (path, convention, preference), call memory. "
+    "Use runs_search if the user points at older work. "
+    "If this kind of deliverable will recur and no recipe covers it, propose one with the recipe tool (action=save)."
+)
+# How a finished result is judged, by the verifier and by the agent's self-review.
+VERIFY_RUBRIC = (
+    "Sort what you find into two lists. blocking: defects that make the deliverable unusable for the goal "
+    "as written — the file is missing or empty, wrong language, wrong format, a required part absent, "
+    "core content wrong or invented. issues: everything else — polish, style, headings, missing citations "
+    "the user never asked for, extra rigor. passed=true when the deliverable exists and blocking is empty; "
+    "issues alone never fail a run, they are handed to the user as notes. "
+    "Judge against the goal the user wrote, not against a stricter reading of it. "
+    "usable=true when the deliverable exists and a person could use it for the goal after fixing the "
+    "blocking items themselves in under an hour; false when it has to be redone. "
+    "score is the share of the goal delivered: 1.0 every criterion met; 0.7–0.9 usable with notes; "
+    "0.4–0.6 a major part missing or wrong; below 0.3 only when nothing usable exists. A complete "
+    "package with one wrong claim is 0.6–0.8, never 0. "
+)
 # Warn once when this share of the cap is gone and the deliverable is still not on disk.
 HALF_SPEND = 0.5
 # After the last loop, a failed verdict at or above this score with the deliverable on disk
@@ -366,52 +428,7 @@ def orchestrate(
         )
         fire("assessed", resumed=True, **{k: assessment[k] for k in assessment})
     else:
-        # Cheap default cast for assess model id; refine after assessment.
-        draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
-        fire("phase", stage="assessing")
-        assess_raw = _chat(
-            client,
-            model=draft.assess,
-            system=(
-                "You assess tasks for Rocky. "
-                "Return JSON only. Judge complexity honestly. "
-                "trivial = one short step or one short writing deliverable; moderate = several distinct phases or sources; "
-                "hard = research, code, or multi-file work. Do not mark a short rewrite, summary, or article moderate just because it needs a file. "
-                "domain: code | research | writing | marketing | ops | mixed. "
-                "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO. "
-                f"deliverable = the final file's path under {DELIVERABLES_DIR}/ (e.g. {DELIVERABLES_DIR}/summary.md) "
-                "unless the user named a path. "
-                "language = ISO 639-1 code of the language the instruction is written in."
-            ),
-            user=_assess_user(goal, workspace_path),
-            json_schema=ASSESS_SCHEMA,
-        )
-        spend(assess_raw, "assess")
-        assessment = _safe_json(
-            assess_raw.content,
-            {
-                "goal": goal,
-                "complexity": "moderate",
-                "domain": "mixed",
-                "success_criteria": ["The user's request is fully completed."],
-                "needs_web": True,
-                "deliverable": f"{DELIVERABLES_DIR}/output.md",
-            },
-        )
-        assessment["goal"] = assessment.get("goal") or goal
-        assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
-        assessment["language"] = _language_for(goal, assessment)
-        if _is_trivial(assessment):
-            # An ad goal needs the recipe's facts and visuals; the trivial path has one step and no recipe.
-            matched = find_recipe(goal, assessment, load_recipes(workspace_path))
-            if matched is not None and matched.deliverable_path == BOARD_PATH:
-                assessment["complexity"] = "moderate"
-        base_eur = estimate_run_eur(assessment, goal)
-        factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
-        estimate_eur = round(base_eur * factor, 2)
-        assessment["estimated_eur"] = estimate_eur
-        assessment["estimate_base_eur"] = base_eur
-        assessment["calibration"] = {"factor": factor, "samples": samples}
+        assessment, estimate_eur = assess_with_model(client, models, goal, workspace_path, spend, fire)
         fire("assessed", **{k: assessment[k] for k in assessment})
 
     budget_eur = float(budget_eur if budget is None else eur_from_usd(usd_cap, rate))
@@ -715,6 +732,63 @@ def orchestrate(
         deliverable_exists=handover["deliverable_exists"],
         files=list(handover["files"]),
     )
+
+
+def assess_with_model(client, models, goal: str, workspace_path: Path, spend, fire) -> tuple[dict, float]:
+    """The cheap assessor call: complexity, domain, deliverable, language, and the cost estimate."""
+    # Cheap default cast for assess model id; refine after assessment.
+    draft = pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker())
+    fire("phase", stage="assessing")
+    assess_raw = _chat(
+        client,
+        model=draft.assess,
+        system=(
+            "You assess tasks for Rocky. "
+            "Return JSON only. Judge complexity honestly. "
+            "trivial = one short step or one short writing deliverable; moderate = several distinct phases or sources; "
+            "hard = research, code, or multi-file work. Do not mark a short rewrite, summary, or article moderate just because it needs a file. "
+            "domain: code | research | writing | marketing | ops | mixed. "
+            "marketing = ads, copy, campaigns, landing pages, VOC, SEO, CRO. "
+            f"deliverable = the final file's path under {DELIVERABLES_DIR}/ (e.g. {DELIVERABLES_DIR}/summary.md) "
+            "unless the user named a path. "
+            "language = ISO 639-1 code of the language the instruction is written in."
+        ),
+        user=_assess_user(goal, workspace_path),
+        json_schema=ASSESS_SCHEMA,
+    )
+    spend(assess_raw, "assess")
+    assessment = _safe_json(
+        assess_raw.content,
+        {
+            "goal": goal,
+            "complexity": "moderate",
+            "domain": "mixed",
+            "success_criteria": ["The user's request is fully completed."],
+            "needs_web": True,
+            "deliverable": f"{DELIVERABLES_DIR}/output.md",
+        },
+    )
+    assessment["goal"] = assessment.get("goal") or goal
+    assessment["deliverable"] = place_deliverable(str(assessment.get("deliverable") or ""))
+    assessment["language"] = _language_for(goal, assessment)
+    if _is_trivial(assessment):
+        # An ad goal needs the recipe's facts and visuals; the trivial path has one step and no recipe.
+        matched = find_recipe(goal, assessment, load_recipes(workspace_path))
+        if matched is not None and matched.deliverable_path == BOARD_PATH:
+            assessment["complexity"] = "moderate"
+    estimate_eur = calibrated_estimate(assessment, goal, workspace_path)
+    return assessment, estimate_eur
+
+
+def calibrated_estimate(assessment: dict, goal: str, workspace_path: Path) -> float:
+    """The table estimate scaled by what this folder actually paid; recorded on the assessment."""
+    base_eur = estimate_run_eur(assessment, goal)
+    factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
+    estimate_eur = round(base_eur * factor, 2)
+    assessment["estimated_eur"] = estimate_eur
+    assessment["estimate_base_eur"] = base_eur
+    assessment["calibration"] = {"factor": factor, "samples": samples}
+    return estimate_eur
 
 
 def _handover(plan: dict, assessment: dict, tools: WorkspaceTools) -> dict[str, Any]:
@@ -1332,51 +1406,13 @@ def _run_subtask(
             "role": "system",
             "content": _with_memory(
                 "You execute this subtask only. You are a Rocky worker. Stay inside the workspace. "
-                "Margins, break-even, discounts and promotions go through unit_economics; anything per customer over time — "
-                "CLV, CAC, payback, churn, subscriptions, returns, channel ROI — goes through customer_economics; "
-                "never do that arithmetic in prose, and when it reports a missing input ask with clarify or state the assumption. "
-                "Any proposed A/B test gets its sample size, duration and decision rule from experiment_plan; a finished test is read out with its mode evaluate, never by comparing two percentages by eye. "
-                "A CSV or XLSX of campaign, order or event data goes through funnel_analyze (stages) or repeat_buying "
-                "(loyalty, cohorts, penetration, duplication, spikes) or table_analyze (any other count, share, mean, "
-                "crosstab, before/after, period comparison or theme count); never read its percentages by eye. "
-                "A channel comparison or combined reach goes through reach_overlap; a media budget, share of voice, offer comparison, "
-                "flight calendar or spend classification goes through media_plan; never add reaches or budgets up yourself. "
-                "Referral loops, adoption forecasts, sampling or seeding arms, commission plans, site catchments, account penetration, "
-                "mental availability, benchmark fit and respondent coverage go through campaign_calc. "
-                "Every ad or email that links to a page is checked against that page with page_inspect before you hand over; fix its blocks. "
-                "SEO, titles, URLs, robots, sitemaps, structured data, rankings and search-term exports go through seo_inspect, never by eye. "
-                "A cohort against the rest, a change's impact on a series, spend against sales, price or promo response, basket attach, buyer frequency, panel shares, a survey tally, brand recall, keyword demand, page breadth, test-market matching, ESOV campaigns, a session log or a customer-file audit are table_analyze ops on the marketer's own file, never figures typed from memory. "
-                "Unsold capacity by time band, total cost of ownership, trial-vs-refund or referral offers, a new line against a repositioning, retail and channel arithmetic (bulk, waterfall, shelf, coupon, payment terms, GMROI), media money against its return and route scoring are unit_economics blocks, never prose. "
-                "Willingness-to-pay answers, a concept test readout, a test-market plan, a conjoint or choice study, a recruit screener and every creative test design (holdout, copy test, diff-in-diff, crossover, portfolio, factorial, stated vs observed) go through experiment_plan with the matching mode. "
-                "A name's spellings, brand mentions, a shop's delivery or returns policy, directory listings, search intent, orphan pages, "
-                "ranking competitors, link prospects, locale formats, a press kit or email authentication headers go through web_check. "
-                "A content calendar, press release, message house, demo plan, escalation matrix, partner programme, qualification sheet "
-                "or community rules goes through plan_check before it reaches the deliverable; a positioning statement or ad can be read "
-                "by a cold reader with plan_check retell or ad_pretest. "
-                "Survey or interview questions go through survey_check before they reach the deliverable; outcome statements and "
-                "importance/satisfaction scores through outcome_scores; a concept test or criteria survey is designed with research_plan. "
-                "Before you hand over a draft that states numbers, rankings or credentials, run claim_check on it; fix or remove what comes back unsupported. "
+                + TOOL_RULES
                 + language_rule(str(assessment.get("language") or "en"), "worker") +
                 "Do not do other workers' jobs. Use tools until YOUR step is done. "
-                + LAYOUT_RULE +
-                "Prefer patch for small file edits, write_file for new files; a long document goes in parts — "
-                "write_file the first part (under ~8000 characters), append_file the rest. "
-                "Use web_search/web_fetch for static pages; browser_navigate when the page is JS-heavy. "
-                "Use todo to track steps. Use vision_analyze to look at images, image_generate to make them "
-                "(ad visuals, hero images — PNG into deliverables/; write a one-line brief per image first). "
-                "Use clarify only when you cannot proceed without the human — and before that call brief (action=get): "
-                "use the field if the brief has it, ask only for what missing_for lists. Record a field you learn with brief set "
-                "(with evidence) and a spending recommendation with brief decision. "
-                "If the subtask names a skill, skill_view it first "
-                "(deep-research, marketing-pipeline, voc-to-copy, copywriting, pptx, xlsx, …). "
-                "For .xlsx .docx .pptx .pdf: skills_list then skill_view, then bash with openpyxl/python-docx/python-pptx/pypdf/reportlab — "
-                "the `python3` on PATH already has them; never create or replace virtual environments (uv venv, uv run --python, python -m venv). "
-                "Never write_file those binaries. Use office_read to inspect them. "
+                + LAYOUT_RULE
+                + CRAFT_RULES +
                 "Cite sources. When the subtask is done, stop calling tools and summarize. "
-                "Continue prior workspace work from MEMORY and RECENT RUNS. "
-                "After learning a durable fact (path, convention, preference), call memory. "
-                "Use runs_search if the user points at older work. "
-                "If this kind of deliverable will recur and no recipe covers it, propose one with the recipe tool (action=save).",
+                + MEMORY_RULES,
                 memory_snapshot,
             ),
         },
@@ -1405,71 +1441,24 @@ def _run_subtask(
     expected = [str(w) for w in step.get("writes") or []]
     started_at = time.time()
     def run_calls(completion: Completion) -> None:
-        """Append the assistant turn, run every tool call (guarded), append the results."""
         nonlocal aborted, last_text
-        messages.append(
-            {
-                "role": "assistant",
-                "content": completion.content or None,
-                "tool_calls": [
-                    {
-                        "id": call.id,
-                        "type": "function",
-                        "function": {
-                            "name": call.name,
-                            "arguments": json.dumps(call.arguments),
-                        },
-                    }
-                    for call in completion.tool_calls
-                ],
-            }
+        reason = run_tool_calls(
+            completion,
+            messages=messages,
+            guard=guard,
+            tools=tools,
+            searcher=searcher,
+            ask_user=ask_user,
+            llm=llm,
+            browser=browser,
+            mcp=mcp,
+            spend=spend,
+            fire=fire,
+            label=step.get("title"),
         )
-        for call in completion.tool_calls:
-            fire(
-                "tool_call",
-                name=call.name,
-                arguments=_short_args(call.arguments),
-                subtask=step.get("title"),
-            )
-            verdict = guard.check(call.name, call.arguments)
-            if verdict == "abort":
-                fire("loop_guard", action="abort", name=call.name, subtask=step.get("title"))
-                result = "error: subtask aborted — the same call was repeated four times"
-                aborted = True
-                last_text = (
-                    f"Aborted: {call.name} was called with identical arguments four times "
-                    "without finishing. Work so far stays on disk."
-                )
-            elif verdict == "block":
-                fire("loop_guard", action="block", name=call.name, subtask=step.get("title"))
-                result = (
-                    "error: this exact call already ran twice with the same arguments. "
-                    "Do not repeat it — use the earlier result, change the arguments, "
-                    "or stop and summarise."
-                )
-            else:
-                try:
-                    result = dispatch(
-                        tools,
-                        call.name,
-                        call.arguments,
-                        searcher=searcher,
-                        ask_user=ask_user,
-                        llm=llm,
-                        browser=browser,
-                        mcp=mcp,
-                        spend=spend,
-                    )
-                except ToolError as exc:
-                    result = f"error: {exc}"
-            fire("tool_result", name=call.name, result=result[:2500], subtask=step.get("title"))
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": result[:20000],
-                }
-            )
+        if reason:
+            aborted = True
+            last_text = reason
 
     turns = 0
     warned_turns = False
@@ -1568,6 +1557,90 @@ def _run_subtask(
     return f"{step.get('title')}: {last_text[:WORKER_SUMMARY_CHARS]}", done
 
 
+def run_tool_calls(
+    completion: Completion,
+    *,
+    messages: list[dict],
+    guard: RepeatGuard,
+    tools: WorkspaceTools,
+    searcher,
+    ask_user,
+    llm,
+    browser,
+    mcp,
+    spend,
+    fire,
+    label,
+    intercept=None,
+    on_result=None,
+) -> str:
+    """Append the assistant turn, run every tool call (guarded), append the results.
+
+    Returns the reason the work must stop, or "" to go on. ``intercept(call)`` may answer
+    a call itself by returning text; ``on_result(call, result)`` sees every tool's answer.
+    """
+    abort_reason = ""
+    messages.append(
+        {
+            "role": "assistant",
+            "content": completion.content or None,
+            "tool_calls": [
+                {
+                    "id": call.id,
+                    "type": "function",
+                    "function": {
+                        "name": call.name,
+                        "arguments": json.dumps(call.arguments),
+                    },
+                }
+                for call in completion.tool_calls
+            ],
+        }
+    )
+    for call in completion.tool_calls:
+        fire("tool_call", name=call.name, arguments=_short_args(call.arguments), subtask=label)
+        answered = intercept(call) if intercept is not None else None
+        if answered is not None:
+            fire("tool_result", name=call.name, result=answered[:2500], subtask=label)
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": answered[:20000]})
+            continue
+        verdict = guard.check(call.name, call.arguments)
+        if verdict == "abort":
+            fire("loop_guard", action="abort", name=call.name, subtask=label)
+            result = "error: subtask aborted — the same call was repeated four times"
+            abort_reason = (
+                f"Aborted: {call.name} was called with identical arguments four times "
+                "without finishing. Work so far stays on disk."
+            )
+        elif verdict == "block":
+            fire("loop_guard", action="block", name=call.name, subtask=label)
+            result = (
+                "error: this exact call already ran twice with the same arguments. "
+                "Do not repeat it — use the earlier result, change the arguments, "
+                "or stop and summarise."
+            )
+        else:
+            try:
+                result = dispatch(
+                    tools,
+                    call.name,
+                    call.arguments,
+                    searcher=searcher,
+                    ask_user=ask_user,
+                    llm=llm,
+                    browser=browser,
+                    mcp=mcp,
+                    spend=spend,
+                )
+            except ToolError as exc:
+                result = f"error: {exc}"
+            if on_result is not None:
+                on_result(call, result)
+        fire("tool_result", name=call.name, result=result[:2500], subtask=label)
+        messages.append({"role": "tool", "tool_call_id": call.id, "content": result[:20000]})
+    return abort_reason
+
+
 def _missing_files(tools: WorkspaceTools, expected: list[str], since: float | None = None) -> list[str]:
     """Declared outputs that are absent, empty, or (when `since` is given) untouched since then."""
     missing = []
@@ -1616,18 +1689,8 @@ def _verify(
             "content": _with_memory(
                 "You verify completed work against the original goal and the critic's quality bar. You are Rocky's verifier. "
                 "Judge the WHOLE result, not one subtask. Be exact and fair. "
-                + language_rule(str(assessment.get("language") or "en"), "verifier") +
-                "Sort what you find into two lists. blocking: defects that make the deliverable unusable for the goal "
-                "as written — the file is missing or empty, wrong language, wrong format, a required part absent, "
-                "core content wrong or invented. issues: everything else — polish, style, headings, missing citations "
-                "the user never asked for, extra rigor. passed=true when the deliverable exists and blocking is empty; "
-                "issues alone never fail a run, they are handed to the user as notes. "
-                "Judge against the goal the user wrote, not against a stricter reading of it. "
-                "usable=true when the deliverable exists and a person could use it for the goal after fixing the "
-                "blocking items themselves in under an hour; false when it has to be redone. "
-                "score is the share of the goal delivered: 1.0 every criterion met; 0.7–0.9 usable with notes; "
-                "0.4–0.6 a major part missing or wrong; below 0.3 only when nothing usable exists. A complete "
-                "package with one wrong claim is 0.6–0.8, never 0. "
+                + language_rule(str(assessment.get("language") or "en"), "verifier")
+                + VERIFY_RUBRIC +
                 "You have read-only tools: read_file, list_dir, grep, office_read for .pptx/.xlsx/.docx/.pdf, "
                 "and claim_check, which matches every number, ranking and credential in a draft to the sources on disk. "
                 "Run claim_check on the deliverable when it states figures; an unsupported or differing claim is an issue. "
