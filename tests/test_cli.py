@@ -200,6 +200,28 @@ def test_version_flag_after_workspace_exits_without_starting_a_run(tmp_path, mon
     assert capsys.readouterr().out.strip() == f"rocky {__version__}"
 
 
+@pytest.mark.parametrize("options,check_only", [([], False), (["--check"], True)])
+def test_update_command_needs_no_configuration_or_api_key(monkeypatch, options, check_only):
+    def unexpected(*args, **kwargs):
+        pytest.fail("Updating must not read workspace configuration or start a client")
+
+    monkeypatch.setattr("rocky.cli.apply_config", unexpected)
+    monkeypatch.setattr("rocky.cli.api_key", unexpected)
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", unexpected)
+    called = []
+    monkeypatch.setattr("rocky.update.run_update", lambda **kwargs: called.append(kwargs) or 7)
+    assert main(["update", *options]) == 7
+    assert called[0]["check_only"] is check_only
+
+
+@pytest.mark.parametrize("options,code", [(["--help"], 0), (["unexpected"], 2)])
+def test_update_arguments_do_not_start_an_install(monkeypatch, options, code):
+    monkeypatch.setattr("rocky.update.run_update", lambda **kwargs: pytest.fail("Must not install"))
+    with pytest.raises(SystemExit) as exc:
+        main(["update", *options])
+    assert exc.value.code == code
+
+
 def test_lithuanian_guide_keeps_parity_with_help():
     from pathlib import Path
 
