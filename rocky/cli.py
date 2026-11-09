@@ -80,7 +80,7 @@ def prompt_goal(label: str = "Užduotis") -> str:
 
 COMMANDS_HELP = """commands:
   rocky "goal"                     start a background run in this folder and attach
-  rocky                            interactive: type goals one after another
+  rocky                            compose a task, review the result, then start another
   rocky tui [--attach ID]          three-pane viewer (plan / work / verify)
   rocky ps                         runs in this folder: status, €, when, goal, deliverable
   rocky attach [ID]                follow a run (Enter or Ctrl+C detaches, the job keeps going)
@@ -221,7 +221,8 @@ def main(argv: list[str] | None = None) -> int:
 
     client = OpenRouterClient(key, base_url())
     try:
-        if sys.stdout.isatty() and not args.json_out and command not in {"ps", "attach", "help", "_job"}:
+        use_composer = command == "run" and not goal and not args.json_out and sys.stdin.isatty() and sys.stdout.isatty()
+        if sys.stdout.isatty() and not args.json_out and not use_composer and command not in {"ps", "attach", "help", "_job"}:
             from rocky.banner import print_banner
 
             print_banner(
@@ -246,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.json_out:
             console.print("[red]--json needs a goal on the command line[/]")
             return 2
+        if use_composer:
+            return _compose_tasks(workspace, args, budget_override=budget_given)
         if not sys.stdout.isatty():
             console.print("[bold]rocky[/]  Įrašyk užduotį. Tuščia eilutė arba [bold]q[/] — išeiti.")
             console.print(
@@ -265,6 +268,62 @@ def main(argv: list[str] | None = None) -> int:
                 )
     finally:
         client.close()
+
+
+def _compose_tasks(workspace: Path, args, *, budget_override: bool = False) -> int:
+    """Keep drafts separate from running tasks, including when launch fails."""
+    import math
+
+    from rocky.composer import run_composer
+    from rocky.drafts import TaskDraft, clear_draft
+
+    initial = None
+    error = ""
+    code = 0
+    while True:
+        draft = run_composer(
+            workspace, budget_eur=args.budget,
+            budget_override=budget_override and initial is None,
+            initial=initial, error=error,
+        )
+        if draft is None:
+            return code
+        launched = False
+        launched_id = ""
+
+        def started(meta: dict) -> None:
+            nonlocal launched, launched_id
+            launched, launched_id = True, meta["id"]
+            if draft.revision:
+                try:
+                    clear_draft(workspace, draft.revision)
+                except (OSError, ValueError) as exc:
+                    console.print(
+                        f"Task started, but its saved draft could not be cleared: {exc}",
+                        style="yellow", markup=False,
+                    )
+
+        try:
+            budget = float(draft.budget_text.replace(",", "."))
+            if not draft.goal.strip() or not math.isfinite(budget) or budget <= 0:
+                raise ValueError("Enter a task and a budget greater than zero.")
+            code = _run(
+                goal=draft.goal, workspace=workspace, max_loops=args.max_loops,
+                budget_eur=budget, include_server_tools=not args.no_server_tools,
+                handoff=True, on_started=started,
+            )
+        except (OSError, ValueError) as exc:
+            if launched:
+                console.print(
+                    f"The viewer stopped: {exc}\nYour task was started. Reconnect with rocky attach {launched_id}",
+                    style="yellow", markup=False,
+                )
+                return 1
+            initial, error, code = draft, f"Could not start this task: {exc}", 1
+            continue
+        # A budget change belongs to that task; a fresh task gets the session default.
+        initial = TaskDraft("", f"{args.budget:g}")
+        error = ""
 
 
 def _dispatch(command, client, goal, workspace, args) -> int:
@@ -398,7 +457,7 @@ def _stop(workspace: Path, ident: str | None) -> int:
     return 0 if meta.get("status") == "stopped" else 1
 
 
-def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_out=False, handoff=False) -> int:
+def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_out=False, handoff=False, on_started=None) -> int:
     meta = create_run(
         workspace=workspace,
         goal=goal,
@@ -406,7 +465,16 @@ def _run(*, goal, workspace, max_loops, budget_eur, include_server_tools, json_o
         max_loops=max_loops,
         include_server_tools=include_server_tools,
     )
-    spawn_worker(meta)
+    try:
+        spawn_worker(meta)
+    except OSError:
+        # Popen may succeed before saving the PID fails. Never offer to launch
+        # the same draft again when a child has already been created.
+        if meta.get("pid") and on_started is not None:
+            on_started(meta)
+        raise
+    if on_started is not None:
+        on_started(meta)
     if json_out:
         return _run_json(workspace, meta["id"])
     console.print(

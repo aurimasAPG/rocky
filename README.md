@@ -76,7 +76,7 @@ mkdir -p /tmp/rocky-demo
 rocky -d /tmp/rocky-demo
 ```
 
-Type a task, press Enter. One shot:
+Type or paste a full brief in the task editor. Enter adds a line; Ctrl+R or **Start task** starts the work. Set the task budget in the editor, or use Ctrl+Q to save the draft and return later. One shot:
 
 ```bash
 rocky -d /tmp/rocky-demo "write a 3-sentence summary to summary.md"
