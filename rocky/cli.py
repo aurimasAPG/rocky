@@ -346,7 +346,7 @@ def _compose_tasks(workspace: Path, args, *, budget_override: bool = False) -> i
 
 def _dispatch(command, client, goal, workspace, args) -> int:
     if command == "route":
-        return _route(client, goal)
+        return _route(client, goal, workspace)
     return _run(
         goal=goal,
         workspace=workspace,
@@ -887,7 +887,28 @@ def _stdin_line(timeout: float) -> str | None:
         return ""
 
 
-def _route(client: OpenRouterClient, goal: str) -> int:
+def _route_agent(client: OpenRouterClient, goal: str, workspace: Path) -> int:
+    """What an agent run would do with this goal, worked out from its words."""
+    from rocky.agent import _agent_plan
+    from rocky.assess import assess_goal
+    from rocky.recipes import load_recipes
+
+    models = parse_models(client.list_models())
+    data = assess_goal(goal, workspace)
+    plan = _agent_plan(goal, data, load_recipes(workspace))
+    cast = pick_cast(models, data["complexity"], data["domain"], preferred_worker=preferred_worker())
+    console.print(f"[bold]goal[/] {goal}")
+    console.print(f"[bold]complexity[/] {data['complexity']}  [bold]domain[/] {data['domain']}  [bold]language[/] {data['language']}")
+    console.print(f"[bold]recipe[/] {plan.get('recipe') or 'none: the agent makes its own list'}")
+    console.print(f"[bold]deliverable[/] {plan.get('deliverable_path')}")
+    console.print(f"[bold]agent[/]  {cast.worker}")
+    console.print(f"  [dim]{cast.reasons.get('worker')}[/]")
+    return 0
+
+
+def _route(client: OpenRouterClient, goal: str, workspace: Path) -> int:
+    if run_mode() != "orchestrate":
+        return _route_agent(client, goal, workspace)
     models = parse_models(client.list_models())
     assess = client.complete(
         model=pick_cast(models, "moderate", "mixed", preferred_worker=preferred_worker()).assess,

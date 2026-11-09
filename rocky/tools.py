@@ -155,6 +155,9 @@ class WorkspaceTools:
         path.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2), encoding="utf-8")
         return self.todo_list()
 
+    def todo_items(self) -> list[dict]:
+        return [item for item in self._todo_load() if isinstance(item, dict)]
+
     def _todo_load(self) -> list:
         path = self.root / ".rocky" / "todo.json"
         if not path.exists():
@@ -380,7 +383,7 @@ CLIENT_TOOL_SPECS = [
                                 "content": {"type": "string"},
                                 "status": {
                                     "type": "string",
-                                    "enum": ["pending", "in_progress", "completed"],
+                                    "enum": ["pending", "in_progress", "completed", "skipped"],
                                 },
                             },
                             "required": ["content", "status"],

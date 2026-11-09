@@ -25,10 +25,9 @@ def turn(*calls):
 class AgentClient:
     """Answers each role by its system prompt. The agent's turns come from ``script``."""
 
-    def __init__(self, script, verdicts=None, assessment=None):
+    def __init__(self, script, verdicts=None):
         self.script = list(script)
         self.verdicts = list(verdicts or [PASS])
-        self.assessment = assessment or {"complexity": "moderate", "domain": "writing"}
         self.systems = []
         self.agent_threads = []
         self.verifier_calls = 0
@@ -36,8 +35,6 @@ class AgentClient:
     def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
         system = messages[0]["content"]
         self.systems.append(system)
-        if "You assess tasks" in system:
-            return Completion(content=json.dumps({"goal": "g", "success_criteria": ["ok"], "needs_web": False, "deliverable": "output.md", "language": "en", **self.assessment}))
         if "You verify completed work" in system:
             self.verifier_calls += 1
             return Completion(content=json.dumps(self.verdicts.pop(0) if len(self.verdicts) > 1 else self.verdicts[0]))
@@ -110,8 +107,7 @@ def test_the_whole_run_is_one_conversation(tmp_path, monkeypatch):
 
 
 def test_the_prompt_carries_the_tool_rules_and_the_language(tmp_path, monkeypatch):
-    client = AgentClient([turn(("write_file", {"path": "deliverables/a.md", "content": "x"})), turn(("done", {"summary": "ok"}))],
-                         assessment={"complexity": "moderate", "domain": "writing", "language": "lt"})
+    client = AgentClient([turn(("write_file", {"path": "deliverables/a.md", "content": "x"})), turn(("done", {"summary": "ok"}))])
     run(tmp_path, monkeypatch, "Parašyk trumpą tekstą apie reklamą", client)
     system = client.agent_threads[0][0]["content"]
     assert "unit_economics" in system and "claim_check" in system and "Lithuanian" in system and "call done" in system
@@ -187,8 +183,8 @@ def test_the_turn_cap_gives_one_writing_pass(tmp_path, monkeypatch):
     monkeypatch.setattr(agent_module, "AGENT_TURNS_WARN", 2)
     script = [turn(("list_dir", {"path": f"."})), turn(("grep", {"pattern": "a", "path": "."})), turn(("list_dir", {"path": "runs"})),
               turn(("write_file", {"path": "deliverables/late.md", "content": "partial"}))]
-    client = AgentClient(script, assessment={"complexity": "moderate", "domain": "writing", "deliverable": "late.md"})
-    result, events = run(tmp_path, monkeypatch, "Write it", client, max_loops=1)
+    client = AgentClient(script)
+    result, events = run(tmp_path, monkeypatch, "Write late.md", client, max_loops=1)
     reasons = [p.get("reason") for p in kinds(events, "nudge")]
     assert "turns_left" in reasons and "turns" in reasons
     assert (tmp_path / "deliverables/late.md").read_text() == "partial" and result.deliverable_exists
@@ -218,8 +214,7 @@ def test_the_same_read_is_allowed_again_after_a_write(tmp_path, monkeypatch):
 
 
 def test_a_marketing_question_with_no_recipe_words_stays_open(tmp_path, monkeypatch):
-    client = AgentClient([turn(("write_file", {"path": "deliverables/a.md", "content": "x"}), ("done", {"deliverable_path": "deliverables/a.md", "summary": "ok"}))],
-                         assessment={"complexity": "moderate", "domain": "marketing"})
+    client = AgentClient([turn(("write_file", {"path": "deliverables/a.md", "content": "x"}), ("done", {"deliverable_path": "deliverables/a.md", "summary": "ok"}))])
     _, events = run(tmp_path, monkeypatch, "Should we cut the price from 100 to 90?", client)
     plan = kinds(events, "plan")[0]
     assert plan["source"] == "agent" and "recipe" not in plan and len(plan["steps"]) == 1
@@ -236,7 +231,6 @@ def test_pricing_brief_answers_from_unit_economics(tmp_path, monkeypatch):
             turn(("write_file", {"path": "deliverables/kaina.md", "content": "Reikia 134 pardavimų, 34 daugiau nei dabar.\n"})),
             turn(("done", {"deliverable_path": "deliverables/kaina.md", "summary": "Reikia 134 pardavimų."})),
         ],
-        assessment={"complexity": "moderate", "domain": "marketing", "language": "lt"},
     )
     result, events = run(tmp_path, monkeypatch, goal, client)
     assert result.status == "passed" and result.deliverable_path == "deliverables/kaina.md"
@@ -253,7 +247,6 @@ def test_ads_brief_follows_the_recipe_and_ends_on_the_page(tmp_path, monkeypatch
             turn(("write_file", {"path": "deliverables/visual-1.png", "content": "png"})),
             turn(("done", {"summary": "Trys reklamos puslapyje."})),
         ],
-        assessment={"complexity": "moderate", "domain": "marketing", "language": "lt"},
     )
     result, events = run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt SEO paslaugai", client)
     assert result.status == "passed" and result.deliverable_path == BOARD_PATH and result.deliverable_exists
@@ -275,7 +268,6 @@ def test_data_brief_reads_the_marketers_file(tmp_path, monkeypatch):
             turn(("write_file", {"path": "deliverables/ataskaita.md", "content": "24 užsakymai.\n"})),
             turn(("done", {"deliverable_path": "deliverables/ataskaita.md", "summary": "24 užsakymai."})),
         ],
-        assessment={"complexity": "moderate", "domain": "mixed", "language": "lt"},
     )
     result, _ = run(tmp_path, monkeypatch, "Čia orders.csv. Kiek užsakymų ir kokia apyvarta?", client)
     assert result.status == "passed" and result.deliverable_exists
@@ -364,3 +356,231 @@ def test_the_mode_flag_reaches_the_background_job(tmp_path, monkeypatch):
     monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
     assert main(["write x", "-d", str(tmp_path), "--mode", "orchestrate"]) == 0
     assert seen["env"] == "orchestrate"
+
+
+# --- no assessor, critic or planner -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("goal", "complexity", "domain", "deliverable"),
+    [
+        ("Write a short article about dogs", "trivial", "writing", "deliverables/output.md"),
+        ("Parašyk trumpą laišką klientui", "trivial", "writing", "deliverables/output.md"),
+        ("Sukurk Facebook reklamas apgmedia.lt", "moderate", "marketing", "deliverables/ads.html"),
+        ("Ar verta mažinti kainą iki 90 €?", "moderate", "marketing", "deliverables/output.md"),
+        ("Make a deck and a spreadsheet of our results", "hard", "mixed", "deliverables/output.pptx"),
+        ("Write summary.md from notes", "trivial", "writing", "deliverables/summary.md"),
+        ("Fix the bug in the python script that parses the export and add a unit test for the empty file case and the header row case and the date format case", "hard", "code", "deliverables/output.md"),
+    ],
+)
+def test_a_goal_is_sized_from_its_words(tmp_path, goal, complexity, domain, deliverable):
+    from rocky.assess import assess_goal
+
+    out = assess_goal(goal, tmp_path)
+    assert (out["complexity"], out["domain"], out["deliverable"]) == (complexity, domain, deliverable)
+
+
+def test_a_file_already_in_the_folder_is_the_input_not_the_output(tmp_path):
+    from rocky.assess import assess_goal
+
+    (tmp_path / "report.pdf").write_bytes(b"x")
+    assert assess_goal("Summarise report.pdf into brief.md", tmp_path)["deliverable"] == "deliverables/brief.md"
+
+
+def test_language_comes_from_the_goal_and_the_setting_wins(tmp_path, monkeypatch):
+    from rocky.assess import assess_goal
+
+    monkeypatch.delenv("ROCKY_LANGUAGE", raising=False)
+    assert assess_goal("Parašyk straipsnį", tmp_path)["language"] == "lt"
+    assert assess_goal("Write an article", tmp_path)["language"] == "en"
+    monkeypatch.setenv("ROCKY_LANGUAGE", "en")
+    assert assess_goal("Parašyk straipsnį", tmp_path)["language"] == "en"
+
+
+@pytest.mark.parametrize(
+    "goal",
+    ["Write a short article", "Sukurk Facebook reklamas apgmedia.lt", "Ar verta mažinti kainą iki 90 €?", "Research our top competitors and write a comprehensive report with a deck"],
+)
+def test_no_assessor_critic_or_planner_is_called_for_any_goal(tmp_path, monkeypatch, goal):
+    client = AgentClient([turn(("write_file", {"path": "deliverables/a.md", "content": "x"}), ("done", {"deliverable_path": "deliverables/a.md", "summary": "ok"}))])
+    client.script.insert(0, turn(("list_dir", {"path": "."})))
+    _, events = run(tmp_path, monkeypatch, goal, client, max_loops=1, budget_eur=9.0)
+    joined = " ".join(client.systems)
+    assert not any(word in joined for word in ("You assess tasks", "You critique briefs", "You write the plan", "You execute this subtask"))
+    roles = {p["role"] for p in kinds(events, "cost")}
+    assert roles <= {"worker", "verifier"}, roles
+    assert not kinds(events, "critique")
+    assert set(kinds(events, "cast")[0]["models"]) == {"worker", "verifier"}
+    assert kinds(events, "assessed")[0]["heuristic"] is True
+
+
+def test_the_budget_question_still_fires_from_the_estimate(tmp_path, monkeypatch):
+    asked = []
+
+    def ask(question, options=None):
+        asked.append(question)
+        return "ne"
+
+    client = AgentClient([turn(("write_file", {"path": "deliverables/a.md", "content": "x"}), ("done", {"deliverable_path": "deliverables/a.md", "summary": "ok"}))])
+    _, events = run(tmp_path, monkeypatch, "Research our top competitors and write a comprehensive report with a deck and a spreadsheet", client, budget_eur=1.0, ask_user=ask, max_loops=1)
+    assert asked and kinds(events, "budget_offer")[0]["complexity"] == "hard"
+
+
+# --- recipes as a checklist -----------------------------------------------------------------------
+
+
+def ads_goal_script(*before):
+    return [
+        *before,
+        turn(("write_file", {"path": FACTS_PATH, "content": f"200+ prekių ženklų — {SOURCE}"})),
+        turn(("ad_board", ad_pack())),
+        turn(("write_file", {"path": "deliverables/visual-1.png", "content": "png"})),
+        turn(("done", {"summary": "Gatava."})),
+    ]
+
+
+def test_the_recipe_is_on_the_todo_list_from_the_start(tmp_path, monkeypatch):
+    (tmp_path / ".rocky").mkdir()
+    (tmp_path / ".rocky" / "todo.json").write_text('[{"id": "old", "content": "stale", "status": "pending"}]', encoding="utf-8")
+    client = AgentClient([turn(("todo", {}))] + ads_goal_script())
+    run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt", client)
+    listing = next(m["content"] for m in client.agent_threads[1] if m["role"] == "tool")
+    assert "[pending] 1: Facts" in listing and "[pending] 2: Ads" in listing and "[pending] 3: Visuals" in listing
+    assert "stale" not in listing
+
+
+def test_an_open_goal_starts_with_an_empty_list(tmp_path, monkeypatch):
+    (tmp_path / ".rocky").mkdir()
+    (tmp_path / ".rocky" / "todo.json").write_text('[{"id": "old", "content": "stale", "status": "pending"}]', encoding="utf-8")
+    client = AgentClient([turn(("todo", {})), turn(("write_file", {"path": "deliverables/a.md", "content": "x"}), ("done", {"summary": "ok"}))])
+    run(tmp_path, monkeypatch, "Write a short article", client)
+    assert next(m["content"] for m in client.agent_threads[1] if m["role"] == "tool") == "(todo empty)"
+    assert "write your own short todo list" in client.agent_threads[0][1]["content"]
+
+
+def test_todo_updates_become_step_events(tmp_path, monkeypatch):
+    def todo(**status):
+        return turn(("todo", {"items": [{"id": k[1:], "content": t, "status": v} for (k, v), t in zip(status.items(), ("Facts", "Ads", "Visuals"))]}))
+
+    client = AgentClient(
+        [
+            todo(s1="in_progress", s2="pending", s3="pending"),
+            turn(("write_file", {"path": FACTS_PATH, "content": f"200+ prekių ženklų — {SOURCE}"})),
+            todo(s1="completed", s2="in_progress", s3="pending"),
+            turn(("ad_board", ad_pack())),
+            todo(s1="completed", s2="completed", s3="in_progress"),
+            turn(("write_file", {"path": "deliverables/visual-1.png", "content": "png"})),
+            todo(s1="completed", s2="completed", s3="completed"),
+            turn(("done", {"summary": "Gatava."})),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt", client)
+    assert result.status == "passed"
+    order = [(e.type, e.payload["id"]) for e in events if e.type in {"subtask_start", "subtask_done"}]
+    assert order == [("subtask_start", 1), ("subtask_done", 1), ("subtask_start", 2), ("subtask_done", 2), ("subtask_start", 3), ("subtask_done", 3)]
+    assert all(p["completed"] for p in kinds(events, "subtask_done"))
+    tool_labels = [e.payload["subtask"] for e in events if e.type == "tool_call" and e.payload["name"] == "ad_board"]
+    assert tool_labels == ["Ads"]
+
+
+def test_marking_a_step_completed_with_its_file_missing_does_not_close_it(tmp_path, monkeypatch):
+    client = AgentClient(
+        [
+            turn(("todo", {"items": [{"id": "1", "content": "Facts", "status": "completed"}, {"id": "2", "content": "Ads", "status": "pending"}, {"id": "3", "content": "Visuals", "status": "pending"}]})),
+            *ads_goal_script(),
+        ]
+    )
+    _, events = run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt", client)
+    first_done = next(i for i, e in enumerate(events) if e.type == "subtask_done" and e.payload["id"] == 1)
+    wrote = next(i for i, e in enumerate(events) if e.type == "tool_call" and e.payload["name"] == "write_file")
+    assert first_done > wrote and next(e for e in events if e.type == "subtask_done" and e.payload["id"] == 1).payload["completed"]
+
+
+def marketing_skip_script(*extra):
+    items = [
+        {"id": "1", "content": "Research", "status": "completed"},
+        {"id": "2", "content": "VOC: no customer language needed for a keyword list", "status": "skipped"},
+        {"id": "3", "content": "Copy", "status": "skipped"},
+        {"id": "4", "content": "Deck and spreadsheet", "status": "skipped"},
+        {"id": "5", "content": "Visuals", "status": "skipped"},
+    ]
+    return [
+        turn(("write_file", {"path": "runs/notes/research.md", "content": "notes"}), ("todo", {"items": items})),
+        turn(("write_file", {"path": "deliverables/raktazodziai.md", "content": "# Sąrašas\n"})),
+        *extra,
+        turn(("done", {"deliverable_path": "deliverables/raktazodziai.md", "summary": "Tik raktažodžių sąrašas."})),
+    ]
+
+
+def test_a_skipped_item_is_not_required_and_frees_the_deliverable(tmp_path, monkeypatch):
+    client = AgentClient(marketing_skip_script())
+    result, events = run(tmp_path, monkeypatch, "Paruošk SEO raktažodžių sąrašą seo paslaugai", client)
+    assert kinds(events, "plan")[0]["recipe"] == "marketing"
+    assert result.status == "passed" and result.deliverable_path == "deliverables/raktazodziai.md"
+    assert not kinds(events, "nudge")
+    assert sorted(p["id"] for p in kinds(events, "subtask_skipped")) == [2, 3, 4, 5]
+    assert not kinds(events, "subtask_incomplete")
+
+
+def test_the_step_that_builds_the_ad_page_cannot_be_skipped(tmp_path, monkeypatch):
+    items = [{"id": "1", "content": "Facts", "status": "completed"}, {"id": "2", "content": "Ads", "status": "skipped"}, {"id": "3", "content": "Visuals", "status": "skipped"}]
+    client = AgentClient(
+        [
+            turn(("write_file", {"path": FACTS_PATH, "content": "x"}), ("todo", {"items": items})),
+            turn(("done", {"deliverable_path": "deliverables/other.md", "summary": "skipped it"})),
+            turn(("ad_board", ad_pack())),
+            turn(("done", {"summary": "Gatava."})),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt", client)
+    assert result.deliverable_path == BOARD_PATH and result.status == "passed"
+    assert BOARD_PATH in kinds(events, "nudge")[0]["missing"]
+
+
+def test_the_todo_list_comes_back_after_compaction(tmp_path, monkeypatch):
+    monkeypatch.setattr(agent_module, "compact", lambda messages, **kw: {"mode": "summary", "before_tokens": 9, "after_tokens": 1, "limit": 2})
+    client = AgentClient(ads_goal_script())
+    run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt", client)
+    assert any(m["role"] == "user" and m["content"].startswith("Your todo list now:") and "1: Facts" in m["content"] for m in client.agent_threads[0])
+
+
+def test_a_resumed_run_marks_finished_steps_on_the_list(tmp_path, monkeypatch):
+    (tmp_path / "runs/notes").mkdir(parents=True)
+    (tmp_path / FACTS_PATH).write_text("facts", encoding="utf-8")
+    steps = [
+        {"id": 1, "title": "Facts", "detail": "x", "depends_on": [], "writes": [FACTS_PATH]},
+        {"id": 2, "title": "Ads", "detail": "y", "depends_on": [1], "writes": [BOARD_PATH]},
+    ]
+    resume = {"from": "r1", "assessment": {"goal": "g", "complexity": "moderate", "domain": "marketing"}, "plan": {"summary": "g", "steps": steps, "deliverable_path": BOARD_PATH, "recipe": "ads"},
+              "verify": {}, "replan": False, "done_steps": [1]}
+    client = AgentClient([turn(("todo", {})), turn(("ad_board", ad_pack())), turn(("done", {"summary": "ok"}))])
+    run(tmp_path, monkeypatch, "Sukurk Facebook reklamas", client, resume=resume)
+    listing = next(m["content"] for m in client.agent_threads[1] if m["role"] == "tool")
+    assert "[completed] 1: Facts" in listing and "[pending] 2: Ads" in listing
+
+
+def test_route_answers_from_the_words_without_a_model_call(tmp_path, monkeypatch, capsys):
+    from rocky.cli import main
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ROCKY_MODE", "agent")
+    monkeypatch.setenv("ROCKY_WORKER", "google/m")
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def close(self):
+            pass
+
+        def list_models(self):
+            return {"data": [{"id": m.id, "name": m.name, "context_length": 200000, "pricing": {"prompt": "0.000001", "completion": "0.000002"}, "supported_parameters": ["tools", "structured_outputs"], "description": ""} for m in MODELS]}
+
+        def complete(self, **kw):
+            raise AssertionError("route must not call a model")
+
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
+    assert main(["route", "Sukurk Facebook reklamas apgmedia.lt", "-d", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "ads" in out and "deliverables/ads.html" in out and "planner" not in out

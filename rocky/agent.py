@@ -15,7 +15,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from rocky.adboard import fix_plan, is_board, refresh as refresh_board
+from rocky.adboard import BOARD_PATH, fix_plan, is_board, refresh as refresh_board
+from rocky.assess import assess_goal
 from rocky.budget import BudgetedClient
 from rocky.catalog import Model, parse_models, pick_cast
 from rocky.config import preferred_worker
@@ -46,7 +47,7 @@ from rocky.engine import (
     _normalize_steps,
     _verify,
     _with_memory,
-    assess_with_model,
+    calibrated_estimate,
     place_deliverable,
     run_tool_calls,
 )
@@ -137,7 +138,13 @@ def _task_message(goal: str, plan: dict, assessment: dict, recipes: dict, resume
     if criteria:
         parts.append("WHAT DONE LOOKS LIKE\n" + "\n".join(f"- {c}" for c in criteria))
     if plan.get("recipe") or resume:
-        parts.append("CHECKLIST\nA proven order for this kind of work. Do the items in this order.\n\n" + _checklist(plan))
+        parts.append(
+            "CHECKLIST\nA proven order for this kind of work, already on your todo list under these ids. Work in this order. "
+            "Set an item in_progress when you start it and completed when its files are on disk. Skip an item only when this "
+            "goal clearly does not need it: set it to skipped and say why in its content.\n\n" + _checklist(plan)
+        )
+    else:
+        parts.append("CHECKLIST\nNone for this goal. If the job has more than two parts, write your own short todo list first.")
     if plan.get("notes"):
         parts.append(f"NOTES\n{plan['notes']}")
     skills = "\n".join(f"- {row['name']}: {row['description']}" for row in catalog_for_prompt())
@@ -179,15 +186,30 @@ def _agent_plan(goal: str, assessment: dict, recipes: dict) -> dict:
     }
 
 
-def _fixed_deliverable(plan: dict) -> bool:
-    """A recipe step writes the deliverable: that path is the contract, whatever the agent calls it."""
+def _skipped_steps(plan: dict, tools: WorkspaceTools) -> set[str]:
+    """Checklist items the agent marked skipped. The step that builds the ad page cannot be skipped."""
+    wanted = {str(item.get("id")) for item in tools.todo_items() if item.get("status") == "skipped"}
+    return {
+        str(step.get("id"))
+        for step in plan.get("steps") or []
+        if str(step.get("id")) in wanted and BOARD_PATH not in [str(w) for w in step.get("writes") or []]
+    }
+
+
+def _live_steps(plan: dict, tools: WorkspaceTools) -> list[dict]:
+    skipped = _skipped_steps(plan, tools)
+    return [step for step in plan.get("steps") or [] if str(step.get("id")) not in skipped]
+
+
+def _fixed_deliverable(plan: dict, tools: WorkspaceTools) -> bool:
+    """A step being done writes the deliverable: that path is the contract, whatever the agent calls it."""
     target = str(plan.get("deliverable_path") or "")
-    return any(target in [str(w) for w in step.get("writes") or []] for step in plan.get("steps") or [])
+    return any(target in [str(w) for w in step.get("writes") or []] for step in _live_steps(plan, tools))
 
 
 def _choose_deliverable(plan: dict, tools: WorkspaceTools, declared: str) -> str:
     current = str(plan.get("deliverable_path") or "")
-    if _fixed_deliverable(plan):
+    if _fixed_deliverable(plan, tools):
         return current
     if declared.strip():
         return place_deliverable(declared)
@@ -303,7 +325,11 @@ def run_agent(
         )
         fire("assessed", resumed=True, **assessment)
     else:
-        assessment, estimate_eur = assess_with_model(client, models, goal, workspace_path, spend, fire)
+        fire("phase", stage="assessing")
+        assessment = assess_goal(goal, workspace_path)
+        # A marketing domain does not pull in the deck recipe here, so it must not price one either.
+        basis = {**assessment, "domain": "mixed" if assessment["domain"] == "marketing" else assessment["domain"]}
+        estimate_eur = calibrated_estimate(assessment, goal, workspace_path, basis=basis)
         fire("assessed", **assessment)
 
     budget_eur = float(budget_eur if budget is None else eur_from_usd(usd_cap, rate))
@@ -325,7 +351,7 @@ def run_agent(
     fire(
         "cast",
         mode="agent",
-        models={"assess": cast.assess, "worker": model, "verifier": cast.verifier},
+        models={"worker": model, "verifier": cast.verifier},
         reasons={"worker": "one agent does the whole job: " + str(cast.reasons.get("worker") or ""), "verifier": cast.reasons.get("verifier") or ""},
     )
 
@@ -338,6 +364,17 @@ def run_agent(
     else:
         plan = _agent_plan(goal, assessment, recipes)
     fire("plan", **({"resumed": True} if resume else {}), source="recipe" if plan.get("recipe") else "agent", **plan)
+
+    tracked = bool(plan.get("recipe") or resume)
+    done_before = {str(i) for i in (resume or {}).get("done_steps") or []}
+    tools.todo_write(
+        [
+            {"id": str(step.get("id")), "content": str(step.get("title")), "status": "completed" if str(step.get("id")) in done_before else "pending"}
+            for step in plan.get("steps") or []
+        ]
+        if tracked
+        else []
+    )
 
     specs = worker_tools(include_server_tools) + ([] if mcp is None else mcp.tool_specs()) + [DONE_SPEC]
     messages: list[dict] = [
@@ -353,11 +390,52 @@ def run_agent(
     context_length = _context_length(models, model)
     guard = RepeatGuard()
     state: dict[str, Any] = {"accepted": False, "aborted": False, "summary": "", "text": "", "bounces": 0}
-    label = "agent"
+    started: set[str] = set()
+    closed: set[str] = set()
     warned = {"half": False}
 
     def over_budget() -> bool:
         return client.blocked or tally.usd >= usd_cap
+
+    def start_step(step: dict) -> None:
+        key = str(step.get("id"))
+        if key not in started:
+            started.add(key)
+            fire("subtask_start", id=step.get("id"), title=step.get("title"), detail=step.get("detail"))
+
+    def close_step(step: dict) -> None:
+        """Report one step's end from what is on disk, so step views and ``rocky resume`` read this run like any other."""
+        key = str(step.get("id"))
+        if key in closed:
+            return
+        start_step(step)
+        closed.add(key)
+        missing = _missing_files(tools, [str(w) for w in step.get("writes") or []])
+        if missing:
+            fire("subtask_incomplete", id=step.get("id"), title=step.get("title"), missing=missing)
+        fire("subtask_done", id=step.get("id"), title=step.get("title"), text=str(state["summary"])[:2000],
+             completed=not missing and not state["aborted"], aborted=state["aborted"])
+
+    def sync_steps() -> None:
+        """The agent's todo list drives the step events the surfaces already show."""
+        if not tracked:
+            return
+        status = {str(item.get("id")): item.get("status") for item in tools.todo_items()}
+        for step in plan.get("steps") or []:
+            key = str(step.get("id"))
+            if status.get(key) == "in_progress":
+                start_step(step)
+            elif status.get(key) == "completed" and key not in closed and not _missing_files(tools, [str(w) for w in step.get("writes") or []]):
+                close_step(step)
+            elif key in _skipped_steps(plan, tools) and key not in closed:
+                closed.add(key)
+                fire("subtask_skipped", id=step.get("id"), title=step.get("title"), writes=step.get("writes") or [])
+
+    def label() -> str:
+        for step in plan.get("steps") or []:
+            if str(step.get("id")) in started and str(step.get("id")) not in closed:
+                return str(step.get("title") or "agent")
+        return "agent"
 
     def worker_spend(completion: Completion) -> None:
         spend(completion, "worker")
@@ -392,7 +470,7 @@ def run_agent(
 
     def required_missing() -> list[str]:
         wanted = [str(plan.get("deliverable_path") or "")]
-        for step in plan.get("steps") or []:
+        for step in _live_steps(plan, tools):
             wanted.extend(str(w) for w in step.get("writes") or [])
         return _missing_files(tools, list(dict.fromkeys(w for w in wanted if w)))
 
@@ -406,7 +484,7 @@ def run_agent(
         missing = required_missing()
         if missing and state["bounces"] < MAX_FINISH_BOUNCES:
             state["bounces"] += 1
-            fire("nudge", subtask=label, missing=missing, n=state["bounces"])
+            fire("nudge", subtask=label(), missing=missing, n=state["bounces"])
             return (
                 "Not finished. These files are missing or empty: "
                 + ", ".join(missing)
@@ -435,7 +513,7 @@ def run_agent(
             mcp=mcp,
             spend=worker_spend,
             fire=fire,
-            label=label,
+            label=label(),
             intercept=intercept,
             on_result=on_result,
         )
@@ -447,6 +525,8 @@ def run_agent(
         # A long run legitimately re-reads a file it has just changed.
         if call.name not in {"read_file", "list_dir", "grep"} and not result.startswith("error:"):
             guard.counts.clear()
+        if call.name == "todo":
+            sync_steps()
 
     def work(max_turns: int) -> None:
         state.update(accepted=False, aborted=False, bounces=0)
@@ -460,7 +540,7 @@ def run_agent(
                 missing_now = required_missing()
                 if missing_now:
                     warned_turns = True
-                    fire("nudge", subtask=label, missing=missing_now, n=state["bounces"], reason="turns_left", left=left)
+                    fire("nudge", subtask=label(), missing=missing_now, n=state["bounces"], reason="turns_left", left=left)
                     messages.append(
                         {
                             "role": "user",
@@ -471,7 +551,9 @@ def run_agent(
                     )
             squeezed = compact(messages, context_length=context_length, summarize=summarize)
             if squeezed:
-                fire("compact", subtask=label, **squeezed)
+                fire("compact", subtask=label(), **squeezed)
+                if squeezed.get("mode") == "summary" and tools.todo_items():
+                    messages.append({"role": "user", "content": "Your todo list now:\n" + tools.todo_list()})
             completion = _chat(client, model=model, messages=messages, tools=specs)
             worker_spend(completion)
             state["text"] = completion.content or state["text"]
@@ -488,7 +570,7 @@ def run_agent(
         missing = required_missing()
         if missing and turns >= max_turns and not state["accepted"] and not state["aborted"] and not over_budget():
             # The cap ended the work mid-way. What it found is still in the thread: one last pass, writing tools only.
-            fire("nudge", subtask=label, missing=missing, n=state["bounces"] + 1, reason="turns")
+            fire("nudge", subtask=label(), missing=missing, n=state["bounces"] + 1, reason="turns")
             messages.append(
                 {
                     "role": "user",
@@ -508,15 +590,9 @@ def run_agent(
                 run_calls(completion)
 
     def settle_steps() -> None:
-        """Say which steps ended up on disk, so step views and ``rocky resume`` read this run like any other."""
+        sync_steps()
         for step in plan.get("steps") or []:
-            writes = [str(w) for w in step.get("writes") or []]
-            fire("subtask_start", id=step.get("id"), title=step.get("title"), detail=step.get("detail"))
-            missing = _missing_files(tools, writes)
-            if missing:
-                fire("subtask_incomplete", id=step.get("id"), title=step.get("title"), missing=missing)
-            fire("subtask_done", id=step.get("id"), title=step.get("title"), text=str(state["summary"])[:2000],
-                 completed=not missing and not state["aborted"], aborted=state["aborted"])
+            close_step(step)
 
     passed = False
     verify: dict[str, Any] = dict((resume or {}).get("verify") or {})
@@ -530,11 +606,15 @@ def run_agent(
             break
         fire("loop", n=loops, max=limit)
         fire("phase", stage="working", loop=loops, max=limit)
+        started.clear()
+        closed.clear()
+        if not tracked:
+            start_step((plan.get("steps") or [{}])[0])
         work(MAX_AGENT_TURNS if loops == 1 else MAX_REVISION_TURNS)
         refresh_board(plan, tools)
         settle_steps()
         if state["text"] or state["summary"]:
-            fire("worker", text=str(state["summary"] or state["text"])[:4000], subtask=label)
+            fire("worker", text=str(state["summary"] or state["text"])[:4000], subtask=label())
         if client.blocked or tally.usd >= usd_cap * VERIFY_GRACE:
             fire("budget", cap=round(usd_cap, 3), stage="before verify", receipt=format_receipt(tally, rate), **tally.payload(rate))
             break

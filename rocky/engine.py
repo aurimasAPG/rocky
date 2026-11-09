@@ -780,9 +780,9 @@ def assess_with_model(client, models, goal: str, workspace_path: Path, spend, fi
     return assessment, estimate_eur
 
 
-def calibrated_estimate(assessment: dict, goal: str, workspace_path: Path) -> float:
+def calibrated_estimate(assessment: dict, goal: str, workspace_path: Path, basis: dict | None = None) -> float:
     """The table estimate scaled by what this folder actually paid; recorded on the assessment."""
-    base_eur = estimate_run_eur(assessment, goal)
+    base_eur = estimate_run_eur(basis or assessment, goal)
     factor, samples = calibration(run_history(workspace_path), str(assessment.get("complexity") or ""))
     estimate_eur = round(base_eur * factor, 2)
     assessment["estimated_eur"] = estimate_eur

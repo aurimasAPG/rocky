@@ -142,7 +142,11 @@ Other keys: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `b
 
 ## 5. What happens on a run
 
-A run is **one agent in one conversation** by default. It gets the goal, the brief, the tool rules, the skills and, when the goal matches a recipe, that recipe's steps as a checklist. It works turn by turn with the same tools, budget cap, compaction and repeat guard described below, and ends the work by calling `done` with the deliverable's path and a short summary. If a required file is missing, `done` says which and the agent keeps working. A turn with no tool call ends the work the same way. A goal is capped at 80 turns, with one writing-only pass if the cap arrives before the files do. When a review sends the result back, the agent fixes it in the same conversation, so it still has everything it read. The numbered list below is the older path, which `--mode orchestrate` still runs.
+A run is **one agent in one conversation** by default. It gets the goal, the brief, the tool rules, the skills and, when the goal matches a recipe, that recipe's steps as a checklist. It works turn by turn with the same tools, budget cap, compaction and repeat guard described below, and ends the work by calling `done` with the deliverable's path and a short summary. If a required file is missing, `done` says which and the agent keeps working. A turn with no tool call ends the work the same way. A goal is capped at 80 turns, with one writing-only pass if the cap arrives before the files do. When a review sends the result back, the agent fixes it in the same conversation, so it still has everything it read.
+
+No model sizes the goal and none plans it. Complexity, domain, the starting deliverable path and the need for the web come from the goal's own words (Lithuanian and English), and the budget question is asked from that estimate. A file the goal names that is already in the folder is treated as input; one that does not exist yet is the output. `rocky route "goal"` shows the same answer without calling a model.
+
+The numbered list below is the older path, which `--mode orchestrate` still runs.
 
 1. **Assess** — cheap model: complexity (`trivial` / `moderate` / `hard`), domain, deliverable, and the **language** of the goal (`lt`, `en`, …; a heuristic fills it in if the model does not). Every later role is told to write the deliverable, summaries, notes, and any question to you in that language unless the goal asks for another — a Lithuanian brief gets a Lithuanian file, and the verifier treats the wrong language as blocking. The budget question comes in Lithuanian for Lithuanian goals (`taip` / `ne` / a number).
 2. **Budget check** — if the guess is above your cap, Rocky asks to raise **this run only**. Reply `yes`, `keep`, or a number (`3`, `8`).
@@ -450,7 +454,7 @@ Other marketing goals, and any ad goal that names a deck or a sheet (`pptx`, `xl
 
 ### Recipes
 
-A recipe is a plan skeleton Rocky enforces when a goal matches: ordered steps, `depends_on`, the deliverable path, and keyword hints. Files are TOML:
+A recipe is a proven order of work for one kind of goal: ordered steps, `depends_on`, the deliverable path, and keyword hints. On an agent run it matches by its words only, so a pricing question does not become a deck, and its steps start on the agent's `todo` list under their ids. The agent sets each item `in_progress` and `completed` as it goes, and those updates drive the step view in the CLI, TUI and web UI. It may mark an item `skipped` with a reason when the goal clearly does not need it; a skipped item's files are no longer required and its deliverable path is no longer fixed. The step that builds the ad page cannot be skipped. With `--mode orchestrate` the planner must follow the recipe instead. Files are TOML:
 
 - bundled: `rocky/recipes/*.toml` (`ads` — facts, ads, visuals on one page; `marketing` — research, VOC, copy, deck + sheet, visuals)
 - shared: folders in `ROCKY_RECIPES=/path/a,/path/b`

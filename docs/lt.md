@@ -143,7 +143,11 @@ Kiti raktai: `image_model`, `sandbox_image`, `skills`, `recipes`, `bash_deny`, `
 
 ## 5. Kas vyksta paleidus
 
-Numatytasis paleidimas yra **vienas agentas viename pokalbyje**. Jis gauna tikslą, užduoties aprašą, įrankių taisykles, įgūdžius, o kai tikslas atitinka receptą – to recepto žingsnius kaip kontrolinį sąrašą. Dirba ėjimas po ėjimo su tais pačiais įrankiais, biudžeto lubomis, glaudinimu ir pasikartojimų sargu, aprašytais žemiau, ir darbą baigia iškviesdamas `done` su galutinio failo keliu ir trumpa santrauka. Jei reikiamo failo nėra, `done` pasako kurio, ir agentas dirba toliau. Ėjimas be įrankio kvietimo darbą baigia taip pat. Vienam tikslui skiriama iki 80 ėjimų, o jei riba ateina anksčiau nei failai – dar vienas ėjimas tik rašymui. Kai peržiūra rezultatą grąžina, agentas jį taiso tame pačiame pokalbyje, todėl vis dar turi viską, ką perskaitė. Žemiau sunumeruotas sąrašas aprašo senesnį kelią, kurį vis dar paleidžia `--mode orchestrate`.
+Numatytasis paleidimas yra **vienas agentas viename pokalbyje**. Jis gauna tikslą, užduoties aprašą, įrankių taisykles, įgūdžius, o kai tikslas atitinka receptą – to recepto žingsnius kaip kontrolinį sąrašą. Dirba ėjimas po ėjimo su tais pačiais įrankiais, biudžeto lubomis, glaudinimu ir pasikartojimų sargu, aprašytais žemiau, ir darbą baigia iškviesdamas `done` su galutinio failo keliu ir trumpa santrauka. Jei reikiamo failo nėra, `done` pasako kurio, ir agentas dirba toliau. Ėjimas be įrankio kvietimo darbą baigia taip pat. Vienam tikslui skiriama iki 80 ėjimų, o jei riba ateina anksčiau nei failai – dar vienas ėjimas tik rašymui. Kai peržiūra rezultatą grąžina, agentas jį taiso tame pačiame pokalbyje, todėl vis dar turi viską, ką perskaitė.
+
+Tikslo apimties nevertina joks modelis ir jo niekas neplanuoja. Sudėtingumas, sritis, pradinis galutinio failo kelias ir interneto poreikis nustatomi iš pačių tikslo žodžių (lietuviškų ir angliškų), o klausimas dėl biudžeto užduodamas pagal tokį įvertį. Tikslo įvardytas failas, kuris jau yra kataloge, laikomas įvestimi; dar neegzistuojantis – rezultatu. `rocky route "tikslas"` parodo tą patį atsakymą nekviesdamas modelio.
+
+Žemiau sunumeruotas sąrašas aprašo senesnį kelią, kurį vis dar paleidžia `--mode orchestrate`.
 
 1. **Įvertinimas** — pigus modelis: sudėtingumas (`trivial` / `moderate` / `hard`), sritis, galutinis failas ir užduoties **kalba** (`lt`, `en`, …; jei modelis nenurodo, ją nustato euristika). Kiekvienam tolesniam vaidmeniui liepiama galutinį failą, santraukas, pastabas ir bet kokį klausimą tau rašyti ta kalba, nebent užduotis prašo kitos — lietuviška užduotis gauna lietuvišką failą, o ne tą kalbą tikrintojas laiko blokuojančiu trūkumu. Biudžeto klausimas lietuviškoms užduotims užduodamas lietuviškai (`taip` / `ne` / skaičius).
 2. **Biudžeto patikra** — jei spėjama kaina viršija lubas, Rocky klausia, ar pakelti jas **tik šiam paleidimui**. Atsakyk `yes`, `keep` arba skaičių (`3`, `8`).
@@ -453,7 +457,7 @@ Kiti rinkodaros tikslai ir reklamų tikslai, kuriuose minimos skaidrės ar lente
 
 ### Receptai
 
-Receptas — plano griaučiai, kuriuos Rocky priverstinai taiko, kai tikslas atitinka: sutvarkyti žingsniai, `depends_on`, galutinio failo kelias ir raktažodžių užuominos. Failai — TOML:
+Receptas — patikrinta vienos rūšies darbo tvarka: sutvarkyti žingsniai, `depends_on`, galutinio failo kelias ir raktažodžių užuominos. Agento paleidime jis atpažįstamas tik pagal žodžius, todėl klausimas apie kainą netampa prezentacija, o jo žingsniai iš karto atsiduria agento `todo` sąraše su savo numeriais. Agentas kiekvieną punktą žymi `in_progress` ir `completed`, ir šie atnaujinimai valdo žingsnių vaizdą terminale, TUI ir žiniatinklio sąsajoje. Jei tikslui punktas aiškiai nereikalingas, agentas gali jį pažymėti `skipped` ir nurodyti priežastį; praleisto punkto failai nebereikalingi, o jo galutinio failo kelias nebėra privalomas. Reklamos puslapį kuriančio žingsnio praleisti negalima. Su `--mode orchestrate` receptą privalo sekti planuotojas. Failai — TOML:
 
 - įmontuoti: `rocky/recipes/*.toml` (`ads` — faktai, reklamos, vizualai viename puslapyje; `marketing` — tyrimas, VOC, tekstas, skaidrės + lentelė, vizualai)
 - bendri: katalogai iš `ROCKY_RECIPES=/kelias/a,/kelias/b`

@@ -310,7 +310,7 @@ def test_route_mode_keeps_its_existing_prompt_path(tmp_path, monkeypatch, with_g
     goals = iter(["Find a model", ""])
     monkeypatch.setattr(cli, "prompt_goal", forbidden if with_goal else lambda: next(goals))
     routed = []
-    monkeypatch.setattr(cli, "_route", lambda client, goal: routed.append(goal) or 0)
+    monkeypatch.setattr(cli, "_route", lambda client, goal, workspace: routed.append(goal) or 0)
     argv = ["route"] + (["Find a model"] if with_goal else []) + ["-d", str(tmp_path)]
     assert cli.main(argv) == 0
     assert routed == ["Find a model"]
