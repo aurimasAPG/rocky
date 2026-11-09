@@ -2168,7 +2168,8 @@ def _promotion(p: dict, ctx: dict) -> dict[str, Any]:
     if rate is None:
         missing.append(f"{w}.redemption_rate_pct")
         out["conditional"] = [{"assumed_redemption_rate_pct": r} | figures(r) for r in REDEMPTION_LEVELS]
-        out["summary"] = f"Give redemption_rate_pct; at 1/3/5 % of {reach:g} people the brand pays {', '.join(f'{c['brand_cost']:.2f}' for c in out['conditional'])} {ctx['currency']}."
+        costs = ", ".join(f"{c['brand_cost']:.2f}" for c in out["conditional"])
+        out["summary"] = f"Give redemption_rate_pct; at 1/3/5 % of {reach:g} people the brand pays {costs} {ctx['currency']}."
     else:
         out.update(figures(rate))
         out["redemption_rate_pct"] = rate

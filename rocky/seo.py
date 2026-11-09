@@ -1494,7 +1494,8 @@ def _mode_keywords(tools: WorkspaceTools | None, args: dict) -> dict[str, Any]:
             groups_out.append({"name": g, "cost": round(total, 2), "clusters": parts, "mixed": len(major) >= 2})
             if len(parts) >= 2 and total > 0:
                 if len(major) >= 2:
-                    findings.append(_finding("group_mixed", "warn", g, [p["cluster"] for p in major], f"Ad group '{g}' spends on {len(major)} different needs ({', '.join(f'{p['cluster']} {p['share']:.0%}' for p in major)}); one ad cannot answer them all."))
+                    needs = ", ".join(f"{p['cluster']} {p['share']:.0%}" for p in major)
+                    findings.append(_finding("group_mixed", "warn", g, [p["cluster"] for p in major], f"Ad group '{g}' spends on {len(major)} different needs ({needs}); one ad cannot answer them all."))
                 for p in minor:
                     split_candidates.append({"group": g, "cluster": p["cluster"], "cost": p["cost"], "share": p["share"]})
                     findings.append(_finding("split_candidate", "info", g, p["cluster"], f"In '{g}' the cluster '{p['cluster']}' holds {p['share']:.0%} of spend (under {min_share:.0%}): move it to its own group with its own ad, or exclude it."))
