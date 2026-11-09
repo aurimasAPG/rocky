@@ -52,9 +52,11 @@ cd /path/to/the/project/you/want/edited
 rocky
 ```
 
-You should see a golden retriever banner. Type a task, press Enter.
+Rocky opens a task editor with the current workspace visible. Type or paste your whole brief, including multiple paragraphs and lists. **Enter adds a line**; **Ctrl+R** or **Start task** launches it. Set the **Budget · EUR** field for this task before starting.
 
-When the run finishes, the interactive CLI opens a **result review**: a preview of the main text file, a numbered file list, and actions to open, refine, or continue the work. Press Enter when done to return to the next task prompt. This automatic review appears only when you start `rocky` without a goal and both input and output are attached to a terminal.
+Edits are saved as a draft in this workspace. **Ctrl+Q** or **Save & exit** lets you leave and restore the brief next time, including a budget you were still editing. A `--budget` flag overrides a restored draft's cap. After a task starts, its draft is cleared and the next task uses the session's original budget. A failed launch keeps the brief ready to retry; a save failure is shown explicitly and offers **Exit without saving**.
+
+When the run finishes, the interactive CLI opens a **result review**: a preview of the main text file, a numbered file list, and actions to open, refine, or continue the work. Press Enter when done to return to the task editor. The editor and automatic review appear only when you start `rocky` without a goal and both input and output are attached to a terminal.
 
 One shot:
 
@@ -80,7 +82,7 @@ rocky help
 
 | Command | What it does |
 | --- | --- |
-| `rocky` | Interactive CLI. Type a goal, watch the loop, review or refine the result, then type another. |
+| `rocky` | Interactive CLI. Compose a saved multiline brief, start with Ctrl+R, then review or refine the result. |
 | `rocky "goal"` | Start that goal as a **background run** and attach. |
 | `rocky tui` | Same engine, three panes (plan / work / verify). |
 | `rocky tui --attach ID` | Open the TUI on an existing run. |
@@ -216,7 +218,7 @@ Use `v` to read the full verdict, blockers, review issues, remaining work and no
 
 Use `f` to say what to change and create a **linked follow-up** from the run you are reviewing. An unfinished run with a saved plan offers `c` to continue; a failed run without a saved plan offers `r` to restart the task. Before any of these paid actions starts, Rocky shows the new run's budget cap and lets you change it or cancel with `q`. This is a new run's allowance, not the unused part of the old budget. Reading or opening files makes no model calls and needs no API key.
 
-Enter (**Done**) or `q` leaves the review: automatic review returns to the next task prompt; `rocky review` returns to the shell. Files are read from the **current workspace**, not historical snapshots. Later runs or edits may have changed them; missing files are reported as missing.
+Enter (**Done**) or `q` leaves the review: automatic review returns to the task editor; `rocky review` returns to the shell. Files are read from the **current workspace**, not historical snapshots. Later runs or edits may have changed them; missing files are reported as missing.
 
 Detaching from a running job does not open the review. Explicit `rocky attach`, one-shot `rocky "goal"`, and `--json` keep their existing behavior. If either input or output is not a terminal, `rocky review` prints the result without an interactive menu.
 
@@ -228,7 +230,7 @@ rocky resume "sutrumpink iki 300 žodžių"     # build on the latest finished r
 rocky resume 20260905-11 "add a CTA per ad"  # or on that one
 ```
 
-A passed run is never resumed as-is (there is nothing to redo), but with an instruction it becomes the base of a **follow-up**: the assessment, critic's bar, cast, and the deliverable path are kept, and the planner replans from your instruction as if the verifier had asked for it. The new run is linked to the old one like any resume. Choose `f` in the result review for this same behavior without leaving the interactive session. Typing at the next task prompt starts a new task; memory can provide earlier context, but an explicit refinement or `resume` pins the parent run and file and skips the assess / critic calls.
+A passed run is never resumed as-is (there is nothing to redo), but with an instruction it becomes the base of a **follow-up**: the assessment, critic's bar, cast, and the deliverable path are kept, and the planner replans from your instruction as if the verifier had asked for it. The new run is linked to the old one like any resume. Choose `f` in the result review for this same behavior without leaving the interactive session. Choosing Start task in the editor starts a new task; memory can provide earlier context, but an explicit refinement or `resume` pins the parent run and file and skips the assess / critic calls.
 
 ---
 
@@ -240,16 +242,16 @@ On a TTY, one spinner line is rewritten in place (Claude Code / OpenCode style):
 
 ## 8. CLI keys
 
-- Type a goal, Enter — start a run and attach.
-- Empty line or `q` at the **goal** prompt — leave Rocky.
+- In the task editor, **Enter** inserts a line; **Ctrl+R** or **Start task** starts the full brief. Plain `q` is task text.
+- **Ctrl+Q** or **Save & exit** saves the draft and leaves Rocky. **Tab** moves between the brief, budget and buttons.
 - **Enter** or **Ctrl+C** while a run is streaming — detach (the job keeps going; `rocky stop` ends it).
-- **Ctrl+C** at the goal prompt — leave Rocky.
+- **Ctrl+C** in the editor copies selected text. Paste a complete multiline brief using your terminal's paste command or Ctrl+V.
 - If the agent asks a question — type `yes` / `keep` / a number / a short answer.
 - In result review — a file number reads it in pages; `o` opens the selected file; `f` refines; `c` continues unfinished work with a saved plan; `r` restarts a failed task without one. Only applicable actions are offered.
 - In a file's paged text — Enter shows the next page; `q` returns to review.
-- Enter or `q` at the review menu — **Done**, returning to the next task prompt or shell. At a refinement or budget prompt, `q` cancels the action.
+- Enter or `q` at the review menu — **Done**, returning to the task editor or shell. At a refinement or budget prompt, `q` cancels the action.
 
-Copy-paste in the CLI is normal terminal selection: drag, then Cmd+C (macOS) or Ctrl+C.
+While live output is streaming, use normal terminal selection to copy it. Questions still accept a single answer followed by Enter. Redirected input keeps the original line-based task prompt; one-shot goals and `--json` do not open the editor.
 
 ---
 

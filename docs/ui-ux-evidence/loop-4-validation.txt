@@ -1,0 +1,35 @@
+Loop 4 — multiline terminal drafts
+
+Baseline performed before reading CHANGELOG.md:
+- Opened no-goal interactive Rocky in an 80x24 PTY and submitted a six-item book-swap checklist task.
+- Run 20261109-065929-b93c24 passed, EUR 0.143 reported.
+- Selected file 1 in result review, read all six Markdown checkboxes and confirmed the book-label reminder, then exited.
+- Read CHANGELOG.md: earlier loops covered web delivery, web progress and terminal result review, not task composition.
+
+Untouched friction reproduced without model calls:
+- Pasted two lines into prompt_goal: "Create a campaign brief" then "Audience: local bookshops".
+- prompt_goal returned only the first line; the next _stdin_line returned the second line, which the live viewer treats as detach.
+- This can submit an incomplete brief and immediately detach the user from it.
+
+Live after-change workflow:
+- Started no-goal Rocky in a real 80x24 PTY and pasted a seven-line invitation brief using native bracketed paste.
+- The entire text became one saved draft, budget EUR 0.50. Run count remained one; paste did not start work.
+- Ctrl+Q saved and exited. Reopened Rocky without a budget flag: all seven lines and the EUR 0.50 cap restored.
+- Ctrl+R started exactly one new run, 20261109-070906-1f9c92. Saved metadata preserved the exact full multiline goal and selected cap.
+- The submitted draft cleared only after the worker was spawned. The viewer remained attached.
+- Run passed with EUR 0.139 reported. Read the actual saved invitation through file 1 in review: exactly three sentences with literal [date] and [place].
+- Done returned to an empty composer with the session default EUR 1.00, not the previous task's EUR 0.50 edit. Ctrl+Q exited cleanly; no extra run or stale submitted draft remained.
+
+Visible evidence:
+- loop-4-composer-80x24.svg and loop-4-composer-60x20.svg are Textual-rendered screenshots of the persisted live brief, exported before launch.
+- Both were rendered to PNG and visually inspected. The editor scrolls at 60x20 and the budget, draft state and actions remain reachable.
+- Error-state layout at 60x20 was also inspected with Start, Save & exit and Exit without saving visible.
+
+Validation:
+- 1,646 tests pass on Python 3.13 with Textual 8.2.8.
+- 1,646 tests pass on Python 3.11 with the minimum supported Textual 2.0.0.
+- 63 new tests cover draft persistence, Unicode and multiline input, clipboard, budget validation, cancellation, launch failures, exact task context, smaller terminals and concurrent revision protection.
+- Retry after a combined save/launch failure retains its CAS baseline without deleting or overwriting a newer draft.
+- Existing one-shot goals, JSON, redirected input, live questions, attach/detach, review, resume and TUI contracts pass.
+- Source distribution and wheel build successfully. A regular wheel install in an isolated Python 3.13 environment saved a full multiline draft from the packaged editor outside the checkout.
+- Existing dependency deprecation warnings are unrelated to this change.

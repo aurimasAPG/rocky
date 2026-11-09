@@ -276,19 +276,26 @@ def fake_main_client(monkeypatch):
 
 
 @pytest.mark.parametrize("stdin, stdout", [(True, True), (True, False), (False, True), (False, False)])
-def test_automatic_handoff_requires_no_goal_and_both_terminals(tmp_path, monkeypatch, stdin, stdout):
+def test_no_goal_uses_composer_only_with_both_terminals(tmp_path, monkeypatch, stdin, stdout):
     set_tty(monkeypatch, stdin, stdout)
     closed = fake_main_client(monkeypatch)
     goals = iter(["Write a note", ""])
-    calls = []
-    monkeypatch.setattr(cli, "prompt_goal", lambda: next(goals))
+    calls, composed = [], []
+    monkeypatch.setattr(cli, "prompt_goal", forbidden if stdin and stdout else lambda: next(goals))
     monkeypatch.setattr(cli, "_run", lambda **kwargs: calls.append(kwargs) or 0)
-    assert cli.main(["-d", str(tmp_path)]) == 0
-    assert len(calls) == 1
-    assert calls[0]["goal"] == "Write a note"
-    assert calls[0]["handoff"] is (stdin and stdout)
-    assert calls[0]["json_out"] is False
-    assert closed == [True]
+    monkeypatch.setattr(cli, "_compose_tasks", lambda workspace, args, **kwargs: composed.append((workspace, args, kwargs)) or 7)
+    assert cli.main(["-d", str(tmp_path)]) == (7 if stdin and stdout else 0)
+    if stdin and stdout:
+        assert len(composed) == 1
+        assert composed[0][0] == tmp_path
+        assert calls == []
+    else:
+        assert composed == []
+        assert len(calls) == 1
+        assert calls[0]["goal"] == "Write a note"
+        assert calls[0]["handoff"] is False
+        assert calls[0]["json_out"] is False
+        assert closed == [True]
 
 
 @pytest.mark.parametrize("json_out", [False, True])
@@ -296,6 +303,7 @@ def test_explicit_goal_is_one_shot_even_on_a_terminal(tmp_path, monkeypatch, jso
     closed = fake_main_client(monkeypatch)
     calls = []
     monkeypatch.setattr(cli, "prompt_goal", forbidden)
+    monkeypatch.setattr(cli, "_compose_tasks", forbidden)
     monkeypatch.setattr(cli, "_run", lambda **kwargs: calls.append(kwargs) or 1)
     args = ["Write a note", "-d", str(tmp_path)] + (["--json"] if json_out else [])
     assert cli.main(args) == 1
