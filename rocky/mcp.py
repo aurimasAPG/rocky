@@ -26,6 +26,8 @@ from typing import Any
 
 from rocky.config import rocky_home
 
+from rocky import __version__
+
 PROTOCOL_VERSION = "2025-06-18"
 START_TIMEOUT = 30.0
 CALL_TIMEOUT = 90.0
@@ -113,7 +115,7 @@ class MCPServer:
             {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {},
-                "clientInfo": {"name": "rocky", "version": "0.2.0"},
+                "clientInfo": {"name": "rocky", "version": __version__},
             },
             timeout=START_TIMEOUT,
         )
