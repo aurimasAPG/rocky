@@ -36,8 +36,27 @@ Done when: no assess, critic or planner call appears in the events of any goal, 
 | Work | Where |
 |---|---|
 | Final gate in code: deliverable on disk, recipe files, ad board clean, every figure through `claim_check`, `plan_check` where a plan was written | `rocky/gate.py` |
-| Every tool result and fetched page kept as evidence for the figure check | `rocky/agent.py` |
+| Every fetched page and calculation kept as evidence for the figure check | `rocky/gate.py` |
 | One self-review turn in the same context with the verifier's rubric | `rocky/agent.py` |
 | Independent frontier verifier behind `--verify strict` | `rocky/agent.py`, `rocky/cli.py` |
 
 Done when: verifier spend is under €0.20 on a moderate goal, and `passed_with_notes` means what it meant before.
+
+## Verification, 2026-11-09
+
+| Check | Result |
+|---|---|
+| Full test suite on Python 3.13 and 3.11 | Pass |
+| Real CLI and background job against a local stand-in for OpenRouter: pricing, ads and data briefs | Each ended `passed` with its deliverable on disk |
+| Same harness: a figure with no source | Sent back once by the check, removed, then `passed` |
+| Same harness: `rocky resume "..."` on a finished agent run | `passed`, file updated |
+| Same harness: `--verify strict` and `--mode orchestrate` | `passed` |
+| Web progress reducer fed the recorded runs | Stages and steps correct, a skipped step shown as skipped |
+| Assess, critic or planner call on an agent run | None in any scenario |
+| Review turn on a full run of 104,622 tokens, list price, no cache | €0.08 on Gemini 3.8 Flash, the default |
+
+No paid model run was made, so answer quality on real goals is still unmeasured.
+
+## Before phase 4
+
+The prompt cache breakpoints cover only the system and task messages (`CACHE_HEAD` in `rocky/llm.py`). That was enough for short worker chats. In one long agent thread on an Anthropic model the middle of the conversation is billed at full price every turn. The same review turn costs €0.20 on Sonnet 5.5 and €0.39 on Opus 5.5 without a cache hit, so a rolling breakpoint has to land, and be tried on a real call, before either becomes the default.

@@ -138,6 +138,9 @@ def status_line(event: Event) -> str | None:
         return f"nudging · missing {', '.join(payload.get('missing') or [])[:50]}"
     if kind == "subtask_incomplete":
         return f"incomplete · {payload.get('title')}"
+    if kind == "gate":
+        problems = len(payload.get("blocking") or []) + len(payload.get("soft") or [])
+        return f"checking · {problems} to fix" if problems else "checking · clean"
     if kind == "no_progress":
         return "stopping · no progress"
     if kind == "loop_guard":

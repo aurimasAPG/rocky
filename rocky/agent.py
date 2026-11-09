@@ -10,16 +10,16 @@ TUI, web, ``rocky resume``) reads an agent run like any other.
 
 from __future__ import annotations
 
+import json
 import threading
-import time
 from pathlib import Path
 from typing import Any
 
-from rocky.adboard import BOARD_PATH, fix_plan, is_board, refresh as refresh_board
+from rocky.adboard import BOARD_PATH, fix_plan, is_board, refresh as refresh_board, verifier_brief
 from rocky.assess import assess_goal
 from rocky.budget import BudgetedClient
 from rocky.catalog import Model, parse_models, pick_cast
-from rocky.config import preferred_worker
+from rocky.config import preferred_worker, verify_mode
 from rocky.context import RepeatGuard, compact
 from rocky.engine import (
     CRAFT_RULES,
@@ -31,6 +31,8 @@ from rocky.engine import (
     NO_PROGRESS_LOOPS,
     TOOL_RULES,
     VERIFY_GRACE,
+    VERIFY_RUBRIC,
+    VERIFY_SCHEMA,
     WRITE_ONLY_TOOLS,
     HALF_SPEND,
     RunResult,
@@ -41,10 +43,13 @@ from rocky.engine import (
     _history_entry,
     _is_trivial,
     _language_for,
+    _looks_like_verdict,
     _maybe_lift_budget,
     _missing_files,
     _no_progress,
     _normalize_steps,
+    _normalize_verdict,
+    _notes_only,
     _verify,
     _with_memory,
     calibrated_estimate,
@@ -53,6 +58,8 @@ from rocky.engine import (
 )
 from rocky.events import Emit, Event
 from rocky.extras import BrowserSession
+from rocky.gate import Evidence, compact_checks, deliverable_text, gate_message, run_gate
+from rocky.jsonutil import JsonParseError, parse_json_object
 from rocky.lang import language_rule
 from rocky.llm import Completion, LLM, WebTools
 from rocky.mcp import MCPError, MCPRegistry
@@ -227,6 +234,39 @@ def _revision_note(verify: dict) -> str:
     return "\n".join(line for line in lines if line.strip())
 
 
+def _review_prompt(goal: str, plan: dict, tools: WorkspaceTools, gate: dict, language: str) -> str:
+    """The one turn in which the agent reads its own result as an outsider would."""
+    deliverable = str(plan.get("deliverable_path") or "")
+    brief = verifier_brief(tools) if is_board(plan) else None
+    body = brief["pack"] if brief is not None else deliverable_text(tools, deliverable)
+    checks = compact_checks(gate)
+    if gate.get("board_warnings"):
+        checks["ad_board_warnings"] = gate["board_warnings"]
+    return (
+        "REVIEW\nStop working. Read the result below as a strict outsider who never saw how it was made, against the goal the user wrote. "
+        "Do not defend the work: look for what would embarrass the user if this went out as it is. "
+        "Files and figures were already checked by code; judge what code cannot: does it answer the goal, is anything invented, "
+        "is anything important missing, would the reader know what to do next. "
+        + language_rule(language, "verifier")
+        + VERIFY_RUBRIC
+        + "Return JSON only, no tool calls, with keys passed, score, usable, summary, blocking, issues, remaining.\n\n"
+        + f"GOAL\n{goal}\n\nDELIVERABLE {deliverable}\n{body[:12000]}\n\nAUTOMATIC CHECKS\n{json.dumps(checks, ensure_ascii=False)}"
+    )
+
+
+def _settle_verdict(verify: dict, gate: dict) -> dict:
+    """What code proved outranks what the model thinks of its own work."""
+    if gate["blocking"]:
+        verify["passed"] = False
+        verify.pop("notes_only", None)
+        verify["blocking"] = list(dict.fromkeys([*gate["blocking"], *(verify.get("blocking") or [])]))
+    if gate["soft"]:
+        verify["issues"] = list(dict.fromkeys([*(verify.get("issues") or []), *gate["soft"][:5]]))
+        if verify.get("passed"):
+            verify["notes_only"] = True
+    return verify
+
+
 def run_agent(
     *,
     goal: str,
@@ -241,8 +281,14 @@ def run_agent(
     eur_rate: float | None = None,
     ask_user=None,
     resume: dict | None = None,
+    verify: str | None = None,
 ) -> RunResult:
-    """Run one goal to a verdict in a single conversation. Same inputs and result as ``orchestrate``."""
+    """Run one goal to a verdict in a single conversation. Same inputs and result as ``orchestrate``.
+
+    ``verify`` is ``self`` (code checks, then one review turn by the agent) or ``strict``
+    (code checks, then the independent verifier); by default it comes from the settings.
+    """
+    review_mode = verify if verify in {"self", "strict"} else verify_mode()
     events: list[Event] = []
     event_lock = threading.Lock()
 
@@ -351,8 +397,11 @@ def run_agent(
     fire(
         "cast",
         mode="agent",
-        models={"worker": model, "verifier": cast.verifier},
-        reasons={"worker": "one agent does the whole job: " + str(cast.reasons.get("worker") or ""), "verifier": cast.reasons.get("verifier") or ""},
+        models={"worker": model, "verifier": cast.verifier if review_mode == "strict" else model},
+        reasons={
+            "worker": "one agent does the whole job: " + str(cast.reasons.get("worker") or ""),
+            "verifier": (cast.reasons.get("verifier") or "") if review_mode == "strict" else "code checks, then one review turn by the agent",
+        },
     )
 
     if resume:
@@ -363,8 +412,11 @@ def run_agent(
             plan = fix_plan(plan, str(resume["follow_up"]))
     else:
         plan = _agent_plan(goal, assessment, recipes)
-    fire("plan", **({"resumed": True} if resume else {}), source="recipe" if plan.get("recipe") else "agent", **plan)
+    fire("plan", **{**plan, "source": "recipe" if plan.get("recipe") else "agent", **({"resumed": True} if resume else {})})
 
+    limit = max(1, min(int(max_loops or 1), MAX_AGENT_LOOPS))
+    evidence = Evidence(tools, goal)
+    plan_checks: dict[str, dict] = {}
     tracked = bool(plan.get("recipe") or resume)
     done_before = {str(i) for i in (resume or {}).get("done_steps") or []}
     tools.todo_write(
@@ -389,7 +441,7 @@ def run_agent(
     ]
     context_length = _context_length(models, model)
     guard = RepeatGuard()
-    state: dict[str, Any] = {"accepted": False, "aborted": False, "summary": "", "text": "", "bounces": 0}
+    state: dict[str, Any] = {"accepted": False, "aborted": False, "summary": "", "text": "", "bounces": 0, "soft_sent": False, "loop": 0, "gate": None}
     started: set[str] = set()
     closed: set[str] = set()
     warned = {"half": False}
@@ -468,11 +520,21 @@ def run_agent(
         spend(completion, "compact")
         return completion.content or ""
 
-    def required_missing() -> list[str]:
+    def required_files() -> list[str]:
         wanted = [str(plan.get("deliverable_path") or "")]
         for step in _live_steps(plan, tools):
             wanted.extend(str(w) for w in step.get("writes") or [])
-        return _missing_files(tools, list(dict.fromkeys(w for w in wanted if w)))
+        return list(dict.fromkeys(w for w in wanted if w))
+
+    def required_missing() -> list[str]:
+        return _missing_files(tools, required_files())
+
+    def check_result() -> dict:
+        refresh_board(plan, tools)
+        gate = run_gate(tools=tools, plan=plan, goal=goal, language=language, required=required_files(), evidence=evidence, plan_checks=plan_checks)
+        state["gate"] = gate
+        fire("gate", **compact_checks(gate))
+        return gate
 
     def attempt_finish(declared: str, summary: str) -> str:
         """The agent says it is finished. Returns what it is told; sets ``accepted`` when the work may end."""
@@ -481,15 +543,17 @@ def run_agent(
             plan["deliverable_path"] = chosen
             fire("deliverable", path=chosen)
         state["summary"] = summary or state["summary"]
-        missing = required_missing()
-        if missing and state["bounces"] < MAX_FINISH_BOUNCES:
-            state["bounces"] += 1
-            fire("nudge", subtask=label(), missing=missing, n=state["bounces"])
-            return (
-                "Not finished. These files are missing or empty: "
-                + ", ".join(missing)
-                + ". Write them now (write_file / append_file for text; for .pptx .xlsx .docx .pdf run your script with bash), then call done."
-            )
+        fire("phase", stage="verifying", loop=state["loop"], max=limit)
+        gate = check_result()
+        send_back = bool(gate["blocking"]) and state["bounces"] < MAX_FINISH_BOUNCES
+        send_back_soft = bool(gate["soft"]) and not state["soft_sent"]
+        if send_back or send_back_soft:
+            state["bounces"] += 1 if send_back else 0
+            state["soft_sent"] = state["soft_sent"] or bool(gate["soft"])
+            if gate["missing"]:
+                fire("nudge", subtask=label(), missing=gate["missing"], n=state["bounces"])
+            fire("phase", stage="working", loop=state["loop"], max=limit)
+            return gate_message(gate)
         state["accepted"] = True
         return "Accepted."
 
@@ -527,9 +591,16 @@ def run_agent(
             guard.counts.clear()
         if call.name == "todo":
             sync_steps()
+        evidence.add(call.name, call.arguments, result)
+        if call.name == "plan_check" and not result.startswith("error:"):
+            try:
+                checked = json.loads(result)
+            except ValueError:
+                return
+            plan_checks[str(checked.get("kind") or call.arguments.get("kind") or "")] = checked
 
     def work(max_turns: int) -> None:
-        state.update(accepted=False, aborted=False, bounces=0)
+        state.update(accepted=False, aborted=False, bounces=0, soft_sent=False)
         warned_turns = False
         turns = 0
         for turns in range(1, max_turns + 1):
@@ -589,21 +660,54 @@ def run_agent(
                     break
                 run_calls(completion)
 
+    def self_review(gate: dict) -> dict:
+        """One turn, same model, same thread. The tools stay listed (unused) so a provider's prompt cache still applies."""
+        squeezed = compact(messages, context_length=context_length, summarize=summarize)
+        if squeezed:
+            fire("compact", subtask="verifier", **squeezed)
+        messages.append({"role": "user", "content": _review_prompt(goal, plan, tools, gate, language)})
+        completion = _chat(client, model=model, messages=messages, tools=specs, extra={"tool_choice": "none"})
+        spend(completion, "verifier")
+        content = completion.content or ""
+        if not _looks_like_verdict(content) and not client.blocked:
+            messages.append({"role": "assistant", "content": content or "(no text)"})
+            messages.append({"role": "user", "content": "Return ONLY the review JSON with keys passed, score, usable, summary, blocking, issues, remaining."})
+            completion = _chat(client, model=model, messages=messages, json_schema=VERIFY_SCHEMA)
+            spend(completion, "verifier")
+            content = completion.content or content
+        messages.append({"role": "assistant", "content": content or "(no text)"})
+        try:
+            parsed = parse_json_object(content)
+        except JsonParseError:
+            parsed = None
+        if parsed is None:
+            # The code checks ran; a review that came back unreadable must not fail a clean file.
+            review = {"passed": False, "score": 0.7, "usable": True, "summary": "The self-review returned no readable verdict; only the automatic checks ran.",
+                      "blocking": [], "issues": ["Only the automatic checks ran: the self-review was unreadable."], "remaining": []}
+        else:
+            review = {"passed": False, "score": 0.0, "summary": "", "issues": [], "remaining": [], **parsed}
+        review = _settle_verdict(_normalize_verdict(review), gate)
+        if _notes_only(review) and not _missing_files(tools, [str(plan.get("deliverable_path") or "")]):
+            review["passed"] = True
+            review["notes_only"] = True
+        fire("verify", reviewer="self", **review)
+        return review
+
     def settle_steps() -> None:
         sync_steps()
         for step in plan.get("steps") or []:
             close_step(step)
 
     passed = False
-    verify: dict[str, Any] = dict((resume or {}).get("verify") or {})
+    verdict: dict[str, Any] = dict((resume or {}).get("verify") or {})
     history: list[dict] = []
     stopped_early = ""
     loops = 0
-    limit = max(1, min(int(max_loops or 1), MAX_AGENT_LOOPS))
     for loops in range(1, limit + 1):
         if tally.usd >= usd_cap:
             fire("budget", cap=round(usd_cap, 3), receipt=format_receipt(tally, rate), **tally.payload(rate))
             break
+        state["loop"] = loops
         fire("loop", n=loops, max=limit)
         fire("phase", stage="working", loop=loops, max=limit)
         started.clear()
@@ -619,27 +723,33 @@ def run_agent(
             fire("budget", cap=round(usd_cap, 3), stage="before verify", receipt=format_receipt(tally, rate), **tally.payload(rate))
             break
         fire("phase", stage="verifying", loop=loops, max=limit)
+        gate = state["gate"] if state["accepted"] and state["gate"] else check_result()
         try:
-            verify = _verify(
-                client,
-                cast.verifier,
-                goal,
-                assessment,
-                None,
-                plan,
-                str(state["summary"] or state["text"]),
-                tools,
-                lambda completion: spend(completion, "verifier"),
-                fire,
-                memory_snapshot=memory_snapshot,
-                max_turns=0 if _is_trivial(assessment) else (4 if complexity == "moderate" else MAX_VERIFY_TURNS),
-            )
+            if review_mode == "strict":
+                open_points = "\n".join([*gate["blocking"], *gate["soft"]])
+                verdict = _verify(
+                    client,
+                    cast.verifier,
+                    goal,
+                    assessment,
+                    None,
+                    plan,
+                    str(state["summary"] or state["text"]) + (f"\nAutomatic checks still open:\n{open_points}" if open_points else ""),
+                    tools,
+                    lambda completion: spend(completion, "verifier"),
+                    fire,
+                    memory_snapshot=memory_snapshot,
+                    max_turns=0 if _is_trivial(assessment) else (4 if complexity == "moderate" else MAX_VERIFY_TURNS),
+                )
+                verdict = _settle_verdict(verdict, gate)
+            else:
+                verdict = self_review(gate)
         except Exception as exc:  # noqa: BLE001
             fire("error", message=f"verifier failed: {exc}")
-            verify = {"passed": False, "score": 0.0, "summary": f"Verifier error: {exc}", "issues": [str(exc)], "remaining": ["Re-run verification"]}
-            fire("verify", **verify)
-        passed = bool(verify.get("passed"))
-        history.append(_history_entry(loops, plan, verify, model))
+            verdict = {"passed": False, "score": 0.0, "summary": f"Verifier error: {exc}", "issues": [str(exc)], "remaining": ["Re-run verification"]}
+            fire("verify", **verdict)
+        passed = bool(verdict.get("passed"))
+        history.append(_history_entry(loops, plan, verdict, model))
         if passed:
             break
         if _no_progress(history):
@@ -650,10 +760,10 @@ def run_agent(
             if tally.usd >= usd_cap:
                 fire("budget", cap=round(usd_cap, 3), stage="before replan", receipt=format_receipt(tally, rate), **tally.payload(rate))
             break
-        messages.append({"role": "user", "content": _revision_note(verify)})
+        messages.append({"role": "user", "content": _revision_note(verdict)})
 
-    summary = (verify.get("summary") if verify else "") or str(state["summary"] or state["text"])
-    status, notes = _final_status(passed, verify, plan, assessment, tools)
+    summary = (verdict.get("summary") if verdict else "") or str(state["summary"] or state["text"])
+    status, notes = _final_status(passed, verdict, plan, assessment, tools)
     if notes:
         summary = (summary + "\n" if summary else "") + "Notes: " + "; ".join(notes)
     if stopped_early and status == "unmet":

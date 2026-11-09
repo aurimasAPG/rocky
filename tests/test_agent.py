@@ -31,6 +31,7 @@ class AgentClient:
         self.systems = []
         self.agent_threads = []
         self.verifier_calls = 0
+        self.reviews = []
 
     def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
         system = messages[0]["content"]
@@ -38,6 +39,10 @@ class AgentClient:
         if "You verify completed work" in system:
             self.verifier_calls += 1
             return Completion(content=json.dumps(self.verdicts.pop(0) if len(self.verdicts) > 1 else self.verdicts[0]))
+        if "You are Rocky, an agent" in system and str(messages[-1].get("content") or "").startswith("REVIEW"):
+            self.reviews.append({"messages": [dict(m) for m in messages], "tools": tools, "extra": extra, "model": model})
+            answer = self.verdicts.pop(0) if len(self.verdicts) > 1 else self.verdicts[0]
+            return self.price(Completion(content=answer if isinstance(answer, str) else json.dumps(answer)), messages)
         if "You are Rocky, an agent" in system:
             self.agent_threads.append([dict(m) for m in messages])
             self.agent_tools = [t["function"]["name"] for t in tools or [] if t.get("function")]
@@ -46,6 +51,9 @@ class AgentClient:
                 return Completion(content=step)
             return Completion(content="", tool_calls=step)
         raise AssertionError(f"unexpected call: {system[:60]}")
+
+    def price(self, completion, messages):
+        return completion
 
 
 def run(tmp_path, monkeypatch, goal, client, **kw):
@@ -201,7 +209,7 @@ def test_the_cap_stops_the_work_before_the_review(tmp_path, monkeypatch):
 
     client = Costly([turn(("list_dir", {"path": "."})), turn(("list_dir", {"path": "runs"}))])
     result, events = run(tmp_path, monkeypatch, "Write it", client, budget_eur=1.0)
-    assert client.verifier_calls == 0 and result.status == "unmet"
+    assert client.verifier_calls == 0 and not client.reviews and result.status == "unmet"
     assert kinds(events, "budget")
 
 
@@ -301,7 +309,7 @@ def test_resume_starts_one_new_conversation_from_the_last_verdict(tmp_path, monk
     client = Recording([turn(("write_file", {"path": "deliverables/a.md", "content": "new"}), ("done", {"summary": "Done"}))])
     result, events = run(tmp_path, monkeypatch, "Write it", client, resume=resume)
     assert result.status == "passed" and result.deliverable_path == "deliverables/a.md"
-    assert seen_models == ["openai/m"], "a resumed run keeps its model"
+    assert set(seen_models) == {"openai/m"}, "a resumed run keeps its model"
     task = client.agent_threads[0][1]["content"]
     assert "EARLIER ATTEMPT" in task and "Add a second paragraph" in task
     assert "You assess tasks" not in " ".join(client.systems)
@@ -584,3 +592,339 @@ def test_route_answers_from_the_words_without_a_model_call(tmp_path, monkeypatch
     assert main(["route", "Sukurk Facebook reklamas apgmedia.lt", "-d", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert "ads" in out and "deliverables/ads.html" in out and "planner" not in out
+
+
+# --- code first, then one self-review -------------------------------------------------------------
+
+
+def write_and_finish(path, content, summary="ok"):
+    return turn(("write_file", {"path": path, "content": content}), ("done", {"deliverable_path": path, "summary": summary}))
+
+
+def test_the_review_is_one_turn_in_the_same_conversation(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.md", "# Title\n\nBody.\n")])
+    result, events = run(tmp_path, monkeypatch, "Write a short article", client)
+    assert result.status == "passed" and client.verifier_calls == 0 and len(client.reviews) == 1
+    review = client.reviews[0]
+    assert review["model"] == kinds(events, "cast")[0]["models"]["worker"] == kinds(events, "cast")[0]["models"]["verifier"]
+    assert review["extra"]["tool_choice"] == "none" and review["tools"], "the tools stay listed so the cached prefix still applies"
+    assert any(m["role"] == "tool" for m in review["messages"]), "the review sees the whole run"
+    prompt = review["messages"][-1]["content"]
+    assert "strict outsider" in prompt and "# Title" in prompt and "AUTOMATIC CHECKS" in prompt and "usable=true" in prompt
+    verdict = kinds(events, "verify")[0]
+    assert verdict["reviewer"] == "self" and verdict["passed"] is True
+    phases = [p["stage"] for p in kinds(events, "phase")]
+    assert phases.index("verifying") > phases.index("working")
+
+
+def test_strict_uses_the_independent_verifier_instead_of_the_review(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.md", "# Title\n\nBody.\n")])
+    result, events = run(tmp_path, monkeypatch, "Write a short article", client, verify="strict")
+    assert result.status == "passed" and client.verifier_calls == 1 and not client.reviews
+    models = kinds(events, "cast")[0]["models"]
+    assert models["verifier"] != models["worker"]
+
+
+def test_the_verify_setting_comes_from_the_flag_and_the_config(tmp_path, monkeypatch):
+    import os
+
+    from rocky.cli import main
+
+    seen = {}
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ROCKY_VERIFY", "self")
+    monkeypatch.setattr("rocky.cli.spawn_worker", lambda meta: seen.update(env=os.environ.get("ROCKY_VERIFY")) or 1)
+    monkeypatch.setattr("rocky.cli._attach", lambda workspace, rid: 0)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", FakeClient)
+    assert main(["write x", "-d", str(tmp_path), "--verify", "strict"]) == 0
+    assert seen["env"] == "strict"
+
+
+def test_a_figure_from_nowhere_goes_back_once_then_reaches_the_user(tmp_path, monkeypatch):
+    invented = "Mūsų klientai pasiekia 47 % didesnį pardavimų augimą.\n"
+    client = AgentClient([write_and_finish("deliverables/a.md", invented), turn(("done", {"deliverable_path": "deliverables/a.md", "summary": "keeping it"}))])
+    result, events = run(tmp_path, monkeypatch, "Write a short article", client)
+    answer = next(m["content"] for m in client.agent_threads[1] if m["role"] == "tool" and "Not finished" in m["content"])
+    assert "47 %" in answer and "facts.md" in answer
+    assert result.status == "passed_with_notes" and any("47 %" in n for n in result.notes)
+    assert kinds(events, "gate")[0]["soft"]
+
+
+def test_removing_the_figure_passes_clean(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.md", "Mūsų klientai pasiekia 47 % didesnį pardavimų augimą.\n"), write_and_finish("deliverables/a.md", "Mūsų klientai auga.\n")])
+    result, _ = run(tmp_path, monkeypatch, "Write a short article", client)
+    assert result.status == "passed" and not result.notes
+
+
+def test_a_figure_a_calculator_produced_needs_no_web_source(tmp_path, monkeypatch):
+    client = AgentClient(
+        [
+            turn(("unit_economics", {"price": 100, "variable_cost": 60, "units": 100, "new_price": 90})),
+            write_and_finish("deliverables/kaina.md", "Kad išlaikytumėte įnašą, reikia parduoti 134 vienetus, tai yra 34 daugiau nei dabar.\n"),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Ar verta mažinti kainą iki 90 €?", client)
+    assert result.status == "passed" and not kinds(events, "gate")[0]["soft"]
+
+
+def test_a_figure_the_user_gave_needs_no_source(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.md", "Dabar parduodate 100 vienetų po 100 eurų.\n")])
+    result, events = run(tmp_path, monkeypatch, "Parduodame 100 vnt. po 100 €. Parašyk santrauką.", client)
+    assert result.status == "passed" and not kinds(events, "gate")[0]["soft"]
+
+
+def test_a_figure_on_a_page_the_agent_read_is_supported(tmp_path, monkeypatch):
+    class Web:
+        def fetch(self, url):
+            return "APG Media dirba su daugiau nei 200 prekių ženklų visoje Lietuvoje."
+
+    monkeypatch.setattr(agent_module, "WebTools", Web)
+    client = AgentClient(
+        [
+            turn(("web_fetch", {"url": SOURCE})),
+            write_and_finish("deliverables/a.md", "APG Media dirba su daugiau nei 200 prekių ženklų.\n"),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Parašyk trumpą tekstą", client)
+    assert result.status == "passed" and not kinds(events, "gate")[0]["soft"]
+    assert "200 prekių" in (tmp_path / "runs/notes/tool-evidence.md").read_text(encoding="utf-8")
+    assert "runs/notes/tool-evidence.md" not in result.files
+
+
+def test_a_figure_that_contradicts_the_source_blocks_and_stays_in_the_notes(tmp_path, monkeypatch):
+    (tmp_path / "duomenys.md").write_text("Klientų skaičius Lietuvoje siekia 200 įmonių.\n", encoding="utf-8")
+    wrong = "Klientų skaičius Lietuvoje siekia 900 įmonių.\n"
+    client = AgentClient([write_and_finish("deliverables/a.md", wrong) for _ in range(5)],
+                         verdicts=[{"passed": True, "score": 0.9, "usable": True, "summary": "Fine.", "blocking": [], "issues": [], "remaining": []}])
+    result, events = run(tmp_path, monkeypatch, "Parašyk trumpą tekstą", client, max_loops=1)
+    gate = kinds(events, "gate")[0]
+    assert any("differs" in b and "900" in b for b in gate["blocking"])
+    assert len(kinds(events, "gate")) == 4, "three times back, then the review"
+    assert result.status == "passed_with_notes" and any(n.startswith("must fix:") and "900" in n for n in result.notes)
+    assert kinds(events, "verify")[-1]["passed"] is False
+
+
+def test_the_authors_own_estimate_is_not_a_claim(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.md", "Rekomenduojame 500 eurų biudžetą pirmam mėnesiui.\nApytikslis įvertis: 30 užklausų.\n")])
+    result, events = run(tmp_path, monkeypatch, "Parašyk trumpą tekstą", client)
+    assert result.status == "passed" and not kinds(events, "gate")[0]["soft"]
+
+
+def test_a_draft_note_without_a_link_is_not_evidence_for_itself(tmp_path, monkeypatch):
+    text = "Mūsų klientai pasiekia 47 % didesnį pardavimų augimą.\n"
+    client = AgentClient(
+        [
+            turn(("write_file", {"path": "runs/notes/draft.md", "content": text})),
+            write_and_finish("deliverables/a.md", text),
+            turn(("done", {"deliverable_path": "deliverables/a.md", "summary": "ok"})),
+        ]
+    )
+    _, events = run(tmp_path, monkeypatch, "Parašyk trumpą tekstą", client)
+    assert kinds(events, "gate")[0]["soft"]
+
+
+def test_a_note_that_cites_a_url_is_evidence(tmp_path, monkeypatch):
+    text = "Mūsų klientai pasiekia 47 % didesnį pardavimų augimą."
+    client = AgentClient(
+        [
+            turn(("write_file", {"path": "runs/notes/research.md", "content": f"{text} https://example.com/tyrimas\n"})),
+            write_and_finish("deliverables/a.md", text + "\n"),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Parašyk trumpą tekstą", client)
+    assert result.status == "passed" and not kinds(events, "gate")[0]["soft"]
+
+
+def test_the_ad_board_findings_send_the_agent_back(tmp_path, monkeypatch):
+    bad = ad_pack()
+    bad["ads"][0]["primary_text"] = "Dirbame su 200 prekių ženklų."
+    client = AgentClient(
+        [
+            turn(("write_file", {"path": FACTS_PATH, "content": f"200+ prekių ženklų — {SOURCE}"})),
+            turn(("ad_board", bad)),
+            turn(("write_file", {"path": "deliverables/visual-1.png", "content": "png"})),
+            turn(("done", {"summary": "Gatava."})),
+            turn(("ad_board", ad_pack())),
+            turn(("done", {"summary": "Pataisyta."})),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Sukurk Facebook reklamas apgmedia.lt", client)
+    first, last = kinds(events, "gate")[0], kinds(events, "gate")[-1]
+    assert any(b.startswith("ad_board:") for b in first["blocking"]) and not last["blocking"]
+    assert result.status == "passed"
+    assert '"primary_text"' in client.reviews[0]["messages"][-1]["content"], "the review reads the pack, not the page's markup"
+
+
+CALENDAR = [
+    {"title": "Straipsnis", "publish_date": "2027-02-15", "channel": "blog", "owner": "Eglė", "format": "article", "stage": "evaluation", "lifespan": "evergreen", "goal": "Kaip pasirinkti?", "source": "voc.md"},
+]
+
+
+def test_a_calendar_goal_must_go_through_plan_check(tmp_path, monkeypatch):
+    client = AgentClient(
+        [
+            write_and_finish("deliverables/kalendorius.md", "Vasario straipsnis.\n"),
+            turn(("plan_check", {"kind": "content_calendar", "items": [{"title": "Be savininko", "publish_date": "2027-02-15", "channel": "blog"}], "render": False})),
+            turn(("done", {"deliverable_path": "deliverables/kalendorius.md", "summary": "ok"})),
+            turn(("plan_check", {"kind": "content_calendar", "items": CALENDAR, "render": False})),
+            turn(("done", {"deliverable_path": "deliverables/kalendorius.md", "summary": "ok"})),
+        ]
+    )
+    result, events = run(tmp_path, monkeypatch, "Paruošk turinio kalendorių vasariui", client)
+    gates = kinds(events, "gate")
+    assert "not run" in gates[0]["blocking"][0] and "content_calendar" in gates[0]["blocking"][0]
+    assert any("owner_missing" in b for b in gates[1]["blocking"])
+    assert not gates[2]["blocking"] and result.status == "passed"
+
+
+def test_a_binary_deliverable_that_does_not_open_goes_back(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.pptx", "not really a deck"), turn(("done", {"deliverable_path": "deliverables/a.pptx", "summary": "ok"}))])
+    result, events = run(tmp_path, monkeypatch, "Write a short article", client, max_loops=1)
+    assert any("does not open" in b for b in kinds(events, "gate")[0]["blocking"])
+    assert kinds(events, "gate")[0]["checks"]["opens"]["status"] == "failed"
+
+
+def test_a_real_deck_opens_and_its_figures_are_read(tmp_path, monkeypatch):
+    from pptx import Presentation
+
+    (tmp_path / "deliverables").mkdir()
+    deck = Presentation()
+    slide = deck.slides.add_slide(deck.slide_layouts[1])
+    slide.shapes.title.text = "Rezultatai"
+    slide.placeholders[1].text = "Mūsų klientai pasiekia 47 % didesnį pardavimų augimą."
+    deck.save(tmp_path / "deliverables/a.pptx")
+    client = AgentClient([turn(("list_dir", {"path": "."})), turn(("done", {"deliverable_path": "deliverables/a.pptx", "summary": "ok"})), turn(("done", {"deliverable_path": "deliverables/a.pptx", "summary": "ok"}))])
+    _, events = run(tmp_path, monkeypatch, "Make a deck", client)
+    gate = kinds(events, "gate")[0]
+    assert gate["checks"]["opens"]["status"] == "ok" and any("47 %" in item for item in gate["soft"])
+
+
+def test_an_unreadable_review_does_not_fail_a_clean_file(tmp_path, monkeypatch):
+    client = AgentClient([write_and_finish("deliverables/a.md", "# T\n\nBody.\n")], verdicts=["I think it is fine."])
+    result, events = run(tmp_path, monkeypatch, "Write a short article", client)
+    assert result.status == "passed_with_notes" and any("automatic checks" in n for n in result.notes)
+    assert len(client.reviews) == 1
+
+
+def test_a_review_that_needs_a_second_ask_is_read(tmp_path, monkeypatch):
+    class TwoAsks(AgentClient):
+        def complete(self, *, model, messages, tools=None, json_schema=None, extra=None):
+            if json_schema is not None:
+                self.second_ask = True
+                return Completion(content=json.dumps(PASS))
+            return super().complete(model=model, messages=messages, tools=tools, json_schema=json_schema, extra=extra)
+
+    client = TwoAsks([write_and_finish("deliverables/a.md", "# T\n\nBody.\n")], verdicts=["Looks fine to me."])
+    result, _ = run(tmp_path, monkeypatch, "Write a short article", client)
+    assert client.second_ask and result.status == "passed"
+
+
+def test_a_review_with_nothing_blocking_but_no_pass_ends_with_notes(tmp_path, monkeypatch):
+    soft = {"passed": False, "score": 0.8, "usable": True, "summary": "Small things.", "blocking": [], "issues": ["Add a call to action"], "remaining": []}
+    client = AgentClient([write_and_finish("deliverables/a.md", "# T\n\nBody.\n")], verdicts=[soft])
+    result, _ = run(tmp_path, monkeypatch, "Write a short article", client)
+    assert result.status == "passed_with_notes" and result.loops == 1 and "Add a call to action" in result.notes
+
+
+def test_the_work_cut_off_by_the_turn_cap_is_still_checked(tmp_path, monkeypatch):
+    monkeypatch.setattr(agent_module, "MAX_AGENT_TURNS", 1)
+    client = AgentClient([turn(("write_file", {"path": "deliverables/late.md", "content": "Mūsų klientai pasiekia 47 % didesnį augimą.\n"}))])
+    result, events = run(tmp_path, monkeypatch, "Write late.md", client, max_loops=1)
+    assert kinds(events, "gate") and client.reviews and result.deliverable_exists
+
+
+# Real OpenRouter prices of the default worker (google/gemini-3.8-flash, 2026-11-09), dollars per token.
+GEMINI_PROMPT, GEMINI_COMPLETION = 0.825e-6, 4.125e-6
+
+
+def test_the_review_of_a_full_moderate_run_costs_under_twenty_cents(tmp_path, monkeypatch):
+    """A long run at the compaction ceiling, billed at list price with no cache discount."""
+
+    class Priced(AgentClient):
+        def price(self, completion, messages):
+            prompt = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) // 4
+            completion.prompt_tokens = prompt
+            completion.completion_tokens = 400
+            completion.cost = prompt * GEMINI_PROMPT + 400 * GEMINI_COMPLETION
+            return completion
+
+    page = "Rinkos apžvalga be skaičių. " * 700  # about 19 000 characters, a fetched page
+    monkeypatch.setattr(agent_module, "compact", lambda messages, **kw: None)
+
+    class Web:
+        def fetch(self, url):
+            return page
+
+    monkeypatch.setattr(agent_module, "WebTools", Web)
+    script = [turn(("web_fetch", {"url": f"https://example.com/{i}"})) for i in range(20)]
+    client = Priced([*script, write_and_finish("deliverables/a.md", "# Apžvalga\n\nTekstas.\n")])
+    result, events = run(tmp_path, monkeypatch, "Research our market and write a report", client, budget_eur=5.0)
+    review = client.reviews[0]
+    tokens = sum(len(json.dumps(m, ensure_ascii=False)) for m in review["messages"]) // 4
+    assert tokens > 90_000, "the scenario really is a full context"
+    bill = kinds(events, "done")[0]["by_role"]["verifier"]
+    assert bill["calls"] == 1 and bill["eur"] < 0.20
+
+
+def test_evidence_is_kept_small_across_runs(tmp_path):
+    from rocky.gate import EVIDENCE_MAX_BYTES, EVIDENCE_PATH, Evidence
+    from rocky.tools import WorkspaceTools
+
+    tools = WorkspaceTools(tmp_path)
+    (tmp_path / "runs/notes").mkdir(parents=True)
+    (tmp_path / EVIDENCE_PATH).write_text("x" * (EVIDENCE_MAX_BYTES + 10), encoding="utf-8")
+    Evidence(tools, "goal")
+    assert (tmp_path / EVIDENCE_PATH).stat().st_size < EVIDENCE_MAX_BYTES
+
+
+def test_a_tools_error_is_not_evidence(tmp_path):
+    from rocky.gate import EVIDENCE_PATH, Evidence
+    from rocky.tools import WorkspaceTools
+
+    evidence = Evidence(WorkspaceTools(tmp_path), "goal")
+    evidence.add("web_fetch", {"url": "u"}, "error: 404 with 777 in it")
+    evidence.add("unit_economics", {}, "error: 888")
+    assert "777" not in (tmp_path / EVIDENCE_PATH).read_text(encoding="utf-8")
+    assert "888" not in evidence.computed_numbers("en")
+
+
+def test_a_real_finished_agent_run_can_be_followed_up(tmp_path, monkeypatch):
+    """Through what is really on disk, not a hand-written resume state."""
+    from rocky.runs import append_event, create_run, load_resume_state, run_dir
+
+    meta = create_run(workspace=tmp_path, goal="Write a short article", budget_eur=5.0, max_loops=3, include_server_tools=True)
+    first = AgentClient([write_and_finish("deliverables/a.md", "# T\\n\\nLong body.\\n")])
+    _, events = run(tmp_path, monkeypatch, "Write a short article", first)
+    folder = run_dir(tmp_path, meta["id"])
+    for event in events:
+        append_event(folder, event)
+    state = load_resume_state(folder, follow_up="make it shorter")
+    second = AgentClient([write_and_finish("deliverables/a.md", "# T\\n\\nShort.\\n")])
+    result, later = run(tmp_path, monkeypatch, state["goal"], second, resume=state)
+    assert result.status == "passed" and result.deliverable_path == "deliverables/a.md"
+    assert kinds(later, "plan")[0]["resumed"] is True and kinds(later, "plan")[0]["source"] == "agent"
+    assert "make it shorter" in second.agent_threads[0][1]["content"]
+
+
+@pytest.mark.parametrize(
+    ("goal", "language"),
+    [
+        ("Sukurk Facebook reklamas apgmedia.lt", "lt"),
+        ("Parasyk straipsni apie kaina", "lt"),
+        ("Write ads for apgmedia.lt", "en"),
+        ("Make a client report on our pricing", "en"),
+    ],
+)
+def test_lithuanian_without_diacritics_is_still_lithuanian(goal, language, monkeypatch):
+    from rocky.lang import detect_language
+
+    assert detect_language(goal) == language

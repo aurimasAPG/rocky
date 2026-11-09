@@ -21,6 +21,7 @@ def load_env() -> None:
 CONFIG_ENV = {
     "worker": "ROCKY_WORKER",
     "mode": "ROCKY_MODE",
+    "verify": "ROCKY_VERIFY",
     "image_model": "ROCKY_IMAGE_MODEL",
     "language": "ROCKY_LANGUAGE",
     "sandbox": "ROCKY_SANDBOX",
@@ -113,6 +114,16 @@ def run_mode() -> str:
     load_env()
     raw = (os.environ.get("ROCKY_MODE") or "").strip().lower()
     return raw if raw in RUN_MODES else RUN_MODES[0]
+
+
+VERIFY_MODES = ("self", "strict")
+
+
+def verify_mode() -> str:
+    """`self` (code checks, then one review turn by the agent; the default) or `strict` (an independent verifier model)."""
+    load_env()
+    raw = (os.environ.get("ROCKY_VERIFY") or "").strip().lower()
+    return raw if raw in VERIFY_MODES else VERIFY_MODES[0]
 
 
 def rocky_home() -> Path:

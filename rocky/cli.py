@@ -14,6 +14,7 @@ from rocky.config import (
     CONFIG_ENV,
     CONFIG_FLAGS,
     RUN_MODES,
+    VERIFY_MODES,
     api_key,
     apply_config,
     base_url,
@@ -23,6 +24,7 @@ from rocky.config import (
     preferred_worker,
     run_mode,
     save_api_key,
+    verify_mode,
 )
 from rocky.job import spawn_worker
 from rocky.jsonutil import parse_json_object
@@ -149,6 +151,12 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="agent: one model does the whole job (default). orchestrate: planner, step workers and a verifier",
     )
+    parser.add_argument(
+        "--verify",
+        choices=VERIFY_MODES,
+        default="",
+        help="self: code checks, then one review turn by the agent (default). strict: code checks, then an independent verifier model",
+    )
     parser.add_argument("--lang", default="", help="Write the deliverable in this language (lt, en, …) instead of the goal's")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
@@ -175,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         os.environ["ROCKY_WORKER"] = args.model.strip()
     if args.mode:
         os.environ["ROCKY_MODE"] = args.mode
+    if args.verify:
+        os.environ["ROCKY_VERIFY"] = args.verify
     if args.lang.strip():
         os.environ["ROCKY_LANGUAGE"] = args.lang.strip().lower()
     goal = " ".join(args.goal).strip()
@@ -413,6 +423,7 @@ max_loops = 4
 worker = "google/gemini-3.8-flash"   # OpenRouter id (--model wins)
 language = "lt"                  # force the deliverable language (--lang wins); omit to follow the goal
 # mode = "orchestrate"           # agent is the default (--mode wins)
+# verify = "strict"              # self is the default (--verify wins)
 sandbox = "sandbox-exec"         # macOS; "docker" or "none"
 # token = "team-secret"          # rocky serve
 # workspaces = ["/Users/me/projects"]
@@ -426,7 +437,7 @@ def _config(workspace: Path, cfg: dict, args) -> int:
         console.print(f"{mark} {path}")
     console.print(
         f"[bold]effective[/]  budget €{float(args.budget):.2f}  ·  max_loops {int(args.max_loops)}  ·  "
-        f"worker {preferred_worker() or 'catalog default'}  ·  language {forced_language() or 'from the goal'}  ·  mode {run_mode()}"
+        f"worker {preferred_worker() or 'catalog default'}  ·  language {forced_language() or 'from the goal'}  ·  mode {run_mode()}  ·  verify {verify_mode()}"
     )
     extra = {k: v for k, v in cfg.items() if k not in CONFIG_FLAGS and k not in CONFIG_ENV}
     if extra:

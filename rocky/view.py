@@ -203,6 +203,15 @@ def render_event(event: Event) -> None:
     if kind == "loop":
         console.print(Text(f"loop {payload.get('n')}/{payload.get('max')}", style=style))
         return
+    if kind == "gate":
+        problems = [*(payload.get("blocking") or []), *(payload.get("soft") or [])]
+        console.print(Text(f"check  {len(problems)} to fix" + (f" · {problems[0][:160]}" if problems else " · clean"), style=f"#{APRICOT}" if problems else f"#{OK}"))
+        return
+    if kind == "deliverable":
+        console.print(Text(f"deliverable  {payload.get('path')}", style=f"#{CORAL}"))
+        return
+    if kind == "phase":
+        return
     if kind == "stall":
         console.print(
             Text(

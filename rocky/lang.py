@@ -30,6 +30,11 @@ _LT_WORDS = frozenset(
     }
 )
 _WORD = re.compile(r"[a-ząčęėįšųūž]+", re.I)
+# Word starts that survive inflection and a keyboard without diacritics ("sukurk reklamas").
+_LT_STEMS = (
+    "sukurk", "parasyk", "paruosk", "padaryk", "isanalizuok", "reklam", "kampanij", "rinkodar", "klient", "pardavim", "uzduot", "straipsn",
+    "tekst", "puslap", "svetain", "imon", "paslaug", "prekes", "prekiu", "naujienlaisk", "konkurent", "auditorij", "kain", "nuolaid",
+)
 
 
 def detect_language(text: str) -> str:
@@ -41,7 +46,7 @@ def detect_language(text: str) -> str:
     words = _WORD.findall(lowered)
     if not words:
         return "en"
-    hits = sum(1 for w in words if w in _LT_WORDS)
+    hits = sum(1 for w in words if w in _LT_WORDS or w.startswith(_LT_STEMS))
     if hits >= 2 or (hits == 1 and len(words) <= 4):
         return "lt"
     return "en"
