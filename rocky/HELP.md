@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.sh | 
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.ps1 | iex`
 
-Upgrade = run it again. Remove = `uv tool uninstall rocky`. Check = `rocky --version`.
+Upgrade = run it again. Remove = `uv tool uninstall rocky`. Check = `rocky --version` (or `rocky -v`). The installed version also appears below the mascot when Rocky opens.
 
 Developers, from a clone: `uv tool install --force --reinstall .` (rerun after every code change). Put `~/.local/bin` on your `PATH`.
 
@@ -97,6 +97,7 @@ rocky help
 | `rocky review [ID]` | Review a finished run's result in the terminal, with file selection and refine/continue actions. Reading needs no API key. Without a terminal, print the result without prompting. |
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
+| `rocky version` | Show the installed version. `--version`, `-V`, `-v`, and `--v` also work, without an API key. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
 | `rocky config` | Show the config files Rocky reads, the effective budget / loops / worker / language, and an example file if there is none. |
 | `rocky doctor` | Check key, OpenRouter access, folder, sandbox, browser, skills. Exit 1 if anything is broken. |

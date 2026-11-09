@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from rocky import __version__
 from rocky.theme import APRICOT, CORAL, DIM, INK, PERI, SEA
 
 # Apricot coat, coral tongue — no metallic gold.
@@ -35,7 +36,7 @@ ROCKY_DOG_COMPACT = f"""\
 [#{SEA}]   ╲   ╰─╯   /[/]
 [#{SEA}]   /|  ▔  |╲[/]
 [#{DIM}]    ∪     ∪[/]
-[italic #{INK}]  rocky  ·  good boy[/]"""
+[italic #{INK}]  rocky v{__version__}  ·  good boy[/]"""
 
 
 def print_banner(
@@ -60,6 +61,7 @@ def print_banner(
         right += f"\n[#{INK}]Type a task. Empty line or q to quit.[/]"
     layout.add_row(ROCKY_DOG, right)
     out.print(layout)
+    out.print(Text(f"            v{__version__}", style=f"#{DIM}"))
     out.print()
 
 

@@ -9,6 +9,8 @@ from rocky.cli import main, prompt_goal
 
 
 def test_banner_prints_retriever_and_rocky():
+    from rocky import __version__
+
     buf = StringIO()
     print_banner(
         workspace="/tmp/demo",
@@ -22,13 +24,18 @@ def test_banner_prints_retriever_and_rocky():
     assert "██" not in text
     assert "golden retriever" in text
     assert "Type a task" in text
+    assert f"v{__version__}" in text
     assert tui_splash().count("∩") >= 1
+    assert f"v{__version__}" in tui_splash()
 
 
-def test_help_exits_zero():
+def test_help_exits_zero(capsys):
     with pytest.raises(SystemExit) as exc:
         main(["--help"])
     assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "--version, -V, -v, --v" in out
+    assert "rocky version" in out
 
 
 def test_help_mentions_live_status_line(capsys):
@@ -169,12 +176,28 @@ def test_json_mode_needs_a_goal(monkeypatch, capsys):
     assert main(["--json"]) == 2
 
 
-def test_version_flag(capsys):
+@pytest.mark.parametrize("option", ["--version", "-V", "-v", "--v", "version"])
+def test_version_alias_needs_no_configuration_or_api_key(option, monkeypatch, capsys):
     from rocky import __version__
 
-    assert main(["--version"]) == 0
+    def unexpected(*args, **kwargs):
+        pytest.fail("Showing the version must not read configuration or start a client")
+
+    monkeypatch.setattr("rocky.cli.apply_config", unexpected)
+    monkeypatch.setattr("rocky.cli.api_key", unexpected)
+    monkeypatch.setattr("rocky.cli.OpenRouterClient", unexpected)
+    assert main([option]) == 0
     assert capsys.readouterr().out.strip() == f"rocky {__version__}"
-    assert main(["version"]) == 0
+
+
+def test_version_flag_after_workspace_exits_without_starting_a_run(tmp_path, monkeypatch, capsys):
+    from rocky import __version__
+
+    monkeypatch.setattr("rocky.cli.apply_config", lambda *_: pytest.fail("Version needs no configuration"))
+    with pytest.raises(SystemExit) as exc:
+        main(["-d", str(tmp_path), "--version"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == f"rocky {__version__}"
 
 
 def test_lithuanian_guide_keeps_parity_with_help():
