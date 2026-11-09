@@ -1,3 +1,4 @@
 - Loop 1 — Added a result-first delivery desk with in-app file previews, copy and download so users can review and use completed work without hunting through logs or filesystem paths.
 - Integration — Merged the marketing tools and playbook UI into main, restored Python 3.11 compatibility, prevented stale workspace results, and secured ad-board file resolution so the combined application works across supported versions.
 - Loop 2 — Added a live task journey with real stages, step progress and reconnect-safe questions so users can understand what Rocky is doing without reading technical logs.
+- Loop 3 — Added an interactive terminal review with file previews, linked revisions and guided recovery so users can finish, improve or continue a task without hunting for paths or remembering run commands.
