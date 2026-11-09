@@ -1,0 +1,48 @@
+Loop 5 — terminal task board — 2026-11-09
+
+Baseline: installed Rocky 0.3.0, main f1a4e04.
+Completed one real task before reading CHANGELOG.md:
+  /tmp/rocky-terminal-loop.L5neAk
+  run 20261109-092009-6642de
+  Goal: workshop-checklist.md for a 45-minute workshop for 12 business owners.
+  Composed a multiline brief, kept the EUR0.50 budget, detached and reattached,
+  opened terminal review, read the full verdict and file, and finished review.
+  Result: passed; EUR0.424. Before/During/After sections present; five agenda
+  durations are 5 + 10 + 15 + 10 + 5 = 45 minutes.
+
+Observed friction:
+  The initial test terminal had TERM=dumb, which hides the old spinner. Reattached
+  with TERM=xterm-256color for the normal rendering: repeated goal/setup panels
+  followed by one thinking/worker line. Written files, reported spending, a failed
+  shell command, and work/check/rework transitions were only discoverable in the
+  event log. Earlier loops cover web progress, terminal review, and task drafting;
+  they do not provide a persistent terminal view of the running task.
+
+Change:
+  Keep the mascot/version and an event-driven task board visible while running.
+  Show current phase, reliable step states, elapsed time, activity age, reported
+  EUR against the task cap, output target, and recent actions including failures.
+  d + Enter switches to recent details; rocky attach ID --logs provides the full
+  transcript. Questions pause the board. Detach, review, basic terminals, and
+  redirected output retain their established behavior.
+
+Post-change real terminal flow (Rocky 0.3.1):
+  /tmp/rocky-terminal-loop5-after.2sPT9r
+  run 20261109-093416-1d0c4f
+  Goal: write deliverables/greeting.txt containing Welcome aboard, Rocky.
+  Composed and submitted the brief, watched the live task board, opened event
+  details, reviewed the completed file, returned to the editor, and exited.
+  Result: passed; EUR0.186. File contains the requested sentence and newline.
+  Found and fixed a duplicate completion receipt in details mode; regression
+  coverage confirms one final receipt with metadata-authoritative status.
+
+Checks:
+  Python3.13: 1,826 tests passed.
+  Python3.11 / minimum Textual2: 139 terminal-focused tests passed.
+  uv build: source distribution and wheel built for version0.3.1.
+  Visual review: 80x24 and 60x20 SVGs rendered and inspected.
+  Screenshots replay the real baseline through its first failed shell command
+  at09:23:15, with display time15seconds later; they are saved-event replays.
+  New tests cover phase reversals, replan resets, raised budgets, literal/control-
+  safe text, compact layouts, questions/pending answers, terminal stale asks,
+  details switching, detach, late completion events, and transcript fallback.
