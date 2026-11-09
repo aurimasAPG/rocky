@@ -5,3 +5,4 @@
 - Loop 4 — Replaced the one-line terminal task prompt with a saved multiline editor and per-task budget so pasted briefs stay complete, drafts survive exits, and work starts only when the user is ready.
 - Loop 4 follow-up — Restored Rocky's retriever mascot and wordmark in the terminal editor, including compact screens, because the mascot is part of the brand.
 - Loop 4 follow-up — Show the installed version below the terminal mascot and accept `-v` and `--v`, so users can see which Rocky they are running without guessing a command.
+- Loop 4 follow-up — Added `rocky update` and `rocky update --check` in v0.2.1, with GitHub build verification and preserved installation settings, so users can update Rocky with one command.

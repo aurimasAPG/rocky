@@ -50,7 +50,7 @@ Then `rocky --version`. Browser tools: `ROCKY_EXTRAS=browser` before the one-lin
 
 **Python 3.13:** do not use `pip install -e .`. Hidden `.pth` files are skipped and `rocky` will fail to import.
 
-Upgrade: run the same one-liner again. Remove: `uv tool uninstall rocky`.
+Upgrade: `rocky update`. Check first without installing: `rocky update --check`. The updater installs the latest official GitHub `main` build, verifies it, and keeps your workspace files and settings. Reopen Rocky afterward. It compares commits as well as displaying the version, so builds with the same version number still update. For older versions without this command, rerun the one-liner. Remove: `uv tool uninstall rocky`.
 
 Key (never commit it) in `~/.env`, project `.env`, or the environment:
 

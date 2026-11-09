@@ -16,7 +16,11 @@ curl -fsSL https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.sh | 
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.ps1 | iex`
 
-Upgrade = run it again. Remove = `uv tool uninstall rocky`. Check = `rocky --version` (or `rocky -v`). The installed version also appears below the mascot when Rocky opens.
+Upgrade = `rocky update`. It installs the latest build from the official GitHub `main` branch and verifies the installation. Use `rocky update --check` to check without installing. Reopen Rocky after updating. Your workspace files, drafts and API key stay in place. Remove = `uv tool uninstall rocky`. Check = `rocky --version` (or `rocky -v`). The installed version also appears below the mascot when Rocky opens.
+
+The updater compares GitHub commits, so it also finds improvements made without changing the version number. It updates the installed application; it does not pull or overwrite a local source checkout. For older Rocky versions without this command, run the installer above again.
+
+Automatic updates support standard `uv` and `pipx` installs. Development installs and installations with custom package-manager settings show instructions instead of replacing those settings.
 
 Developers, from a clone: `uv tool install --force --reinstall .` (rerun after every code change). Put `~/.local/bin` on your `PATH`.
 
@@ -98,6 +102,7 @@ rocky help
 | `rocky serve` | Team web UI (default http://127.0.0.1:8787). |
 | `rocky route "goal"` | Only assess + pick models. No tools, no files. |
 | `rocky version` | Show the installed version. `--version`, `-V`, `-v`, and `--v` also work, without an API key. |
+| `rocky update` | Update the installed application from GitHub, then verify it. `--check` only checks for a new build. No API key is needed. |
 | `rocky "goal" --json` | Headless: run to the end, print **one JSON object** (status, deliverable, score, cost). Questions get a safe default answer. Exit 0 = passed. |
 | `rocky config` | Show the config files Rocky reads, the effective budget / loops / worker / language, and an example file if there is none. |
 | `rocky doctor` | Check key, OpenRouter access, folder, sandbox, browser, skills. Exit 1 if anything is broken. |

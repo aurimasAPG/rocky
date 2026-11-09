@@ -100,6 +100,7 @@ COMMANDS_HELP = """commands:
   rocky serve [--host --port]      team web UI
   rocky route "goal"               only assess and pick models
   rocky version                    show the installed version
+  rocky update                     install the latest Rocky from GitHub
   rocky help                       the full guide (docs/lt.md has the Lithuanian one)
 """
 
@@ -108,6 +109,13 @@ VERSION_FLAGS = ("--version", "-V", "-v", "--v")
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "update":
+        from rocky.update import run_update
+
+        update_parser = argparse.ArgumentParser(prog="rocky update", description="Update the installed Rocky from official GitHub main.")
+        update_parser.add_argument("--check", action="store_true", help="Check for a new build without installing it")
+        update_args = update_parser.parse_args(argv[1:])
+        return run_update(check_only=update_args.check, console=console)
     commands = {"run", "tui", "serve", "route", "ps", "cost", "attach", "resume", "stop", "open", "review", "config", "doctor", "help", "version", "_job"}
     if argv and argv[0] in commands:
         command = argv[0]
