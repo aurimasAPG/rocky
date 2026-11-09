@@ -18,7 +18,11 @@ curl -fsSL https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.sh | 
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/aurimasAPG/rocky/main/install.ps1 | iex`
 
-Atnaujinti = paleisti tą pačią eilutę dar kartą. Pašalinti = `uv tool uninstall rocky`. Patikrinti = `rocky --version`.
+Atnaujinti = `rocky update`. Komanda įdiegia naujausią oficialios „GitHub“ saugyklos `main` šakos versiją ir patikrina diegimą. `rocky update --check` tik patikrina, nieko nediegia. Atnaujinęs iš naujo atverk Rocky. Darbo failai, juodraščiai ir API raktas lieka vietoje. Pašalinti = `uv tool uninstall rocky`. Patikrinti = `rocky --version` arba `rocky -v`; versija taip pat rodoma po talismanu.
+
+Atnaujinimo komanda lygina „GitHub“ pakeitimų identifikatorius, todėl aptinka patobulinimus ir tada, kai versijos numeris nepasikeitė. Ji atnaujina įdiegtą programą, o ne vietinį kodo kloną. Jei senesnė Rocky versija šios komandos dar neturi, pakartok aukščiau pateiktą diegimo komandą.
+
+Automatinis atnaujinimas palaiko įprastą diegimą per `uv` ir `pipx`. Kūrėjų diegimams ir nestandartiniams paketų tvarkyklės nustatymams parodomos instrukcijos, kad esami nustatymai nebūtų pakeisti.
 
 Kūrėjams iš klono: `uv tool install --force --reinstall .` (po kiekvieno kodo pakeitimo paleisti iš naujo). Į `PATH` įtrauk `~/.local/bin`.
 
@@ -99,6 +103,8 @@ rocky help
 | `rocky review [ID]` | Baigto paleidimo rezultato peržiūra terminale: gali pasirinkti failą, patikslinti užduotį ar tęsti darbą. Skaitymui API rakto nereikia. Ne terminale išspausdina rezultatą ir nelaukia įvesties. |
 | `rocky serve` | Komandos tinklo sąsaja (numatytai http://127.0.0.1:8787). |
 | `rocky route "tikslas"` | Tik įvertina ir parenka modelius. Be įrankių, be failų. |
+| `rocky version` | Parodo įdiegtą versiją. Veikia ir `--version`, `-V`, `-v`, `--v`; API rakto nereikia. |
+| `rocky update` | Atnaujina programą iš „GitHub“ ir patikrina diegimą. `--check` tik patikrina, nieko nediegia. API rakto nereikia. |
 | `rocky "tikslas" --json` | Be gyvo vaizdo: atlieka iki galo ir spausdina **vieną JSON objektą** (būsena, galutinis failas, įvertis, kaina). Į klausimus atsako saugiu numatytuoju atsakymu. Išeities kodas 0 = pavyko. |
 | `rocky config` | Parodo Rocky skaitomus konfigūracijos failus, galiojantį biudžetą / ciklus / darbuotoją / kalbą ir pavyzdinį failą, jei jo nėra. |
 | `rocky doctor` | Patikrina raktą, „OpenRouter“ pasiekiamumą, katalogą, smėlio dėžę, naršyklę, įgūdžius. Išeities kodas 1, jei kas nors sugedę. |

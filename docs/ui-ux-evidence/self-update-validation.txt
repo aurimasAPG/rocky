@@ -1,0 +1,34 @@
+Rocky self-update validation — 2026-11-09
+
+Pre-merge integration used a separate uv tool and command directory under /tmp.
+The development build was installed from the working tree, with the dev extra
+and an explicit rich==15.0.0 requirement. The target was official GitHub main,
+which was still a78efde (Rocky 0.2.0) at the time of this test.
+
+$ rocky update --check
+Rocky 0.2.0 · checking GitHub…
+Latest GitHub build: a78efde. Run rocky update to install it.
+
+$ rocky update
+Rocky 0.2.0 · checking GitHub…
+Installing the latest GitHub build (a78efde)…
+[uv downloaded and installed the official Git commit]
+Updated to Rocky 0.2.0 · build a78efde. Reopen Rocky to use it.
+
+Verified: fresh interpreter imported the installed package and matched its
+PEP 610 commit to a78efde988fdfd339d63d017bdf379449dc86990. The uv receipt
+retained dev extras, rich==15.0.0, Python 3.13, and the isolated command path.
+Workspace keep.txt and .env test markers remained byte-for-byte unchanged.
+
+The shipped feature is version 0.2.1. Unit tests cover no-op updates, changed
+commits with the same version, check-only mode, source-checkout protection,
+installer ownership, extras, and network/install/verification failures.
+
+Pipx integration also passed in a separate temporary home/bin/man directory:
+worktree v0.2.1 with dev extras -> official main a78efde (v0.2.0 before merge).
+The actual rocky update command exited 0. A fresh interpreter verified the
+exact commit, Python 3.13.12, pytest 9.2.0, and the preserved command symlink.
+
+Checks: 1,706 tests passed on Python 3.13; 72 updater/CLI tests passed on
+Python 3.11. The POSIX installer passed sh -n. No user installation or workspace
+was modified during these pre-merge integration checks.

@@ -87,5 +87,6 @@ cat <<EOF
        (it asks for your OpenRouter key once and saves it to ~/.env)
     2. check the setup:                    rocky doctor
     3. guide:                              rocky help
+    4. update Rocky:                       rocky update
 
 EOF
