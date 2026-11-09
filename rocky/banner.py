@@ -6,6 +6,7 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 from rocky.theme import APRICOT, CORAL, DIM, INK, PERI, SEA
 
@@ -64,3 +65,22 @@ def print_banner(
 
 def tui_splash() -> str:
     return ROCKY_DOG_COMPACT
+
+
+def composer_brand(*, compact: bool = False) -> Text:
+    """Keep Rocky's existing mascot and name-tag visible beside the task editor."""
+    dog = Text.from_markup(ROCKY_DOG_COMPACT).split("\n")[:4 if compact else 6]
+    right = Text.from_markup(ROCKY_LOGO).split("\n")
+    if not compact:
+        right.extend([
+            Text("What should Rocky deliver?", style=f"bold #{INK}"),
+            Text("Paste a brief. Include the output and any limits.", style=f"#{DIM}"),
+        ])
+    brand = Text()
+    for index, line in enumerate(dog):
+        if index:
+            brand.append("\n")
+        brand.append(line)
+        brand.append(" " * (22 - line.cell_len))
+        brand.append(right[index])
+    return brand

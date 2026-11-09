@@ -7,12 +7,14 @@ from pathlib import Path
 
 from rich.cells import cell_len
 from rich.text import Text
-from textual import on
+from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.geometry import Size
 from textual.widgets import Button, Input, Static, TextArea
 
+from rocky.banner import composer_brand
 from rocky.clip import copy_text, paste_text
 from rocky.drafts import TaskDraft, load_draft, save_draft
 
@@ -48,9 +50,8 @@ class TaskComposer(App[TaskDraft | None]):
     ]
     CSS = """
     Screen { background: #1C2B33; color: #E8F0EA; padding: 0 1; }
+    #brand { height: 6; }
     #workspace { height: 1; color: #A8B8BE; }
-    #heading { height: 1; text-style: bold; color: #E8F0EA; }
-    #guide { height: 1; color: #A8B8BE; }
     #brief { height: 1fr; min-height: 3; border: solid #3D9B8F; }
     #brief:focus { border: solid #F07167; }
     #budget-row { height: 3; }
@@ -102,9 +103,8 @@ class TaskComposer(App[TaskDraft | None]):
         self._save_timer = None
 
     def compose(self) -> ComposeResult:
+        yield Static("", id="brand")
         yield Static("", id="workspace")
-        yield Static("What should Rocky deliver?", id="heading")
-        yield Static("Paste a brief. Include the output and any limits.", id="guide")
         yield BriefArea(self._values[0], soft_wrap=True, tab_behavior="focus", id="brief")
         with Horizontal(id="budget-row"):
             yield Static("Budget · EUR", id="budget-label")
@@ -122,25 +122,35 @@ class TaskComposer(App[TaskDraft | None]):
         self._composer_ready = True
         self.query_one("#brief", BriefArea).border_title = "Task brief"
         self.query_one("#brief", BriefArea).focus()
+        self._update_brand()
         self._update_workspace()
         self._refresh()
         # A fresh blank composer must not replace another terminal's draft.
         if self._values[0] and self._values != self._saved_values:
             self._schedule_save()
 
-    def _update_workspace(self) -> None:
+    def _update_brand(self, size: Size | None = None) -> None:
+        size = size or self.size
+        compact = size.height < 24 or size.width < 72
+        brand = self.query_one("#brand", Static)
+        brand.styles.height = 4 if compact else 6
+        brand.update(composer_brand(compact=compact))
+
+    def _update_workspace(self, size: Size | None = None) -> None:
+        size = size or self.size
         prefix = "Workspace: "
         path = str(self.workspace)
-        width = max(1, self.size.width - 2 - cell_len(prefix))
+        width = max(1, size.width - 2 - cell_len(prefix))
         if cell_len(path) > width:
             while path and cell_len(path) > width - 1:
                 path = path[1:]
             path = "…" + path
         self.query_one("#workspace", Static).update(Text(prefix + path))
 
-    def on_resize(self) -> None:
+    def on_resize(self, event: events.Resize) -> None:
         if self._composer_ready:
-            self._update_workspace()
+            self._update_brand(event.size)
+            self._update_workspace(event.size)
 
     def _capture(self) -> tuple[str, str]:
         self._values = (
