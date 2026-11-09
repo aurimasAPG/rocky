@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from rocky.adboard import BOARD_PATH
 from rocky.artifacts import PREVIEW_BYTES
 from rocky.runs import create_run, run_dir, write_meta
 from rocky.webapp import _workspace_for, app
@@ -171,3 +172,37 @@ def test_unallowed_workspace_cannot_serve_artifacts(served, monkeypatch):
     client, workspace, meta = served
     monkeypatch.setattr("rocky.webapp.allowed_workspaces", lambda: [workspace / "other"])
     assert client.get(_url(meta), params={"workspace": str(workspace)}).status_code == 400
+
+
+@pytest.mark.parametrize("target_kind", ["outside", "hidden", "hidden_directory", "missing"])
+def test_board_rejects_unsafe_or_missing_files(served, target_kind):
+    client, workspace, meta = served
+    meta["deliverable_path"] = BOARD_PATH
+    write_meta(run_dir(workspace, meta["id"]), meta)
+    board_path = workspace / BOARD_PATH
+    if target_kind == "outside":
+        target = workspace.parent / f"{workspace.name}-private.html"
+    elif target_kind == "hidden":
+        target = workspace / ".env"
+    elif target_kind == "hidden_directory":
+        target = workspace / ".rocky" / "private.html"
+    else:
+        target = None
+    if target is not None:
+        target.write_text("private content", encoding="utf-8")
+        board_path.symlink_to(target)
+    response = client.get(_url(meta, "board"), params={"workspace": str(workspace)})
+    assert response.status_code == 404
+    assert "private content" not in response.text
+
+
+def test_board_still_serves_declared_workspace_page_with_sandbox(served):
+    client, workspace, meta = served
+    meta["deliverable_path"] = BOARD_PATH
+    write_meta(run_dir(workspace, meta["id"]), meta)
+    (workspace / BOARD_PATH).write_text("<!doctype html><h1>Campaign</h1>", encoding="utf-8")
+    response = client.get(_url(meta, "board"), params={"workspace": str(workspace)})
+    assert response.status_code == 200
+    assert response.text == "<!doctype html><h1>Campaign</h1>"
+    assert response.headers["content-security-policy"].startswith("sandbox ")
+    assert response.headers["cache-control"] == "no-store"

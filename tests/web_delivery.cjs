@@ -434,6 +434,82 @@ test('artifact failure exposes retry; preview failure leaves download usable', a
   assert.equal(e.get('copy-result').disabled, true);
 });
 
+const playbookData = title => ({ topics: [title], apply_label: 'Apply', results: [
+  { number: 2, title, body: `${title} instruction`, source: 'Test source' },
+] });
+const searchUrl = (workspace, q, topic = '') => `/api/playbook/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(topic)}&workspace=${encodeURIComponent(workspace)}`;
+const goalPreviewUrl = (workspace, goal) => `/api/playbook/preview?goal=${encodeURIComponent(goal)}&workspace=${encodeURIComponent(workspace)}`;
+const goalPreviewData = title => ({ title, items: [{ number: 1, question: title, off: false }] });
+
+test('playbook searches keep the newest workspace, query, topic and refresh results', async () => {
+  for (const changed of ['workspace', 'query', 'topic', 'refresh']) {
+    const e = await setup(); const slow = deferred();
+    e.get('workspace').value = '/campaign-a'; e.get('pb-query').value = 'ads';
+    e.replies.set(searchUrl('/campaign-a', 'ads'), slow.promise);
+    const old = e.run('loadPlaybook()');
+    if (changed === 'workspace') e.get('workspace').value = '/campaign-b';
+    if (changed === 'query') e.get('pb-query').value = 'sales';
+    if (changed === 'topic') e.run('playbookTopic = "Media"');
+    const nextUrl = searchUrl(e.get('workspace').value, e.get('pb-query').value, e.run('playbookTopic'));
+    e.replies.set(nextUrl, { body: playbookData('Newest result') });
+    await e.run('loadPlaybook()');
+    slow.resolve({ body: playbookData('Old result') }); await old;
+    assert(e.get('pb-results').textContent.includes('Newest result'), changed);
+    assert(!e.get('pb-results').textContent.includes('Old result'), changed);
+    assert.equal(e.get('pb-topics').textContent, 'Newest result', changed);
+  }
+});
+
+test('goal checks ignore stale goals, workspaces, refreshes and a cleared goal', async () => {
+  for (const changed of ['workspace', 'goal', 'refresh', 'clear']) {
+    const e = await setup(); const slow = deferred();
+    e.get('workspace').value = '/campaign-a'; e.get('goal').value = 'A task';
+    e.replies.set(goalPreviewUrl('/campaign-a', 'A task'), slow.promise);
+    const old = e.run('loadPreview()');
+    if (changed === 'workspace') e.get('workspace').value = '/campaign-b';
+    if (changed === 'goal') e.get('goal').value = 'B task';
+    if (changed === 'clear') e.get('goal').value = '';
+    e.replies.set(goalPreviewUrl(e.get('workspace').value, e.get('goal').value), { body: goalPreviewData('Newest check') });
+    await e.run('loadPreview()');
+    slow.resolve({ body: goalPreviewData('Old check') }); await old;
+    assert.equal(e.get('will-list').textContent, changed === 'clear' ? '' : 'Newest check', changed);
+    assert.equal(e.get('will-check').classList.contains('hidden'), changed === 'clear', changed);
+  }
+});
+
+test('changed inputs reject old results even before the next debounced request', async () => {
+  const e = await setup(); const search = deferred(); const checks = deferred();
+  e.get('workspace').value = '/campaign-a'; e.get('pb-query').value = 'old'; e.get('goal').value = 'Old goal';
+  e.replies.set(searchUrl('/campaign-a', 'old'), search.promise);
+  e.replies.set(goalPreviewUrl('/campaign-a', 'Old goal'), checks.promise);
+  const oldSearch = e.run('loadPlaybook()'); const oldChecks = e.run('loadPreview()');
+  e.get('pb-query').value = 'new'; e.get('goal').value = 'New goal';
+  search.resolve({ body: playbookData('Old result') }); checks.resolve({ body: goalPreviewData('Old check') });
+  await oldSearch; await oldChecks;
+  assert.equal(e.get('pb-results').children.length, 0);
+  assert.equal(e.get('will-list').textContent, '');
+});
+
+test('workspace change removes previous apply buttons and checks before new results arrive', async () => {
+  const e = await setup(); const search = deferred(); const checks = deferred();
+  e.get('workspace').value = '/campaign-a'; e.get('pb-query').value = 'ads'; e.get('goal').value = 'Ad task';
+  e.replies.set(searchUrl('/campaign-a', 'ads'), { body: playbookData('A result') });
+  e.replies.set(goalPreviewUrl('/campaign-a', 'Ad task'), { body: goalPreviewData('A check') });
+  await e.run('loadPlaybook()'); await e.run('loadPreview()');
+  assert(e.get('pb-results').textContent.includes('A result'));
+  assert.equal(e.get('will-check').classList.contains('hidden'), false);
+  e.replies.set(searchUrl('/campaign-b', 'ads'), search.promise);
+  e.replies.set(goalPreviewUrl('/campaign-b', 'Ad task'), checks.promise);
+  e.get('workspace').value = '/campaign-b'; await e.get('workspace').dispatch('change');
+  assert.equal(e.get('pb-results').children.length, 0);
+  assert.equal(e.get('pb-topics').children.length, 0);
+  assert.equal(e.get('will-check').classList.contains('hidden'), true);
+  search.resolve({ body: playbookData('B result') }); checks.resolve({ body: goalPreviewData('B check') });
+  await flush();
+  assert(e.get('pb-results').textContent.includes('B result'));
+  assert.equal(e.get('will-list').textContent, 'B check');
+});
+
 (async () => {
   for (const { name, fn } of tests) {
     await fn(); console.log(`ok - ${name}`);

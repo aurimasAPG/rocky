@@ -398,6 +398,7 @@ $("ask-form").addEventListener("submit", async (ev) => {
 });
 
 let previewTimer = null;
+let goalPreviewRequest = 0;
 let preview = { items: [] };
 
 function paintPreview() {
@@ -436,6 +437,7 @@ async function toggleCheck(item, box) {
 }
 
 async function loadPreview() {
+  const request = ++goalPreviewRequest;
   const goal = $("goal").value.trim();
   const workspace = $("workspace").value.trim();
   if (!goal || !workspace) {
@@ -444,7 +446,9 @@ async function loadPreview() {
     return;
   }
   try {
-    preview = await api(`/api/playbook/preview?goal=${encodeURIComponent(goal)}&workspace=${encodeURIComponent(workspace)}`);
+    const data = await api(`/api/playbook/preview?goal=${encodeURIComponent(goal)}&workspace=${encodeURIComponent(workspace)}`);
+    if (request !== goalPreviewRequest || goal !== $("goal").value.trim() || workspace !== $("workspace").value.trim()) return;
+    preview = data;
     paintPreview();
   } catch { /* token or workspace not ready yet */ }
 }
@@ -457,6 +461,7 @@ $("goal").addEventListener("input", () => {
 $("will-edit").addEventListener("click", () => $("will-edit-list").classList.toggle("hidden"));
 
 let playbookTimer = null;
+let playbookRequest = 0;
 let playbookTopic = "";
 
 function paintTopics(topics) {
@@ -496,11 +501,14 @@ function paintResults(data) {
 }
 
 async function loadPlaybook() {
+  const request = ++playbookRequest;
   const workspace = $("workspace").value.trim();
   if (!workspace) return;
   const q = $("pb-query").value;
+  const topic = playbookTopic;
   try {
-    const data = await api(`/api/playbook/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(playbookTopic)}&workspace=${encodeURIComponent(workspace)}`);
+    const data = await api(`/api/playbook/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(topic)}&workspace=${encodeURIComponent(workspace)}`);
+    if (request !== playbookRequest || workspace !== $("workspace").value.trim() || q !== $("pb-query").value || topic !== playbookTopic) return;
     paintTopics(data.topics);
     paintResults(data);
   } catch { /* token or workspace not ready yet */ }
@@ -542,6 +550,11 @@ $("workspace").addEventListener("change", () => {
   current = { id: null, workspace: "", source: null, running: false, meta: {} };
   setRunning(false);
   $("task-composer").open = true;
+  $("pb-results").replaceChildren();
+  $("pb-topics").replaceChildren();
+  $("pb-note").hidden = true;
+  preview = { items: [] };
+  paintPreview();
   refreshRuns(); loadPlaybook(); loadPreview();
 });
 

@@ -51,4 +51,4 @@ def test_delivery_client_behavior():
         capture_output=True, text=True, cwd=ROOT, timeout=20, check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "20 delivery behavior checks passed" in result.stdout
+    assert "24 delivery behavior checks passed" in result.stdout

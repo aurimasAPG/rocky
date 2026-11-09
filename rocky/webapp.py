@@ -380,8 +380,8 @@ def board(run_id: str, request: Request, workspace: str = ""):
     """The ad page for the viewer in the web UI. Its text comes from models and websites, so it is sandboxed."""
     _auth(request)
     ws = _workspace_for(run_id, workspace)
-    path = ws / BOARD_PATH
-    if refresh_meta(run_dir(ws, run_id)).get("deliverable_path") != BOARD_PATH or not path.is_file():
+    path = artifact_path(ws, BOARD_PATH)
+    if refresh_meta(run_dir(ws, run_id)).get("deliverable_path") != BOARD_PATH or path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="This run has no ad page.")
     return FileResponse(
         path,
