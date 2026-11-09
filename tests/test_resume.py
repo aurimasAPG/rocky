@@ -147,6 +147,7 @@ def test_orchestrate_resume_skips_done_steps_and_planning(tmp_path, monkeypatch)
     cast = next(e.payload for e in events if e.type == "cast")
     assert cast["models"]["worker"] == "google/flash"
     assert "kept from run" in cast["reasons"]["worker"]
+    assert [e.payload["stage"] for e in events if e.type == "phase"] == ["working", "verifying"]
 
 
 def test_resume_redoes_a_done_step_whose_files_vanished(tmp_path, monkeypatch):

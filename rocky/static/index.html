@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/styles.css?v=delivery-1" />
+  <link rel="stylesheet" href="/static/styles.css?v=journey-2" />
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -42,6 +42,17 @@
         <span id="delivery-status" role="status" aria-live="polite">Starting</span>
         <span id="delivery-cost"></span>
       </div>
+      <details id="task-journey" class="task-journey" open>
+        <summary><span>Task progress</span><span id="journey-count">Preparing the work plan</span></summary>
+        <ol id="journey-stages" aria-label="Task stages"></ol>
+        <div class="journey-current">
+          <div><p class="eyebrow" id="journey-attempt"></p><h3 id="journey-title" role="status" aria-live="polite">Understanding your brief</h3></div>
+          <p id="journey-detail">Getting ready to read your brief.</p>
+        </div>
+        <p id="journey-connection" class="journey-notice hidden" role="status"></p>
+        <p id="journey-notice" class="journey-notice hidden" role="status"></p>
+        <ol id="journey-steps" aria-label="Planned work steps"></ol>
+      </details>
       <details id="delivery-review" class="delivery-review">
         <summary>Rocky’s review</summary>
         <p id="delivery-summary"></p>
@@ -125,6 +136,8 @@
     </section>
     </details>
 
+    <details id="run-details" class="run-details">
+      <summary>Activity details <span>Models, costs and full logs</span></summary>
     <section class="bill" aria-label="Run price">
       <div class="cell">
         <span>in</span>
@@ -185,6 +198,7 @@
         <div id="verify-log"></div>
       </div>
     </section>
+    </details>
     <section class="playbook" aria-label="Playbook">
       <h2>Playbook</h2>
       <input id="pb-query" type="search" placeholder="Describe the situation: my ads are too expensive" />
@@ -199,7 +213,8 @@
       <p class="dim">The same runs appear in <code>rocky ps</code>; <code>rocky attach</code>, <code>rocky resume</code>, and <code>rocky open</code> work on them.</p>
     </section>
   </main>
-  <script src="/static/delivery.js?v=delivery-1"></script>
-  <script src="/static/app.js?v=delivery-2"></script>
+  <script src="/static/delivery.js?v=journey-2"></script>
+  <script src="/static/journey.js?v=journey-2"></script>
+  <script src="/static/app.js?v=journey-2"></script>
 </body>
 </html>

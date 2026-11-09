@@ -126,10 +126,26 @@ MODELS = [
 def test_loop_writes_deliverable_and_passes(tmp_path, monkeypatch):
     monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
     events = []
+
+    class PhaseCheckingClient(ScriptedClient):
+        def complete(self, **kwargs):
+            system = kwargs["messages"][0]["content"]
+            for prompt, stage in (
+                ("You assess tasks", "assessing"),
+                ("You critique briefs", "planning"),
+                ("You write the plan", "planning"),
+                ("You execute this subtask", "working"),
+                ("You verify completed work", "verifying"),
+            ):
+                if prompt in system:
+                    phases = [e.payload for e in events if e.type == "phase"]
+                    assert phases and phases[-1]["stage"] == stage
+            return super().complete(**kwargs)
+
     result = orchestrate(
         goal="Write a short article",
         workspace=tmp_path,
-        client=ScriptedClient(),
+        client=PhaseCheckingClient(),
         models=MODELS,
         emit=events.append,
         max_loops=2,
@@ -163,6 +179,12 @@ def test_loop_writes_deliverable_and_passes(tmp_path, monkeypatch):
     assert "$0.010" in done["receipt"]
     assert "€0.009" in done["receipt"]
     assert "memory" in types
+    phases = [e.payload for e in events if e.type == "phase"]
+    assert list(dict.fromkeys(p["stage"] for p in phases)) == ["assessing", "planning", "working", "verifying"]
+    assert phases[-2:] == [
+        {"stage": "working", "loop": 1, "max": 2},
+        {"stage": "verifying", "loop": 1, "max": 2},
+    ]
 
 
 def test_loop_injects_frozen_memory_into_cast(tmp_path, monkeypatch):
@@ -373,6 +395,7 @@ def test_repeat_guard_aborts_a_looping_worker(tmp_path, monkeypatch):
     assert client.worker_round == 4
     done = next(e.payload for e in events if e.type == "subtask_done")
     assert "Aborted" in done["text"]
+    assert done["completed"] is False and done["aborted"] is True
 
 
 class LongResultClient(ScriptedClient):
@@ -497,6 +520,11 @@ def test_trivial_goal_skips_critic_and_planner(tmp_path, monkeypatch):
     assert plan["steps"][0]["depends_on"] == []
     # only assess + worker + verifier paid anything
     assert result.cost == 0.011
+    assert [e.payload["stage"] for e in events if e.type == "phase"] == [
+        "assessing", "planning", "working", "verifying",
+    ]
+    done = next(e.payload for e in events if e.type == "subtask_done")
+    assert done["completed"] is True and done["aborted"] is False
 
 
 class TrivialThenFailClient(TrivialClient):
@@ -523,11 +551,13 @@ class TrivialThenFailClient(TrivialClient):
 def test_trivial_goal_falls_back_to_planner_after_a_failed_verify(tmp_path, monkeypatch):
     monkeypatch.setenv("ROCKY_HOME", str(tmp_path / "home"))
     client = TrivialThenFailClient()
+    events = []
     result = orchestrate(
         goal="kiek bus 5+5",
         workspace=tmp_path,
         client=client,
         models=MODELS,
+        emit=events.append,
         max_loops=2,
         budget_eur=1.0,
         eur_rate=0.92,
@@ -535,6 +565,10 @@ def test_trivial_goal_falls_back_to_planner_after_a_failed_verify(tmp_path, monk
     assert result.passed is True
     assert result.loops == 2
     assert any("You write the plan" in p for p in client.prompts)
+    assert [e.payload["stage"] for e in events if e.type == "phase"] == [
+        "assessing", "planning", "working", "verifying", "planning", "working", "verifying",
+    ]
+    assert [e.payload["loop"] for e in events if e.type == "phase" and e.payload["stage"] == "working"] == [1, 2]
 
 
 class InspectingVerifierClient(ScriptedClient):
@@ -995,6 +1029,8 @@ def test_step_is_marked_incomplete_when_files_never_appear(tmp_path, monkeypatch
     incomplete = [e.payload for e in events if e.type == "subtask_incomplete"]
     assert incomplete and incomplete[0]["missing"] == ["article.md"]
     assert client.seen_summary.startswith("Write the article: INCOMPLETE — did not write article.md")
+    done = next(e.payload for e in events if e.type == "subtask_done")
+    assert done["completed"] is False and done["aborted"] is False
 
 
 def test_declared_output_must_be_touched_during_the_step(tmp_path, monkeypatch):
@@ -1193,6 +1229,8 @@ def test_half_cap_without_deliverable_warns_once(tmp_path, monkeypatch):
     order = [e.type for e in events]
     first_write = next(i for i, e in enumerate(events) if e.type == "tool_call" and e.payload["name"] == "write_file")
     assert order.index("budget_warn") < first_write
+    assert any(e.type == "budget" and e.payload.get("stage") == "before verify" for e in events)
+    assert not any(e.type == "phase" and e.payload["stage"] == "verifying" for e in events)
 
 
 class NotesOnlyClient(AlmostClient):

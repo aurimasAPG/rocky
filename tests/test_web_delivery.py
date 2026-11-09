@@ -41,7 +41,13 @@ def test_question_and_stop_remain_outside_the_collapsible_task_composer():
     for ident in ("ask-form", "ask-input", "stop"):
         assert "handover" in page.parents[ident]
         assert "task-composer" not in page.parents[ident]
-    assert page.scripts.index("/static/delivery.js") < page.scripts.index("/static/app.js")
+        assert "task-journey" not in page.parents[ident]
+        assert "run-details" not in page.parents[ident]
+    assert (
+        page.scripts.index("/static/delivery.js")
+        < page.scripts.index("/static/journey.js")
+        < page.scripts.index("/static/app.js")
+    )
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for browser-script state checks")
@@ -51,4 +57,14 @@ def test_delivery_client_behavior():
         capture_output=True, text=True, cwd=ROOT, timeout=20, check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "24 delivery behavior checks passed" in result.stdout
+    assert "35 delivery behavior checks passed" in result.stdout
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for journey state checks")
+def test_journey_state_transitions():
+    result = subprocess.run(
+        [shutil.which("node"), str(ROOT / "tests/web_journey.cjs")],
+        capture_output=True, text=True, cwd=ROOT, timeout=20, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "journey state checks passed" in result.stdout

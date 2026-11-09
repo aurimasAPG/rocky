@@ -93,7 +93,11 @@ function environment() {
     constructor(url) { this.url = url; this.events = {}; this.closed = false; streams.push(this); }
     addEventListener(name, fn) { this.events[name] = fn; }
     close() { this.closed = true; }
-    message(type, payload = {}) { this.onmessage({ data: JSON.stringify({ type, payload }) }); }
+    message(type, payload = {}, options = {}) {
+      this.onmessage({ data: JSON.stringify({ type, payload, ts: options.ts || '' }), lastEventId: options.lastEventId || '' });
+    }
+    open() { if (this.onopen) this.onopen(); }
+    error() { if (this.onerror) this.onerror(); }
     end() { this.events.end(); }
   }
   const context = vm.createContext({
@@ -123,6 +127,7 @@ function environment() {
     },
   });
   vm.runInContext(fs.readFileSync(path.join(root, 'rocky/static/delivery.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'rocky/static/journey.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(root, 'rocky/static/app.js'), 'utf8'), context);
   return { get, run: code => vm.runInContext(code, context), requests, streams, clipboard, replies,
     get cookie() { return cookies; }, get activeElement() { return activeElement; },
@@ -508,6 +513,163 @@ test('workspace change removes previous apply buttons and checks before new resu
   await flush();
   assert(e.get('pb-results').textContent.includes('B result'));
   assert.equal(e.get('will-list').textContent, 'B check');
+});
+
+const trackerSteps = [
+  { id: 1, title: 'Find evidence', detail: 'Read the supplied source' },
+  { id: 2, title: 'Write the result', detail: 'Save the final document' },
+];
+
+test('live tracker renders parallel steps and retains incomplete work', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  e.run(`handle({type:'plan',payload:{steps:${JSON.stringify(trackerSteps)}}})`);
+  e.run('handle({type:"loop",payload:{n:1,max:3}}); handle({type:"phase",payload:{stage:"working"}})');
+  e.run('handle({type:"subtask_start",payload:{id:1,title:"Find evidence"}}); handle({type:"subtask_start",payload:{id:2,title:"Write the result"}})');
+  assert.equal(e.get('journey-steps').children.length, 2);
+  assert(e.get('journey-steps').textContent.includes('Find evidence'));
+  assert.equal(e.run('journey.steps.filter(s => s.status === "active").length'), 2);
+  e.run('handle({type:"subtask_incomplete",payload:{id:2,missing:["deliverables/report.md"]}}); handle({type:"subtask_done",payload:{id:2,completed:false}})');
+  assert.equal(e.run('journey.steps.find(s => s.id === 1).status'), 'active');
+  assert.equal(e.run('journey.steps.find(s => s.id === 2).status'), 'incomplete');
+});
+
+test('terminal snapshot cannot be revived by replayed activity or an older running snapshot', async () => {
+  const e = await setup();
+  e.replies.set(statusUrl(), { body: { status: 'passed', passed: true, goal: 'Finished task' } });
+  e.run('listen("run-a", "/campaign-a")'); await flush();
+  const stream = e.streams.at(-1);
+  stream.message('run_started', { goal: 'Finished task' }, { lastEventId: '1' });
+  stream.message('phase', { stage: 'working' }, { lastEventId: '2' });
+  stream.message('meta', { status: 'running' }, { lastEventId: '3' });
+  assert.equal(e.run('current.meta.status'), 'passed');
+  assert.equal(e.run('journey.status'), 'passed');
+  assert.equal(e.get('delivery-status').textContent, 'Complete');
+  assert.equal(e.get('stop').disabled, true);
+});
+
+test('late running snapshot preserves a streamed verification phase and terminal outcome', async () => {
+  const e = await setup(); const snapshot = deferred();
+  e.replies.set(statusUrl(), snapshot.promise);
+  e.run('listen("run-a", "/campaign-a")');
+  const stream = e.streams.at(-1);
+  stream.message('phase', { stage: 'verifying' }, { lastEventId: '10' });
+  snapshot.resolve({ body: { status: 'running', goal: 'Current task' } }); await flush();
+  assert.equal(e.run('journey.stage'), 'verifying');
+  stream.message('done', { status: 'passed', passed: true }, { lastEventId: '20' });
+  stream.message('meta', { status: 'running' }, { lastEventId: '30' });
+  assert.equal(e.run('journey.status'), 'passed');
+  assert.equal(e.get('stop').disabled, true);
+});
+
+test('reconnect retains step progress and ignores already received event ids', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  const stream = e.streams.at(-1);
+  stream.message('plan', { steps: trackerSteps }, { lastEventId: '10' });
+  stream.message('subtask_start', { id: 1, title: 'Find evidence' }, { lastEventId: '20' });
+  stream.message('subtask_done', { id: 1, completed: true }, { lastEventId: '30' });
+  stream.error();
+  assert.equal(e.get('journey-connection').classList.contains('hidden'), false);
+  assert.equal(e.run('journey.steps[0].status'), 'finished');
+  stream.open();
+  stream.message('plan', { steps: trackerSteps }, { lastEventId: '10' });
+  stream.message('subtask_start', { id: 1, title: 'Find evidence' }, { lastEventId: '20' });
+  stream.message('subtask_done', { id: 1, completed: true }, { lastEventId: '30' });
+  stream.message('subtask_start', { id: 2, title: 'Write the result' }, { lastEventId: '40' });
+  assert.equal(e.get('journey-connection').classList.contains('hidden'), true);
+  assert.equal(e.run('journey.steps[0].status'), 'finished');
+  assert.equal(e.run('journey.steps[1].status'), 'active');
+  assert.equal(e.get('work-log').children.filter(li => li.textContent === 'subagent · Find evidence').length, 1);
+});
+
+test('distinct stream events with the same timestamp are not discarded', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  const stream = e.streams.at(-1); const ts = '2026-11-09T12:00:00Z';
+  stream.message('plan', { steps: trackerSteps }, { lastEventId: '1', ts });
+  stream.message('subtask_start', { id: 1, title: 'Find evidence' }, { lastEventId: '2', ts });
+  stream.message('subtask_start', { id: 2, title: 'Write the result' }, { lastEventId: '3', ts });
+  assert.equal(e.run('journey.steps.filter(s => s.status === "active").length'), 2);
+});
+
+test('repeated question snapshots preserve the answer draft until a different question arrives', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  const question = { question: 'Which audience?', options: ['Customers', 'Partners'], ts: 123.5 };
+  e.run(`handle({type:'ask',payload:${JSON.stringify(question)}})`);
+  e.get('ask-input').value = 'A draft answer';
+  e.run(`handle({type:'meta',payload:{status:'running',ask:${JSON.stringify(question)}}})`);
+  e.run(`handle({type:'ask',payload:${JSON.stringify(question)}})`);
+  assert.equal(e.get('ask-input').value, 'A draft answer');
+  assert.equal(e.run('journey.waiting'), true);
+  e.run(`handle({type:'ask',payload:${JSON.stringify({ ...question, ts: 124 })}})`);
+  assert.equal(e.get('ask-input').value, '');
+  e.get('ask-input').value = 'Customers'; await e.get('ask-form').dispatch('submit');
+  assert.equal(e.run('journey.waiting'), false);
+});
+
+test('late initial snapshot cannot dismiss a streamed question or reopen its accepted answer', async () => {
+  for (const answered of [false, true]) {
+    const e = await setup(); const snapshot = deferred();
+    const question = { question: 'Which audience?', options: ['Customers', 'Partners'], ts: 123.5 };
+    e.replies.set(statusUrl(), snapshot.promise);
+    e.run('listen("run-a", "/campaign-a")');
+    e.streams.at(-1).message('ask', question);
+    e.get('ask-input').value = 'Customers';
+    if (answered) await e.get('ask-form').dispatch('submit');
+    snapshot.resolve({ body: { status: 'running', goal: 'Current task', ask: answered ? question : null } });
+    await flush();
+    assert.equal(e.run('journey.waiting'), !answered, `answered=${answered}`);
+    assert.equal(e.get('ask-form').classList.contains('hidden'), answered, `answered=${answered}`);
+    assert.equal(e.get('delivery-status').textContent, answered ? 'Working' : 'Needs your input');
+    if (!answered) assert.equal(e.get('ask-input').value, 'Customers');
+  }
+});
+
+test('actual clarify tool completion clears a question answered outside this page', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  e.run('handle({type:"ask",payload:{question:"Which audience?",ts:123.5}})');
+  assert.equal(e.run('journey.waiting'), true);
+  e.run('handle({type:"tool_result",payload:{name:"clarify",subtask:"Find evidence",result:"Customers"}})');
+  assert.equal(e.run('journey.waiting'), false);
+  assert(e.get('ask-form').classList.contains('hidden'));
+  assert.equal(e.get('delivery-status').textContent, 'Working');
+});
+
+test('job failure done without status still ends the tracked task', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  const stream = e.streams.at(-1);
+  stream.message('run_started', { goal: 'Failing task' }, { lastEventId: '1' });
+  stream.message('error', { message: 'Worker unavailable' }, { lastEventId: '2' });
+  stream.message('done', { passed: false, summary: 'Worker unavailable' }, { lastEventId: '3' });
+  assert.equal(e.run('TERMINAL_STATES.has(current.meta.status)'), true);
+  assert.equal(e.run('JOURNEY_END.has(journey.status)'), true);
+  assert.equal(e.get('stop').disabled, true);
+  assert.equal(e.run('current.running'), false);
+  stream.message('meta', { status: 'error', passed: false }, { lastEventId: '' });
+  assert.equal(e.get('delivery-status').textContent, 'Failed');
+});
+
+test('an open step explanation remains open while cost and tool activity update', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  e.run(`handle({type:'plan',payload:{steps:${JSON.stringify(trackerSteps)}}})`);
+  const detail = e.get('journey-steps').children[0].children.find(child => child.tagName === 'DETAILS');
+  assert(detail);
+  detail.open = true;
+  e.run('handle({type:"cost",payload:{eur:0.1}}); handle({type:"tool_call",payload:{name:"web_search",subtask:"Find evidence"}})');
+  const updated = e.get('journey-steps').children[0].children.find(child => child.tagName === 'DETAILS');
+  assert.equal(updated.open, true);
+});
+
+test('switching run resets tracker and ignores old connection callbacks and step events', async () => {
+  const e = await setup(); e.run('listen("run-a", "/campaign-a")'); await flush();
+  const old = e.streams.at(-1);
+  old.message('plan', { steps: trackerSteps }, { lastEventId: '10' });
+  old.message('subtask_start', { id: 1 }, { lastEventId: '20' });
+  e.run('listen("run-b", "/campaign-a")'); await flush();
+  old.error(); old.open(); old.message('subtask_done', { id: 1, completed: true }, { lastEventId: '30' });
+  assert.equal(e.run('journey.steps.length'), 0);
+  assert.equal(e.run('journey.stage'), 'assessing');
+  assert.equal(e.get('journey-connection').classList.contains('hidden'), true);
+  assert.equal(e.get('journey-steps').children.length, 0);
+  assert.equal(e.get('stop').disabled, false);
 });
 
 (async () => {
