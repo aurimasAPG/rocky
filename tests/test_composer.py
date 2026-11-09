@@ -259,10 +259,12 @@ def test_editor_and_keyboard_actions_remain_reachable_at_small_sizes(tmp_path, s
     async def exercise():
         app = TaskComposer(tmp_path, budget_eur=1, error="Previous launch failed; the brief is retained.")
         async with app.run_test(size=size) as pilot:
+            brand = content(app, "#brand")
+            assert "∩_____∩" in brand and "r o c k y" in brand and "the retriever" in brand
             assert str(tmp_path)[-15:] in content(app, "#workspace")
             assert len(content(app, "#workspace")) <= size[0] - 2
             assert app.query_one(BriefArea).region.height >= 5
-            for selector in ("#brief", "#budget", "#start", "#save-exit", "#keys"):
+            for selector in ("#brand", "#brief", "#budget", "#start", "#save-exit", "#keys"):
                 region = app.query_one(selector).region
                 assert 0 <= region.x < region.right <= size[0]
                 assert 0 <= region.y < region.bottom <= size[1]
@@ -271,6 +273,43 @@ def test_editor_and_keyboard_actions_remain_reachable_at_small_sizes(tmp_path, s
             await pilot.press("shift+tab")
             assert app.focused.id == "brief"
             await pilot.press("ctrl+q")
+
+    asyncio.run(exercise())
+
+
+def test_live_resize_updates_brand_and_keeps_error_actions_inside_the_terminal(tmp_path):
+    directory = tmp_path / ".rocky"
+    directory.mkdir()
+    path = directory / "composer.json"
+    path.write_bytes(b"broken draft")
+
+    async def exercise():
+        app = TaskComposer(
+            tmp_path, budget_eur=1,
+            error="First launch detail.\nSecond launch detail.\nThird launch detail.",
+        )
+        async with app.run_test(size=(80, 24)) as pilot:
+            brief = "Keep this multiline\nbrief while resizing."
+            app.query_one(BriefArea).load_text(brief)
+            await pilot.pause()
+            for width, height, brand_height in ((80, 24, 6), (60, 20, 4), (120, 40, 6)):
+                await pilot.resize_terminal(width, height)
+                await pilot.pause()
+                assert app.query_one("#brand").region.height == brand_height
+                assert ("What should Rocky deliver?" in content(app, "#brand")) == (brand_height == 6)
+                assert app.query_one("#error").region.height == 3
+                assert app.query_one("#exit-unsaved", Button).display
+                assert app.query_one(BriefArea).region.height >= 4
+                assert app.query_one(BriefArea).text == brief
+                assert app.query_one("#budget", Input).value == "1"
+                assert len(content(app, "#workspace")) <= width - 2
+                for selector in ("#brand", "#workspace", "#brief", "#budget", "#error", "#start", "#save-exit", "#exit-unsaved", "#keys"):
+                    region = app.query_one(selector).region
+                    assert 0 <= region.x < region.right <= width, selector
+                    assert 0 <= region.y < region.bottom <= height, selector
+            await pilot.click("#exit-unsaved")
+        assert app.return_value is None
+        assert path.read_bytes() == b"broken draft"
 
     asyncio.run(exercise())
 
